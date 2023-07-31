@@ -24,6 +24,7 @@ dependencies = [
 "test" = [
     "black~=23.7.0",
     "pytest~=7.4.0",
+    "ruff~=0.0.281",
 ]
 
 [project.scripts]
@@ -34,4 +35,9 @@ dependencies = [
 "Discord" = "https://discord.gg/ZmtBAhwWhy"
 
 [tool.black]
+line-length = 120
+
+[tool.ruff]
+select = ["E", "F", "W", "C9", "N8"]
+target-version = "py39"
 line-length = 120
