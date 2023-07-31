@@ -38,7 +38,7 @@ jobs:
         ruff --format=github .
     - name: Test with pytest
       run: |
-        pytest tests --junitxml=junit/test-results.xml
+        pytest tests --junitxml=junit/test-results-${{ matrix.python-version }}.xml
     - name: Upload pytest test results
       uses: actions/upload-artifact@v3
       with:
