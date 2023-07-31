@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=65.5", "pip>=22.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "invoke-training"
+version = "0.0.1"
+authors = [
+    { name="The Invoke AI Team", email="ryan@invoke.ai" },
+]
+description = "A library for Stable Diffusion model training."
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "Apache-2.0"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "torch~=2.0.1",
+]
+
+[project.optional-dependencies]
+"test" = [
+    "pytest~=7.4.0",
+    "black~=23.7.0",
+]
+
+[project.scripts]
+"invoke-train-lora" = "invoke_training.scripts.invoke_train_lora:main"
+
+[project.urls]
+"Homepage" = "https://github.com/invoke-ai/invoke-training"
+"Discord" = "https://discord.gg/ZmtBAhwWhy"
+
+[tool.black]
+line-length = 120
