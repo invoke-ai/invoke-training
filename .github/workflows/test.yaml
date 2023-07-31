@@ -29,6 +29,9 @@ jobs:
     - name: Check formatting with black
       run: |
         black --check .
+    - name: Check imports with isort
+      run: |
+        isort --check-only .
     - name: Lint with ruff
       run: |
         ruff --format=github .
