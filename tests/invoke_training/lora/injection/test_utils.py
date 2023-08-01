@@ -1,8 +1,8 @@
 import torch
 
+from invoke_training.lora.injection.utils import find_modules, inject_lora_layers
 from invoke_training.lora.layers import LoRALinearLayer
 from invoke_training.lora.lora_block import LoRABlock
-from invoke_training.lora.utils import find_modules, inject_lora_layers
 
 
 def test_find_modules_simple():
