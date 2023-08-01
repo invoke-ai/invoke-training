@@ -3,7 +3,7 @@ import torch
 from invoke_training.lora.lora_block import LoRABlock
 
 
-def test_lora_module_multiplier():
+def test_lora_block_multiplier():
     """A basic test that the lora_multitplier param is being applied correctly."""
     original = torch.nn.Linear(1, 1, bias=False)
     original.weight = torch.nn.Parameter(torch.Tensor([[1]]))
