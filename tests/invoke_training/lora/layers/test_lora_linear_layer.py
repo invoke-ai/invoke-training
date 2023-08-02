@@ -13,7 +13,7 @@ def test_lora_linear_layer_output_dim():
 
     x = torch.rand((batch_size, in_features))
     with torch.no_grad():
-        y = layer.forward(x)
+        y = layer(x)
 
     assert y.shape == (batch_size, out_features)
 
@@ -27,7 +27,7 @@ def test_lora_linear_layer_invalid_input_dim():
     x = torch.rand((10, in_features + 1))  # Bad input dimension.
 
     with pytest.raises(RuntimeError):
-        _ = layer.forward(x)
+        _ = layer(x)
 
 
 def test_lora_linear_layer_zero_after_init():
@@ -39,7 +39,7 @@ def test_lora_linear_layer_zero_after_init():
 
     x = torch.rand((batch_size, in_features))
     with torch.no_grad():
-        y = layer.forward(x)
+        y = layer(x)
 
     assert not torch.allclose(x, torch.Tensor([0.0]), rtol=0.0)  # The random input was non-zero.
     assert torch.allclose(y, torch.Tensor([0.0]), rtol=0.0)  # The untrained outputs are zero.
@@ -56,7 +56,7 @@ def test_lora_linear_layer_from_layer():
 
     x = torch.rand((batch_size, in_features))
     with torch.no_grad():
-        y = lora_layer.forward(x)
+        y = lora_layer(x)
 
     assert y.shape == (batch_size, out_features)
 
@@ -76,7 +76,7 @@ def test_lora_linear_layer_from_layer_inherit_device_and_dtype(dtype):
 
     x = torch.rand((batch_size, in_features), device=torch.device("cuda"), dtype=dtype)
     with torch.no_grad():
-        y = lora_layer.forward(x)
+        y = lora_layer(x)
 
     assert y.shape == (batch_size, out_features)
     # Assert that lora_layer's internal layers have correct device and dtype.
