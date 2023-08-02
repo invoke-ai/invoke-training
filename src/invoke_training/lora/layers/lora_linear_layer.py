@@ -63,7 +63,8 @@ class LoRALinearLayer(BaseLoRALayer):
         """Initialize a LoRALinearLayer with dimensions that are compatible with 'layer'.
         Args:
             layer (torch.nn.Linear): The existing layer whose in/out dimensions will be matched.
-            rank, alpha, device, dtype: These args are forwarded to __init__(...).
+            rank, alpha, device, dtype: These args are forwarded to __init__(...). If device or dtype are None, they
+                will be inferred from 'layer'.
         Raises:
             TypeError: If 'layer' has an unsupported type.
         Returns:
@@ -75,8 +76,8 @@ class LoRALinearLayer(BaseLoRALayer):
                 layer.out_features,
                 rank,
                 alpha,
-                device,
-                dtype,
+                layer.weight.device if device is None else device,
+                layer.weight.dtype if dtype is None else dtype,
             )
         else:
             raise TypeError(f"'{__class__.__name__}' cannot be initialized from a layer of type '{type(layer)}'.")
