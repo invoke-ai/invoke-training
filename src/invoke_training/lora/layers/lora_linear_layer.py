@@ -40,7 +40,9 @@ class LoRALinearLayer(BaseLoRALayer):
         self._down = torch.nn.Linear(in_features, rank, bias=False, device=device, dtype=dtype)
         self._up = torch.nn.Linear(rank, out_features, bias=False, device=device, dtype=dtype)
 
-        self._alpha = alpha
+        # Register alpha as a buffer so that it is not trained, but still gets saved to the state_dict.
+        self.register_buffer("alpha", torch.tensor(alpha, device=device, dtype=dtype))
+
         self._rank = rank
 
         self.reset_parameters()
@@ -86,6 +88,6 @@ class LoRALinearLayer(BaseLoRALayer):
         down_hidden = self._down(input)
         up_hidden = self._up(down_hidden)
 
-        up_hidden *= self._alpha / self._rank
+        up_hidden *= self.alpha / self._rank
 
         return up_hidden

@@ -16,8 +16,10 @@ def test_lora_layer_collection_state_dict():
     expected_state_keys = {
         "lora_layer_1._down.weight",
         "lora_layer_1._up.weight",
+        "lora_layer_1.alpha",
         "lora_layer_2._down.weight",
         "lora_layer_2._up.weight",
+        "lora_layer_2.alpha",
     }
     assert set(state_dict.keys()) == expected_state_keys
 

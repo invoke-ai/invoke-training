@@ -101,3 +101,22 @@ def test_lora_linear_layer_from_layer_override_device_and_dtype(dtype):
     assert lora_layer._down.weight.dtype == dtype
     assert lora_layer._up.weight.device == target_device
     assert lora_layer._up.weight.dtype == dtype
+
+
+def test_lora_linear_layer_state_dict_roundtrip():
+    original_layer = LoRALinearLayer(4, 8)
+
+    state_dict = original_layer.state_dict()
+
+    roundtrip_layer = LoRALinearLayer(4, 8, alpha=2.0)
+
+    # Prior to loading the state_dict, the roundtrip_layer is different than the original_layer.
+    assert not torch.allclose(roundtrip_layer._down.weight, original_layer._down.weight)
+    assert not torch.allclose(roundtrip_layer.alpha, original_layer.alpha)
+
+    roundtrip_layer.load_state_dict(state_dict)
+
+    # After loading the state_dict the roundtrip_layer and original_layer match.
+    assert torch.allclose(roundtrip_layer._down.weight, original_layer._down.weight)
+    assert torch.allclose(roundtrip_layer._up.weight, original_layer._up.weight)
+    assert torch.allclose(roundtrip_layer.alpha, original_layer.alpha)
