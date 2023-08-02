@@ -80,6 +80,7 @@ def inject_lora_layers(
     lora_map: typing.Dict[type[torch.nn.Module], type[BaseLoRALayer]],
     include_descendants_of: typing.Optional[typing.Set[typing.Type[torch.nn.Module]]] = None,
     exclude_descendants_of: typing.Optional[typing.Set[typing.Type[torch.nn.Module]]] = None,
+    prefix: str = "",
 ) -> LoRALayerCollection:
     """Iterates over all of the modules in 'module' and if they are present in 'replace_map' then replaces them with the
     mapped LoRA layer type.
@@ -93,6 +94,7 @@ def inject_lora_layers(
             ```
         include_descendants_of (typing.Set[typing.Type[torch.nn.Module]], optional): Forwarded to find_modules(...).
         exclude_descendants_of (typing.Set[typing.Type[torch.nn.Module]], optional): Forwarded to find_modules(...).
+        prefix (str, optional): A prefix that will be added to the names of all of the LoRA layers.
     Returns:
         LoRALayerCollection: A ModuleDict of all of the LoRA layers that were injected into the module.
     """
@@ -103,6 +105,7 @@ def inject_lora_layers(
         targets=lora_map.keys(),
         include_descendants_of=include_descendants_of,
         exclude_descendants_of=exclude_descendants_of,
+        prefix=prefix,
     ):
         # Lookup the LoRA class to use.
         lora_layer_cls = lora_map[type(module)]

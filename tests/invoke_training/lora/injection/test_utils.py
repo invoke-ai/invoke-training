@@ -191,9 +191,11 @@ def test_inject_lora_layers():
         }
     )
 
-    lora_layers = inject_lora_layers(module, {torch.nn.Linear: LoRALinearLayer})
+    lora_layers = inject_lora_layers(module, {torch.nn.Linear: LoRALinearLayer}, prefix="lora_unet")
 
     assert len(lora_layers) == 1
+    assert all([k.startswith("lora_unet") for k in lora_layers.get_lora_state_dict()])
+
     assert isinstance(module["linear1"], LoRABlock)
     assert module["linear1"].original_module == linear1
     assert module["linear1"].lora_layer._down.in_features == linear1.in_features
