@@ -19,7 +19,10 @@ classifiers = [
 dependencies = [
     "accelerate~=0.21.0",
     "diffusers~=0.19.3",
-    "torch~=2.0.1",
+    "json",
+    "pydantic",
+    "pyyaml",
+    "torch>=2.0.1",
 ]
 
 [project.optional-dependencies]
