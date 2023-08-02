@@ -1,3 +1,5 @@
+import typing
+
 import torch
 
 from invoke_training.lora.layers import BaseLoRALayer
@@ -11,6 +13,8 @@ class LoRALayerCollection(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
+        # A torch.nn.ModuleDict may seem like a more natural choice here, but it does not allow keys that contain '.'
+        # characters.
         self._layers = torch.nn.ModuleList()
         self._names = []
 
@@ -20,3 +24,19 @@ class LoRALayerCollection(torch.nn.Module):
 
     def __len__(self):
         return len(self._layers)
+
+    def get_lora_state_dict(self) -> typing.Dict[str, torch.Tensor]:
+        """A custom alternative to .state_dict() that uses the layer names provided to add_layer(...) as key
+        prefixes.
+        """
+        state_dict: typing.Dict[str, torch.Tensor] = {}
+
+        for name, layer in zip(self._names, self._layers):
+            layer_state_dict = layer.state_dict()
+            for key, state in layer_state_dict.items():
+                full_key = name + "." + key
+                if full_key in state_dict:
+                    raise RuntimeError(f"Multiple state elements map to the same key: '{full_key}'.")
+                state_dict[full_key] = state
+
+        return state_dict
