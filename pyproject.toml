@@ -45,3 +45,9 @@ profile = "black"
 select = ["E", "F", "W", "C9", "N8"]
 target-version = "py39"
 line-length = 120
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers"
+markers = [
+    "cuda: marks tests that require a CUDA GPU",
+]
