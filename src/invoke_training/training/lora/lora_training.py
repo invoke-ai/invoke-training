@@ -2,7 +2,6 @@ import json
 import logging
 import math
 import os
-import shutil
 import time
 
 import datasets
@@ -276,7 +275,7 @@ def _generate_validation_images(
     torch.cuda.empty_cache()
 
 
-def run_lora_training(config: LoRATrainingConfig):
+def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
     # Create a timestamped directory for all outputs.
     out_dir = os.path.join(config.output.base_output_dir, f"{time.time()}")
     os.makedirs(out_dir)
@@ -346,14 +345,14 @@ def run_lora_training(config: LoRATrainingConfig):
         accelerator.init_trackers("lora_training")
 
     epoch_checkpoint_tracker = CheckpointTracker(
-        base_dir=config.output.base_output_dir,
+        base_dir=out_dir,
         prefix="checkpoint_epoch",
         extension=f".{config.output.save_model_as}",
         max_checkpoints=config.max_checkpoints,
     )
 
     step_checkpoint_tracker = CheckpointTracker(
-        base_dir=config.output.base_output_dir,
+        base_dir=out_dir,
         prefix="checkpoint_step",
         extension=f".{config.output.save_model_as}",
         max_checkpoints=config.max_checkpoints,
