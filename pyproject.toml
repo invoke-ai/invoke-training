@@ -22,6 +22,7 @@ dependencies = [
     "json",
     "pydantic",
     "pyyaml",
+    "safetensors",
     "torch>=2.0.1",
 ]
 
