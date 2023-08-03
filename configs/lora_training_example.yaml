@@ -4,7 +4,7 @@ output:
   base_output_dir: output/
 
 optimizer:
-  learning_rate: 5.0e-4
+  learning_rate: 1.0e-3
 
 dataset:
   name: lambdalabs/pokemon-blip-captions
@@ -13,9 +13,9 @@ dataset:
 seed: 1
 gradient_accumulation_steps: 1
 mixed_precision: fp16
-#xformers: True
-#gradient_checkpointing: True
-max_train_steps: 10000
+xformers: True
+gradient_checkpointing: True
+max_train_steps: 4000
 save_every_n_epochs: 1
 save_every_n_steps: null
 max_checkpoints: 100
