@@ -1,8 +1,8 @@
 import torch
 
+from invoke_training.lora.injection.utils import find_modules, inject_lora_layers
 from invoke_training.lora.layers import LoRALinearLayer
 from invoke_training.lora.lora_block import LoRABlock
-from invoke_training.lora.utils import find_modules, inject_lora_layers
 
 
 def test_find_modules_simple():
@@ -191,9 +191,11 @@ def test_inject_lora_layers():
         }
     )
 
-    lora_layers = inject_lora_layers(module, {torch.nn.Linear: LoRALinearLayer})
+    lora_layers = inject_lora_layers(module, {torch.nn.Linear: LoRALinearLayer}, prefix="lora_unet")
 
     assert len(lora_layers) == 1
+    assert all([k.startswith("lora_unet") for k in lora_layers.get_lora_state_dict()])
+
     assert isinstance(module["linear1"], LoRABlock)
     assert module["linear1"].original_module == linear1
     assert module["linear1"].lora_layer._down.in_features == linear1.in_features

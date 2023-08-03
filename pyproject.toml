@@ -17,6 +17,8 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
+    "accelerate~=0.21.0",
+    "diffusers~=0.19.3",
     "torch~=2.0.1",
 ]
 
@@ -51,4 +53,5 @@ line-length = 120
 addopts = "--strict-markers"
 markers = [
     "cuda: marks tests that require a CUDA GPU",
+    "loads_model: marks tests that require a model from the HF hub",
 ]

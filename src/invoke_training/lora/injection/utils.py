@@ -2,6 +2,7 @@ import typing
 
 import torch
 
+from invoke_training.lora.injection.lora_layer_collection import LoRALayerCollection
 from invoke_training.lora.layers import BaseLoRALayer
 from invoke_training.lora.lora_block import LoRABlock
 
@@ -20,11 +21,11 @@ def find_modules(
         module (torch.nn.Module): The base module whose sub-modules will be searched.
         targets (typing.Set[typing.Type[torch.nn.Module]]): The set of module types to search for.
         include_descendants_of (typing.Set[typing.Type[torch.nn.Module]], optional): If set, then only
-            descendants of these types will be searched. 'exclude_descendants_of' takes precedence over
-            'include_descendants_of'.
+            descendants of these types (and their subclasses) will be searched. 'exclude_descendants_of' takes
+            precedence over 'include_descendants_of'.
         exclude_descendants_of (typing.Set[typing.Type[torch.nn.Module]], optional): If set, then the
-            descendants of these types will be ignored in the search. 'exclude_descendants_of' takes precedence over
-            'include_descendants_of'.
+            descendants of these types (and their subclasses) will be ignored in the search. 'exclude_descendants_of'
+            takes precedence over 'include_descendants_of'.
         memo (typing.Set[torch.nn.Module], optional): A memo to store the set of modules already visited in the search.
             memo is typically only set in recursive calls of this function.
         prefix (str, optional): A prefix that will be added to the module name.
@@ -79,7 +80,8 @@ def inject_lora_layers(
     lora_map: typing.Dict[type[torch.nn.Module], type[BaseLoRALayer]],
     include_descendants_of: typing.Optional[typing.Set[typing.Type[torch.nn.Module]]] = None,
     exclude_descendants_of: typing.Optional[typing.Set[typing.Type[torch.nn.Module]]] = None,
-) -> torch.nn.ModuleDict:
+    prefix: str = "",
+) -> LoRALayerCollection:
     """Iterates over all of the modules in 'module' and if they are present in 'replace_map' then replaces them with the
     mapped LoRA layer type.
     Args:
@@ -92,16 +94,18 @@ def inject_lora_layers(
             ```
         include_descendants_of (typing.Set[typing.Type[torch.nn.Module]], optional): Forwarded to find_modules(...).
         exclude_descendants_of (typing.Set[typing.Type[torch.nn.Module]], optional): Forwarded to find_modules(...).
+        prefix (str, optional): A prefix that will be added to the names of all of the LoRA layers.
     Returns:
-        torch.nn.ModuleDict: A ModuleDict of all of the LoRA layers that were injected into the module.
+        LoRALayerCollection: A ModuleDict of all of the LoRA layers that were injected into the module.
     """
-    lora_layers = torch.nn.ModuleDict()
+    lora_layers = LoRALayerCollection()
 
     for name, parent, module in find_modules(
         module=module,
         targets=lora_map.keys(),
         include_descendants_of=include_descendants_of,
         exclude_descendants_of=exclude_descendants_of,
+        prefix=prefix,
     ):
         # Lookup the LoRA class to use.
         lora_layer_cls = lora_map[type(module)]
@@ -120,6 +124,6 @@ def inject_lora_layers(
             lora_block,
         )
 
-        lora_layers[name] = lora_layer
+        lora_layers.add_layer(lora_layer, name)
 
     return lora_layers

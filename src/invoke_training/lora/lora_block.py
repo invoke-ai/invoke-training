@@ -19,4 +19,4 @@ class LoRABlock(torch.nn.Module):
         self.lora_multiplier = lora_multiplier
 
     def forward(self, input):
-        return self.original_module.forward(input) + self.lora_multiplier * self.lora_layer.forward(input)
+        return self.original_module(input) + self.lora_multiplier * self.lora_layer(input)
