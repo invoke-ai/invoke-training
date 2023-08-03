@@ -29,6 +29,7 @@ from invoke_training.lora.injection.stable_diffusion_v1 import (
     inject_lora_into_unet_sd1,
 )
 from invoke_training.training.lora.lora_training_config import LoRATrainingConfig
+from invoke_training.training.shared.checkpoint_tracker import CheckpointTracker
 from invoke_training.training.shared.hf_dataset import initialize_hf_dataloader
 from invoke_training.training.shared.serialization import save_state_dict
 
@@ -118,7 +119,7 @@ def _load_models(
     target training device and cast their weight dtypes.
 
     Args:
-        config (LoraTrainingConfig): The LoRA training run config.
+        config (LoRATrainingConfig): The LoRA training run config.
         logger (logging.Logger): A logger.
 
     Returns:
@@ -178,52 +179,22 @@ def _initialize_optimizer(config: LoRATrainingConfig, trainable_params: list) ->
 
 def _save_checkpoint(
     idx: int,
-    prefix: str,
-    out_dir: str,
     lora_layers: LoRALayerCollection,
-    config: LoRATrainingConfig,
     logger: logging.Logger,
+    checkpoint_tracker: CheckpointTracker,
 ):
     """Save a checkpoint. Old checkpoints are deleted if necessary to respect the config.max_checkpoints config.
 
     Args:
         idx (int): The checkpoint index (typically step count or epoch).
-        prefix (str): The checkpoint naming prefix. Usually 'epoch' or 'step'.
-        accelerator (Accelerator): Accelerator whose state will be saved.
-        train_config (LoraTrainingConfig): Training configuration.
+        lora_layers (LoRALayerCollection): The LoRA layers to save.
         logger (logging.Logger): Logger.
+        checkpoint_tracker (CheckpointTracker): The checkpoint tracker.
     """
-    full_prefix = f"checkpoint_{prefix}-"
-
-    # Before saving a checkpoint, check if this save would put us over the
-    # max_checkpoints limit.
-    if config.max_checkpoints is not None:
-        checkpoints = os.listdir(out_dir)
-        checkpoints = [d for d in checkpoints if d.startswith(full_prefix)]
-        checkpoints = sorted(
-            checkpoints,
-            key=lambda x: int(os.path.splitext(x)[0].split("-")[-1]),
-        )
-
-        if len(checkpoints) >= config.max_checkpoints:
-            num_to_remove = len(checkpoints) - config.max_checkpoints + 1
-            checkpoints_to_remove = checkpoints[0:num_to_remove]
-
-            logger.info(
-                f"{len(checkpoints)} checkpoints already exist. Removing {len(checkpoints_to_remove)} checkpoints."
-            )
-            logger.info(f"Removing checkpoints: {checkpoints_to_remove}")
-
-            for checkpoint_to_remove in checkpoints_to_remove:
-                checkpoint_to_remove = os.path.join(out_dir, checkpoint_to_remove)
-                if os.path.isfile(checkpoint_to_remove):
-                    # Delete checkpoint file.
-                    os.remove(checkpoint_to_remove)
-                else:
-                    # Delete checkpoint directory.
-                    shutil.rmtree(checkpoint_to_remove)
-
-    save_path = os.path.join(out_dir, f"{full_prefix}{idx:0>8}.{config.output.save_model_as}")
+    num_pruned = checkpoint_tracker.prune(1)
+    if num_pruned > 0:
+        logger.info(f"Pruned {num_pruned} checkpoint(s).")
+    save_path = checkpoint_tracker.get_path(idx)
 
     state_dict = lora_layers.get_lora_state_dict()
     kohya_state_dict = convert_lora_state_dict_to_kohya_format_sd1(state_dict)
@@ -374,6 +345,20 @@ def run_lora_training(config: LoRATrainingConfig):
     if accelerator.is_main_process:
         accelerator.init_trackers("lora_training")
 
+    epoch_checkpoint_tracker = CheckpointTracker(
+        base_dir=config.output.base_output_dir,
+        prefix="checkpoint_epoch",
+        extension=f".{config.output.save_model_as}",
+        max_checkpoints=config.max_checkpoints,
+    )
+
+    step_checkpoint_tracker = CheckpointTracker(
+        base_dir=config.output.base_output_dir,
+        prefix="checkpoint_step",
+        extension=f".{config.output.save_model_as}",
+        max_checkpoints=config.max_checkpoints,
+    )
+
     # Train!
     total_batch_size = config.train_batch_size * accelerator.num_processes * config.gradient_accumulation_steps
     logger.info("***** Running training *****")
@@ -464,14 +449,7 @@ def run_lora_training(config: LoRATrainingConfig):
                 if config.save_every_n_steps is not None and (global_step + 1) % config.save_every_n_steps == 0:
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
-                        _save_checkpoint(
-                            idx=global_step + 1,
-                            prefix="step",
-                            out_dir=out_dir,
-                            lora_layers=unet_lora_layers,
-                            config=config,
-                            logger=logger,
-                        )
+                        _save_checkpoint(global_step + 1, unet_lora_layers, logger, step_checkpoint_tracker)
 
             logs = {
                 "step_loss": loss.detach().item(),
@@ -485,15 +463,8 @@ def run_lora_training(config: LoRATrainingConfig):
         # Save a checkpoint.
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
             if accelerator.is_main_process:
+                _save_checkpoint(epoch + 1, unet_lora_layers, logger, epoch_checkpoint_tracker)
                 accelerator.wait_for_everyone()
-                _save_checkpoint(
-                    idx=epoch + 1,
-                    prefix="epoch",
-                    out_dir=out_dir,
-                    lora_layers=unet_lora_layers,
-                    config=config,
-                    logger=logger,
-                )
 
         # Generate validation images.
         if len(config.validation_prompts) > 0 and (epoch + 1) % config.validate_every_n_epochs == 0:
