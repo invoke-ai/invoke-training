@@ -14,7 +14,8 @@ class LoRALayerCollection(torch.nn.Module):
         super().__init__()
 
         # A torch.nn.ModuleDict may seem like a more natural choice here, but it does not allow keys that contain '.'
-        # characters.
+        # characters. Using a standard python dict is also inconvenient, because it would be ignored by torch.nn.Module
+        # methods such as `.parameters()` and `.train()`.
         self._layers = torch.nn.ModuleList()
         self._names = []
 
