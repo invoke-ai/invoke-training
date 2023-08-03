@@ -12,7 +12,10 @@ from invoke_training.lora.injection.stable_diffusion_v1 import (
 def test_inject_lora_into_unet_sd1_smoke():
     """Smoke test of inject_lora_into_unet_sd1(...) on full SD 1.5 model."""
     unet = UNet2DConditionModel.from_pretrained(
-        "runwayml/stable-diffusion-v1-5", subfolder="unet", local_files_only=True
+        "runwayml/stable-diffusion-v1-5",
+        subfolder="unet",
+        local_files_only=True,
+        revision="c9ab35ff5f2c362e9e22fbafe278077e196057f0",
     )
 
     lora_layers = inject_lora_into_unet_sd1(unet)
@@ -29,7 +32,10 @@ def test_inject_lora_into_unet_sd1_smoke():
 def test_convert_lora_state_dict_to_kohya_format_sd1_smoke():
     """Smoke test of convert_lora_state_dict_to_kohya_format_sd1(...) with full SD 1.5 model."""
     unet = UNet2DConditionModel.from_pretrained(
-        "runwayml/stable-diffusion-v1-5", subfolder="unet", local_files_only=True
+        "runwayml/stable-diffusion-v1-5",
+        subfolder="unet",
+        local_files_only=True,
+        revision="c9ab35ff5f2c362e9e22fbafe278077e196057f0",
     )
 
     lora_layers = inject_lora_into_unet_sd1(unet)
