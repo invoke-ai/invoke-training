@@ -181,7 +181,6 @@ def _save_checkpoint(
     prefix: str,
     out_dir: str,
     lora_layers: LoRALayerCollection,
-    save_dtype: torch.dtype,
     config: LoRATrainingConfig,
     logger: logging.Logger,
 ):
@@ -224,7 +223,7 @@ def _save_checkpoint(
                     # Delete checkpoint directory.
                     shutil.rmtree(checkpoint_to_remove)
 
-    save_path = os.path.join(out_dir, f"{full_prefix}{idx:0>8}.{config.save_model_as}")
+    save_path = os.path.join(out_dir, f"{full_prefix}{idx:0>8}.{config.output.save_model_as}")
 
     state_dict = lora_layers.get_lora_state_dict()
     kohya_state_dict = convert_lora_state_dict_to_kohya_format_sd1(state_dict)
@@ -469,7 +468,7 @@ def run_lora_training(config: LoRATrainingConfig):
                             idx=global_step + 1,
                             prefix="step",
                             out_dir=out_dir,
-                            accelerator=accelerator,
+                            lora_layers=unet_lora_layers,
                             config=config,
                             logger=logger,
                         )
@@ -491,7 +490,7 @@ def run_lora_training(config: LoRATrainingConfig):
                     idx=epoch + 1,
                     prefix="epoch",
                     out_dir=out_dir,
-                    accelerator=accelerator,
+                    lora_layers=unet_lora_layers,
                     config=config,
                     logger=logger,
                 )

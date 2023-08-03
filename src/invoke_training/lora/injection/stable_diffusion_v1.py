@@ -25,6 +25,7 @@ def inject_lora_into_unet_sd1(unet: UNet2DConditionModel) -> LoRALayerCollection
         include_descendants_of={Transformer2DModel},
         exclude_descendants_of=None,
         prefix="lora_unet",
+        dtype=torch.float32,
     )
 
     return lora_layers
