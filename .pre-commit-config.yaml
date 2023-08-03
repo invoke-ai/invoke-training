@@ -4,21 +4,18 @@ repos:
   hooks:
   - id: black
     name: black
-    stages: [commit]
     language: system
     entry: black
     types: [python]
 
   - id: isort
     name: isort
-    stages: [commit]
     language: system
     entry: isort
     types: [python]
 
   - id: ruff
     name: ruff
-    stages: [commit]
     language: system
     entry: ruff
     types: [python]
