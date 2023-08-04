@@ -385,8 +385,11 @@ def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
 
     data_loader = initialize_hf_dataloader(config.dataset, accelerator, tokenizer, config.train_batch_size)
 
-    # TODO(ryand): Revisit and more clearly document the definition of 'steps'. Consider interactions with batch_size,
-    # gradient_accumulation_steps, and number of training processes.
+    # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
+    # by the number of processes. This scaling logic was copied from the diffusers example training code, but it appears
+    # in many places so I don't know where it originated. Internally, accelerate makes one LR scheduler step per process
+    # (https://github.com/huggingface/accelerate/blame/49cb83a423f2946059117d8bb39b7c8747d29d80/src/accelerate/scheduler.py#L72-L82),
+    # so the scaling here simply reverses that behaviour.
     lr_scheduler: torch.optim.lr_scheduler.LRScheduler = get_scheduler(
         config.optimizer.lr_scheduler,
         optimizer=optimizer,
@@ -404,9 +407,10 @@ def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
     ] = accelerator.prepare(unet, text_encoder, unet_lora_layers, optimizer, data_loader, lr_scheduler)
     unet, text_encoder, unet_lora_layers, optimizer, data_loader, lr_scheduler = prepared_result
 
-    # Calculate number of epochs and total training steps.
-    # Note: A "step" represents a single optimizer weight update operation (i.e. takes into account gradient
-    # accumulation steps).
+    # Calculate the number of epochs and total training steps. A "step" represents a single weight update operation
+    # (i.e. takes into account gradient accumulation steps).
+    # math.ceil(...) is used in calculating the num_steps_per_epoch, because by default an optimizer step is taken when
+    # the end of the dataloader is reached, even if gradient_accumulation_steps hasn't been reached.
     num_steps_per_epoch = math.ceil(len(data_loader) / config.gradient_accumulation_steps)
     num_train_epochs = math.ceil(config.max_train_steps / num_steps_per_epoch)
 
