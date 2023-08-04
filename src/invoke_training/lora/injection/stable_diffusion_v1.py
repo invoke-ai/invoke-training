@@ -2,11 +2,11 @@ import typing
 
 import torch
 from diffusers.models import Transformer2DModel, UNet2DConditionModel
-from diffusers.models.lora import LoRACompatibleLinear
+from diffusers.models.lora import LoRACompatibleConv, LoRACompatibleLinear
 
 from invoke_training.lora.injection.lora_layer_collection import LoRALayerCollection
 from invoke_training.lora.injection.utils import inject_lora_layers
-from invoke_training.lora.layers import LoRALinearLayer
+from invoke_training.lora.layers import LoRAConv2dLayer, LoRALinearLayer
 
 
 def inject_lora_into_unet_sd1(unet: UNet2DConditionModel) -> LoRALayerCollection:
@@ -21,7 +21,12 @@ def inject_lora_into_unet_sd1(unet: UNet2DConditionModel) -> LoRALayerCollection
 
     lora_layers = inject_lora_layers(
         module=unet,
-        lora_map={torch.nn.Linear: LoRALinearLayer, LoRACompatibleLinear: LoRALinearLayer},
+        lora_map={
+            torch.nn.Linear: LoRALinearLayer,
+            LoRACompatibleLinear: LoRALinearLayer,
+            torch.nn.Conv2d: LoRAConv2dLayer,
+            LoRACompatibleConv: LoRAConv2dLayer,
+        },
         include_descendants_of={Transformer2DModel},
         exclude_descendants_of=None,
         prefix="lora_unet",

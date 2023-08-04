@@ -22,10 +22,11 @@ def test_inject_lora_into_unet_sd1_smoke():
 
     # These assertions are based on a manual check of the injected layers and comparison against the behaviour of
     # kohya_ss. They are included here to force another manual review after any future breaking change.
-    assert len(lora_layers) == 160
-    # assert len(lora_layers) == 192 # TODO(ryand): Enable this check once conv layers are added.
+    assert len(lora_layers) == 192
     for layer_name in lora_layers._names:
-        assert layer_name.endswith(("to_q", "to_k", "to_v", "to_out.0", "ff.net.0.proj", "ff.net.2"))
+        assert layer_name.endswith(
+            ("to_q", "to_k", "to_v", "to_out.0", "ff.net.0.proj", "ff.net.2", ".proj_in", ".proj_out")
+        )
 
 
 @pytest.mark.loads_model
@@ -44,7 +45,7 @@ def test_convert_lora_state_dict_to_kohya_format_sd1_smoke():
 
     # These assertions are based on a manual check of the injected layers and comparison against the behaviour of
     # kohya_ss. They are included here to force another manual review after any future breaking change.
-    assert len(kohya_state_dict) == 160 * 3
+    assert len(kohya_state_dict) == 192 * 3
     for key in kohya_state_dict.keys():
         assert key.startswith("lora_unet_")
         assert key.endswith((".lora_down.weight", ".lora_up.weight", ".alpha"))
