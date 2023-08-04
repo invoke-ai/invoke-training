@@ -214,6 +214,21 @@ def _generate_validation_images(
     config: LoRATrainingConfig,
     logger: logging.Logger,
 ):
+    """Generate validation images for the purpose of tracking image generation behaviour on fixed prompts throughout
+    training.
+
+    Args:
+        epoch (int): Epoch number, for reporting purposes.
+        out_dir (str): The output directory where the validation images will be stored.
+        accelerator (Accelerator): Accelerator
+        vae (AutoencoderKL):
+        text_encoder (CLIPTextModel):
+        tokenizer (CLIPTokenizer):
+        noise_scheduler (DDPMScheduler):
+        unet (UNet2DConditionModel):
+        config (LoRATrainingConfig): Training configs.
+        logger (logging.Logger): Logger.
+    """
     logger.info("Generating validation images.")
 
     # Create pipeline.
@@ -275,6 +290,61 @@ def _generate_validation_images(
     torch.cuda.empty_cache()
 
 
+def _train_forward(
+    config: LoRATrainingConfig,
+    data_batch: dict,
+    vae: AutoencoderKL,
+    noise_scheduler: DDPMScheduler,
+    text_encoder: CLIPTextModel,
+    unet: UNet2DConditionModel,
+    weight_dtype: torch.dtype,
+):
+    """Run the forward training pass for a single data_batch.
+
+    Returns:
+        torch.Tensor: Loss
+    """
+    # Convert images to latent space.
+    latents = vae.encode(data_batch["pixel_values"].to(dtype=weight_dtype)).latent_dist.sample()
+    latents = latents * vae.config.scaling_factor
+
+    # Sample noise that we'll add to the latents.
+    noise = torch.randn_like(latents)
+
+    batch_size = latents.shape[0]
+    # Sample a random timestep for each image.
+    timesteps = torch.randint(
+        0,
+        noise_scheduler.config.num_train_timesteps,
+        (batch_size,),
+        device=latents.device,
+    )
+    timesteps = timesteps.long()
+
+    # Add noise to the latents according to the noise magnitude at each timestep (this is the forward
+    # diffusion process).
+    noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
+
+    # Get the text embedding for conditioning.
+    encoder_hidden_states = text_encoder(data_batch["input_ids"])[0]
+
+    # Get the target for loss depending on the prediction type.
+    if config.prediction_type is not None:
+        # Set the prediction_type of scheduler if it's defined in config.
+        noise_scheduler.register_to_config(prediction_type=config.prediction_type)
+    if noise_scheduler.config.prediction_type == "epsilon":
+        target = noise
+    elif noise_scheduler.config.prediction_type == "v_prediction":
+        target = noise_scheduler.get_velocity(latents, noise, timesteps)
+    else:
+        raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
+
+    # Predict the noise residual.
+    model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
+
+    return torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="mean")
+
+
 def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
     # Create a timestamped directory for all outputs.
     out_dir = os.path.join(config.output.base_output_dir, f"{time.time()}")
@@ -315,9 +385,8 @@ def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
 
     data_loader = initialize_hf_dataloader(config.dataset, accelerator, tokenizer, config.train_batch_size)
 
-    # TODO(ryand): Revisit and more clearly document the definition of 'steps'.
-    # Consider interactions with batch_size, gradient_accumulation_steps, and
-    # number of training processes.
+    # TODO(ryand): Revisit and more clearly document the definition of 'steps'. Consider interactions with batch_size,
+    # gradient_accumulation_steps, and number of training processes.
     lr_scheduler: torch.optim.lr_scheduler.LRScheduler = get_scheduler(
         config.optimizer.lr_scheduler,
         optimizer=optimizer,
@@ -384,45 +453,15 @@ def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
         train_loss = 0.0
         for data_batch in data_loader:
             with accelerator.accumulate(unet_lora_layers):
-                # Convert images to latent space.
-                latents = vae.encode(data_batch["pixel_values"].to(dtype=weight_dtype)).latent_dist.sample()
-                latents = latents * vae.config.scaling_factor
-
-                # Sample noise that we'll add to the latents.
-                noise = torch.randn_like(latents)
-
-                batch_size = latents.shape[0]
-                # Sample a random timestep for each image.
-                timesteps = torch.randint(
-                    0,
-                    noise_scheduler.config.num_train_timesteps,
-                    (batch_size,),
-                    device=latents.device,
+                loss = _train_forward(
+                    config,
+                    data_batch,
+                    vae,
+                    noise_scheduler,
+                    text_encoder,
+                    unet,
+                    weight_dtype,
                 )
-                timesteps = timesteps.long()
-
-                # Add noise to the latents according to the noise magnitude at each timestep (this is the forward
-                # diffusion process).
-                noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
-
-                # Get the text embedding for conditioning.
-                encoder_hidden_states = text_encoder(data_batch["input_ids"])[0]
-
-                # Get the target for loss depending on the prediction type.
-                if config.prediction_type is not None:
-                    # Set the prediction_type of scheduler if it's defined in config.
-                    noise_scheduler.register_to_config(prediction_type=config.prediction_type)
-                if noise_scheduler.config.prediction_type == "epsilon":
-                    target = noise
-                elif noise_scheduler.config.prediction_type == "v_prediction":
-                    target = noise_scheduler.get_velocity(latents, noise, timesteps)
-                else:
-                    raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
-
-                # Predict the noise residual.
-                model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
-
-                loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="mean")
 
                 # Gather the losses across all processes for logging (if we use distributed training).
                 # TODO(ryand): Test that this works properly with distributed training.
@@ -459,13 +498,13 @@ def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
             if global_step >= config.max_train_steps:
                 break
 
-        # Save a checkpoint.
+        # Save a checkpoint every n epochs.
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
             if accelerator.is_main_process:
                 _save_checkpoint(epoch + 1, unet_lora_layers, logger, epoch_checkpoint_tracker)
                 accelerator.wait_for_everyone()
 
-        # Generate validation images.
+        # Generate validation images every n epochs.
         if len(config.validation_prompts) > 0 and (epoch + 1) % config.validate_every_n_epochs == 0:
             if accelerator.is_main_process:
                 _generate_validation_images(
@@ -480,7 +519,5 @@ def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
                     config=config,
                     logger=logger,
                 )
-
-    # End `for epoch in range(first_epoch, num_train_epochs):`
 
     accelerator.end_training()
