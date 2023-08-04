@@ -12,7 +12,7 @@ from transformers import CLIPTokenizer
 from invoke_training.training.lora.lora_training_config import DatasetConfig
 
 
-def initialize_hf_dataloader(
+def initialize_hf_dataloader(  # noqa: C901
     config: DatasetConfig,
     accelerator: Accelerator,
     tokenizer: CLIPTokenizer,

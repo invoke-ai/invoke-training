@@ -25,8 +25,8 @@ class CheckpointTracker:
             base_dir (str): The base checkpoint directory.
             prefix (str): A prefix applied to every checkpoint.
             extension (str, optional): If set, this is the file extension that will be applied to all checkpoints
-                (usually one of ".pt", ".ckpt", or ".safetensors"). If None, then it will be assumed that we are managing
-                checkpoint directories rather than files.
+                (usually one of ".pt", ".ckpt", or ".safetensors"). If None, then it will be assumed that we are
+                managing checkpoint directories rather than files.
             max_checkpoints (typing.Optional[int], optional): The maximum number of checkpoints that should exist in
                 base_dir.
             index_padding (int, optional): The length of the zero-padded index in the generated checkpoint names. E.g.
