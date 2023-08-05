@@ -22,9 +22,9 @@ from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 
-from invoke_training.lora.injection.lora_layer_collection import LoRALayerCollection
 from invoke_training.lora.injection.stable_diffusion_v1 import (
     convert_lora_state_dict_to_kohya_format_sd1,
+    inject_lora_into_clip_text_encoder,
     inject_lora_into_unet_sd1,
 )
 from invoke_training.training.lora.lora_training_config import LoRATrainingConfig
@@ -178,7 +178,7 @@ def _initialize_optimizer(config: LoRATrainingConfig, trainable_params: list) ->
 
 def _save_checkpoint(
     idx: int,
-    lora_layers: LoRALayerCollection,
+    lora_layers: torch.nn.ModuleDict,
     logger: logging.Logger,
     checkpoint_tracker: CheckpointTracker,
 ):
@@ -186,18 +186,24 @@ def _save_checkpoint(
 
     Args:
         idx (int): The checkpoint index (typically step count or epoch).
-        lora_layers (LoRALayerCollection): The LoRA layers to save.
+        lora_layers (torch.nn.ModuleDict): The LoRA layers to save in a ModuleDict mapping keys to
+            `LoRALayerCollection`s.
         logger (logging.Logger): Logger.
         checkpoint_tracker (CheckpointTracker): The checkpoint tracker.
     """
+    # Prune checkpoints and get new checkpoint path.
     num_pruned = checkpoint_tracker.prune(1)
     if num_pruned > 0:
         logger.info(f"Pruned {num_pruned} checkpoint(s).")
     save_path = checkpoint_tracker.get_path(idx)
 
-    state_dict = lora_layers.get_lora_state_dict()
-    kohya_state_dict = convert_lora_state_dict_to_kohya_format_sd1(state_dict)
-    save_state_dict(kohya_state_dict, save_path)
+    state_dict = {}
+    for model_lora_layers in lora_layers.values():
+        model_state_dict = model_lora_layers.get_lora_state_dict()
+        model_kohya_state_dict = convert_lora_state_dict_to_kohya_format_sd1(model_state_dict)
+        state_dict.update(model_kohya_state_dict)
+
+    save_state_dict(state_dict, save_path)
     # accelerator.save_state(save_path)
     logger.info(f"Saved state to '{save_path}'.")
 
@@ -373,7 +379,11 @@ def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
     logger.info("Loading models.")
     tokenizer, noise_scheduler, text_encoder, vae, unet = _load_models(accelerator, config)
 
-    unet_lora_layers = inject_lora_into_unet_sd1(unet)
+    lora_layers = torch.nn.ModuleDict()
+    if config.train_unet:
+        lora_layers["unet"] = inject_lora_into_unet_sd1(unet)
+    if config.train_text_encoder:
+        lora_layers["text_encoder"] = inject_lora_into_clip_text_encoder(text_encoder)
 
     if config.xformers:
         import xformers  # noqa: F401
@@ -381,7 +391,7 @@ def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
         unet.enable_xformers_memory_efficient_attention()
         vae.enable_xformers_memory_efficient_attention()
 
-    optimizer = _initialize_optimizer(config, unet_lora_layers.parameters())
+    optimizer = _initialize_optimizer(config, lora_layers.parameters())
 
     data_loader = initialize_hf_dataloader(config.dataset, accelerator, tokenizer, config.train_batch_size)
 
@@ -400,12 +410,12 @@ def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
     prepared_result: tuple[
         UNet2DConditionModel,
         CLIPTextModel,
-        LoRALayerCollection,
+        torch.nn.ModuleDict,
         torch.optim.Optimizer,
         torch.utils.data.DataLoader,
         torch.optim.lr_scheduler.LRScheduler,
-    ] = accelerator.prepare(unet, text_encoder, unet_lora_layers, optimizer, data_loader, lr_scheduler)
-    unet, text_encoder, unet_lora_layers, optimizer, data_loader, lr_scheduler = prepared_result
+    ] = accelerator.prepare(unet, text_encoder, lora_layers, optimizer, data_loader, lr_scheduler)
+    unet, text_encoder, lora_layers, optimizer, data_loader, lr_scheduler = prepared_result
 
     # Calculate the number of epochs and total training steps. A "step" represents a single weight update operation
     # (i.e. takes into account gradient accumulation steps).
@@ -452,11 +462,11 @@ def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
     progress_bar.set_description("Steps")
 
     for epoch in range(first_epoch, num_train_epochs):
-        unet_lora_layers.train()
+        lora_layers.train()
 
         train_loss = 0.0
         for data_batch in data_loader:
-            with accelerator.accumulate(unet_lora_layers):
+            with accelerator.accumulate(lora_layers):
                 loss = _train_forward(
                     config,
                     data_batch,
@@ -475,7 +485,7 @@ def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
                 # Backpropagate.
                 accelerator.backward(loss)
                 if accelerator.sync_gradients and config.max_grad_norm is not None:
-                    params_to_clip = unet_lora_layers.parameters()
+                    params_to_clip = lora_layers.parameters()
                     accelerator.clip_grad_norm_(params_to_clip, config.max_grad_norm)
                 optimizer.step()
                 lr_scheduler.step()
@@ -491,7 +501,7 @@ def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
                 if config.save_every_n_steps is not None and (global_step + 1) % config.save_every_n_steps == 0:
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
-                        _save_checkpoint(global_step + 1, unet_lora_layers, logger, step_checkpoint_tracker)
+                        _save_checkpoint(global_step + 1, lora_layers, logger, step_checkpoint_tracker)
 
             logs = {
                 "step_loss": loss.detach().item(),
@@ -505,7 +515,7 @@ def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
         # Save a checkpoint every n epochs.
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
             if accelerator.is_main_process:
-                _save_checkpoint(epoch + 1, unet_lora_layers, logger, epoch_checkpoint_tracker)
+                _save_checkpoint(epoch + 1, lora_layers, logger, epoch_checkpoint_tracker)
                 accelerator.wait_for_everyone()
 
         # Generate validation images every n epochs.
