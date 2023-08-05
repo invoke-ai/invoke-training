@@ -70,7 +70,7 @@ class TestLoRAConvLayers:
         batch_size = 10
         in_channels = 8
         out_channels = 16
-        original_layer = lora_conv_cls.conv_module(in_channels, out_channels, kernel_size=3)
+        original_layer = lora_conv_cls.conv_module(in_channels, out_channels, kernel_size=3, padding="same")
 
         lora_layer = lora_conv_cls.from_layer(original_layer)
 
@@ -80,6 +80,32 @@ class TestLoRAConvLayers:
             y = lora_layer(x)
 
         expected_out_shape = (batch_size, out_channels) + (5,) * conv_dims
+        assert y.shape == expected_out_shape
+
+    def test_lora_conv_layer_from_layer_kernel_and_stride(
+        self, lora_conv_cls: typing.Type[LoRAConvLayer], conv_dims: int
+    ):
+        """Test that a LoRAConv*Layer is initialized with the correct kernel_size, stride, and padding when initialized
+        from a torch.nn.Conv* layer."""
+        batch_size = 10
+        in_channels = 8
+        out_channels = 16
+        original_layer = lora_conv_cls.conv_module(in_channels, out_channels, kernel_size=3, stride=2, padding="valid")
+
+        lora_layer = lora_conv_cls.from_layer(original_layer)
+
+        # Check the internal layer config.
+        assert lora_layer._down.kernel_size == original_layer.kernel_size
+        assert lora_layer._down.stride == original_layer.stride
+        assert lora_layer._down.padding == original_layer.padding
+
+        in_shape = (batch_size, in_channels) + (6,) * conv_dims
+        x = torch.rand(in_shape)
+        with torch.no_grad():
+            y = lora_layer(x)
+
+        # The combination of kernel_size, stride, and padding should reduce the dimensions to this output shape:
+        expected_out_shape = (batch_size, out_channels) + (2,) * conv_dims
         assert y.shape == expected_out_shape
 
     @pytest.mark.cuda
@@ -94,7 +120,7 @@ class TestLoRAConvLayers:
         in_channels = 8
         out_channels = 16
         original_layer = lora_conv_cls.conv_module(
-            in_channels, out_channels, kernel_size=3, device=torch.device("cuda"), dtype=dtype
+            in_channels, out_channels, kernel_size=3, padding="same", device=torch.device("cuda"), dtype=dtype
         )
 
         lora_layer = lora_conv_cls.from_layer(original_layer)
@@ -123,7 +149,9 @@ class TestLoRAConvLayers:
         in_channels = 8
         out_channels = 16
         # Original layer has dtype float32 on CPU.
-        original_layer = lora_conv_cls.conv_module(in_channels, out_channels, kernel_size=3, dtype=torch.float32)
+        original_layer = lora_conv_cls.conv_module(
+            in_channels, out_channels, kernel_size=3, padding="same", dtype=torch.float32
+        )
 
         target_device = torch.device("cuda:0")
         lora_layer = lora_conv_cls.from_layer(original_layer, device=target_device, dtype=dtype)

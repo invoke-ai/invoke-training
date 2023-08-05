@@ -1,4 +1,5 @@
 import math
+import typing
 
 import torch
 
@@ -21,6 +22,9 @@ class LoRAConvLayer(BaseLoRALayer):
         self,
         in_channels: int,
         out_channels: int,
+        kernel_size: typing.Union[int, tuple[int]] = 1,
+        stride: typing.Union[int, tuple[int]] = 1,
+        padding: typing.Union[str, int, tuple[int]] = 0,
         rank: int = 4,
         alpha: float = 1.0,
         device: torch.device = None,
@@ -30,6 +34,9 @@ class LoRAConvLayer(BaseLoRALayer):
         Args:
             in_channels (int): The number of channels expected on inputs to this layer.
             out_channels (int): The number of channels on outputs from this layer.
+            kernel_size: The kernel_size of the conv layer that this LoRA layer is mirroring. See torch.nn.Conv* docs.
+            stride: The stride of the conv layer that this LoRA layer is mirroring. See torch.nn.Conv* docs.
+            padding: The padding of the conv layer that this LoRA layer is mirroring. See torch.nn.Conv* docs.
             rank (int, optional): The internal rank of the layer. See the paper for details.
             alpha (float, optional): A scaling factor that enables tuning the rank without having to adjust the learning
                 rate. The recommendation from the paper is to set alpha equal to the first rank that you try and then do
@@ -45,7 +52,14 @@ class LoRAConvLayer(BaseLoRALayer):
             raise ValueError(f"LoRA rank {rank} must be less than or equal to {min(in_channels, out_channels)}")
 
         self._down = self.conv_module(
-            in_channels, rank, kernel_size=1, stride=1, bias=False, device=device, dtype=dtype
+            in_channels,
+            rank,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            bias=False,
+            device=device,
+            dtype=dtype,
         )
         self._up = self.conv_module(rank, out_channels, kernel_size=1, stride=1, bias=False, device=device, dtype=dtype)
 
@@ -83,12 +97,15 @@ class LoRAConvLayer(BaseLoRALayer):
         """
         if isinstance(layer, cls.conv_module):
             return cls(
-                layer.in_channels,
-                layer.out_channels,
-                rank,
-                alpha,
-                layer.weight.device if device is None else device,
-                layer.weight.dtype if dtype is None else dtype,
+                in_channels=layer.in_channels,
+                out_channels=layer.out_channels,
+                kernel_size=layer.kernel_size,
+                stride=layer.stride,
+                padding=layer.padding,
+                rank=rank,
+                alpha=alpha,
+                device=layer.weight.device if device is None else device,
+                dtype=layer.weight.dtype if dtype is None else dtype,
             )
         else:
             raise TypeError(f"'{__class__.__name__}' cannot be initialized from a layer of type '{type(layer)}'.")
