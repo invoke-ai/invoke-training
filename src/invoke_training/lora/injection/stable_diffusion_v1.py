@@ -3,6 +3,8 @@ import typing
 import torch
 from diffusers.models import Transformer2DModel, UNet2DConditionModel
 from diffusers.models.lora import LoRACompatibleConv, LoRACompatibleLinear
+from transformers import CLIPTextModel
+from transformers.models.clip.modeling_clip import CLIPMLP, CLIPAttention
 
 from invoke_training.lora.injection.lora_layer_collection import LoRALayerCollection
 from invoke_training.lora.injection.utils import inject_lora_layers
@@ -30,6 +32,22 @@ def inject_lora_into_unet_sd1(unet: UNet2DConditionModel) -> LoRALayerCollection
         include_descendants_of={Transformer2DModel},
         exclude_descendants_of=None,
         prefix="lora_unet",
+        dtype=torch.float32,
+    )
+
+    return lora_layers
+
+
+def inject_lora_into_clip_text_encoder(text_encoder: CLIPTextModel):
+    lora_layers = inject_lora_layers(
+        module=text_encoder,
+        lora_map={
+            torch.nn.Linear: LoRALinearLayer,
+            torch.nn.Conv2d: LoRAConv2dLayer,
+        },
+        include_descendants_of={CLIPAttention, CLIPMLP},
+        exclude_descendants_of=None,
+        prefix="lora_te",
         dtype=torch.float32,
     )
 

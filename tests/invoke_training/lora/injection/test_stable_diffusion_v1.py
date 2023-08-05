@@ -1,9 +1,11 @@
 import pytest
 import torch
 from diffusers.models import UNet2DConditionModel
+from transformers import CLIPTextModel
 
 from invoke_training.lora.injection.stable_diffusion_v1 import (
     convert_lora_state_dict_to_kohya_format_sd1,
+    inject_lora_into_clip_text_encoder,
     inject_lora_into_unet_sd1,
 )
 
@@ -27,6 +29,25 @@ def test_inject_lora_into_unet_sd1_smoke():
         assert layer_name.endswith(
             ("to_q", "to_k", "to_v", "to_out.0", "ff.net.0.proj", "ff.net.2", ".proj_in", ".proj_out")
         )
+
+
+@pytest.mark.loads_model
+def test_inject_lora_into_clip_text_encoder_smoke():
+    """Smoke test of inject_lora_into_clip_text_encoder(...) on full SD 1.5 model."""
+    text_encoder = CLIPTextModel.from_pretrained(
+        "runwayml/stable-diffusion-v1-5",
+        subfolder="text_encoder",
+        local_files_only=True,
+        revision="c9ab35ff5f2c362e9e22fbafe278077e196057f0",
+    )
+
+    lora_layers = inject_lora_into_clip_text_encoder(text_encoder)
+
+    # These assertions are based on a manual check of the injected layers and comparison against the behaviour of
+    # kohya_ss. They are included here to force another manual review after any future breaking change.
+    assert len(lora_layers) == 72  # 216 / 3
+    for layer_name in lora_layers._names:
+        assert layer_name.endswith(("mlp.fc1", "mlp.fc2", "k_proj", "out_proj", "q_proj", "v_proj"))
 
 
 @pytest.mark.loads_model
