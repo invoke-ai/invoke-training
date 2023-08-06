@@ -39,14 +39,13 @@ my_custom_dataset/
 
 The contents of `metadata.jsonl` should be:
 ```json
-{"image": "train/0001.png", "text": "This is a caption describing image 0001."}
-{"image": "train/0002.png", "text": "This is a caption describing image 0002."}
-{"image": "train/0003.png", "text": "This is a caption describing image 0003."}
+{"file_name": "train/0001.png", "text": "This is a caption describing image 0001."}
+{"file_name": "train/0002.png", "text": "This is a caption describing image 0002."}
+{"file_name": "train/0003.png", "text": "This is a caption describing image 0003."}
 ```
 
 To use a custom `ImageFolder` dataset, set the following parameters in your training config:
 - `dataset_dir`
-- `image_column`
 - `caption_column`
 
 Here's a sample configuration:
