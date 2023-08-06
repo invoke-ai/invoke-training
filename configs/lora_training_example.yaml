@@ -7,7 +7,7 @@ optimizer:
   learning_rate: 5.0e-4
 
 dataset:
-  name: lambdalabs/pokemon-blip-captions
+  dataset_name: lambdalabs/pokemon-blip-captions
 
 # General
 seed: 1

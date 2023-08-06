@@ -25,10 +25,10 @@ def initialize_hf_dataloader(  # noqa: C901
     """
     # In distributed training, the load_dataset function guarantees that only
     # one local process will download the dataset.
-    if config.name is not None:
+    if config.dataset_name is not None:
         # Download the dataset from the Hugging Face hub.
         dataset = datasets.load_dataset(
-            config.name,
+            config.dataset_name,
             config.dataset_config_name,
             cache_dir=config.hf_cache_dir,
         )
