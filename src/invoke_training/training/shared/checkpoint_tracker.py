@@ -54,6 +54,9 @@ class CheckpointTracker:
         Returns:
             int: The number of checkpoints deleted.
         """
+        if self._max_checkpoints is None:
+            return 0
+
         checkpoints = os.listdir(self._base_dir)
         checkpoints = [p for p in checkpoints if p.startswith(self._prefix)]
         checkpoints = sorted(

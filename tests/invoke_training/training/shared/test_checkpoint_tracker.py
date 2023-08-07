@@ -81,3 +81,23 @@ def test_checkpoint_tracker_prune_directories():
         # Verify that the correct checkpoints were pruned.
         assert all([not os.path.exists(checkpoint_tracker.get_path(i)) for i in range(3)])
         assert all([os.path.exists(checkpoint_tracker.get_path(i)) for i in range(3, 6)])
+
+
+def test_checkpoint_tracker_prune_no_max():
+    """Test that CheckpointTracker.prune() is a no-op when max_checkpoints is None."""
+    with tempfile.TemporaryDirectory() as dir_name:
+        checkpoint_tracker = CheckpointTracker(
+            base_dir=dir_name, prefix="prefix", extension=".ckpt", max_checkpoints=None
+        )
+        # Create 6 checkpoints.
+        for i in range(6):
+            path = checkpoint_tracker.get_path(i)
+            with open(path, "w") as f:
+                f.write("hi")
+
+        # Call prune, which should have no effect.
+        num_pruned = checkpoint_tracker.prune(2)
+        assert num_pruned == 0
+
+        # Verify that no checkpoints were deleted.
+        assert all([os.path.exists(checkpoint_tracker.get_path(i)) for i in range(6)])
