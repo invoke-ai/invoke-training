@@ -52,7 +52,6 @@ Here's a sample configuration:
 ```yaml
 dataset:
   dataset_dir: /data/my_custom_dataset
-  image_column: image
   caption_column: text
 
 # ...
