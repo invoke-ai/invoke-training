@@ -113,6 +113,11 @@ class LoRATrainingConfig(BaseModel):
     # Whether to add LoRA layers to the text encoder and train it.
     train_text_encoder: bool = True
 
+    # Whether to inject LoRA layers into the non-attention UNet blocks for training. Enabling will produce a more
+    # expressive LoRA model at the cost of slower training, higher training VRAM requirements, and a larger LoRA weight
+    # file.
+    train_unet_non_attention_blocks: bool = False
+
     # The number of gradient steps to accumulate before each weight update. This value is passed to Hugging Face
     # Accelerate. This is an alternative to increasing the batch size when training with limited VRAM.
     gradient_accumulation_steps: int = 1

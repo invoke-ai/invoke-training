@@ -3,6 +3,7 @@ import typing
 import torch
 from diffusers.models import Transformer2DModel, UNet2DConditionModel
 from diffusers.models.lora import LoRACompatibleConv, LoRACompatibleLinear
+from diffusers.models.resnet import Downsample2D, ResnetBlock2D, Upsample2D
 from transformers import CLIPTextModel
 from transformers.models.clip.modeling_clip import CLIPMLP, CLIPAttention
 
@@ -11,15 +12,21 @@ from invoke_training.lora.injection.utils import inject_lora_layers
 from invoke_training.lora.layers import LoRAConv2dLayer, LoRALinearLayer
 
 
-def inject_lora_into_unet_sd1(unet: UNet2DConditionModel) -> LoRALayerCollection:
+def inject_lora_into_unet_sd1(
+    unet: UNet2DConditionModel, include_non_attention_blocks: bool = False
+) -> LoRALayerCollection:
     """Inject LoRA layers into a Stable Diffusion v1 UNet model.
 
     Args:
         unet (UNet2DConditionModel): The UNet model to inject LoRA layers into.
-
+        include_non_attention_blocks (bool, optional): Whether to inject LoRA layers into the linear/conv layers of the
+            non-attention blocks (`ResnetBlock2D`, `Downsample2D`, `Upsample2D`). Defaults to False.
     Returns:
         LoRALayerCollection: The LoRA layers that were added to the UNet.
     """
+    include_descendants_of = {Transformer2DModel}
+    if include_non_attention_blocks:
+        include_descendants_of.update({ResnetBlock2D, Downsample2D, Upsample2D})
 
     lora_layers = inject_lora_layers(
         module=unet,
@@ -29,7 +36,7 @@ def inject_lora_into_unet_sd1(unet: UNet2DConditionModel) -> LoRALayerCollection
             torch.nn.Conv2d: LoRAConv2dLayer,
             LoRACompatibleConv: LoRAConv2dLayer,
         },
-        include_descendants_of={Transformer2DModel},
+        include_descendants_of=include_descendants_of,
         exclude_descendants_of=None,
         prefix="lora_unet",
         dtype=torch.float32,
