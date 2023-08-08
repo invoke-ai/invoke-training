@@ -81,6 +81,7 @@ def inject_lora_layers(
     include_descendants_of: typing.Optional[typing.Set[typing.Type[torch.nn.Module]]] = None,
     exclude_descendants_of: typing.Optional[typing.Set[typing.Type[torch.nn.Module]]] = None,
     prefix: str = "",
+    dtype: torch.dtype = None,
 ) -> LoRALayerCollection:
     """Iterates over all of the modules in 'module' and if they are present in 'replace_map' then replaces them with the
     mapped LoRA layer type.
@@ -95,6 +96,7 @@ def inject_lora_layers(
         include_descendants_of (typing.Set[typing.Type[torch.nn.Module]], optional): Forwarded to find_modules(...).
         exclude_descendants_of (typing.Set[typing.Type[torch.nn.Module]], optional): Forwarded to find_modules(...).
         prefix (str, optional): A prefix that will be added to the names of all of the LoRA layers.
+        dtype (torch.dtype, optional): The dtype to construct the new layer with.
     Returns:
         LoRALayerCollection: A ModuleDict of all of the LoRA layers that were injected into the module.
     """
@@ -111,7 +113,7 @@ def inject_lora_layers(
         lora_layer_cls = lora_map[type(module)]
 
         # Initialize the LoRA layer with the correct dimensions.
-        lora_layer = lora_layer_cls.from_layer(module)
+        lora_layer = lora_layer_cls.from_layer(module, dtype=dtype)
 
         # Join the LoRA layer and the original layer in a block.
         lora_block = LoRABlock(original_module=module, lora_layer=lora_layer)

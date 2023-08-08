@@ -5,21 +5,31 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "invoke-training"
 version = "0.0.1"
-authors = [
-    { name="The Invoke AI Team", email="ryan@invoke.ai" },
-]
+authors = [{ name = "The Invoke AI Team", email = "ryan@invoke.ai" }]
 description = "A library for Stable Diffusion model training."
 readme = "README.md"
 requires-python = ">=3.9"
-license = {text = "Apache-2.0"}
+license = { text = "Apache-2.0" }
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
 ]
 dependencies = [
     "accelerate~=0.21.0",
+    "datasets~=2.14.3",
     "diffusers~=0.19.3",
-    "torch~=2.0.1",
+    "numpy",
+    "pydantic",
+    "pyyaml",
+    "safetensors",
+    "tensorboard",
+    "torch>=2.0.1",
+    "torchvision~=0.15.2",
+    "tqdm",
+    "transformers~=4.31.0",
+    # Known issue with xformers 0.0.16 on some GPUs:
+    # https://github.com/huggingface/diffusers/issues/2234#issuecomment-1416931212
+    "xformers>=0.0.17",
 ]
 
 [project.optional-dependencies]
