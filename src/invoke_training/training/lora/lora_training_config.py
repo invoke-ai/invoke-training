@@ -107,6 +107,12 @@ class LoRATrainingConfig(BaseModel):
     # A seed for reproducible training.
     seed: typing.Optional[int] = None
 
+    # Whether to add LoRA layers to the UNet model and train it.
+    train_unet: bool = True
+
+    # Whether to add LoRA layers to the text encoder and train it.
+    train_text_encoder: bool = True
+
     # The number of gradient steps to accumulate before each weight update. This value is passed to Hugging Face
     # Accelerate. This is an alternative to increasing the batch size when training with limited VRAM.
     gradient_accumulation_steps: int = 1
