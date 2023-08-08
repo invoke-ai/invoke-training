@@ -49,10 +49,10 @@ def test_image_caption_dataset_getitem():
 
     image = example["image"]
     assert isinstance(image, torch.Tensor)
-    assert image.shape == (1, 3, 512, 512)
+    assert image.shape == (3, 512, 512)
     assert image.dtype == torch.float32
 
     caption_token_ids = example["caption_token_ids"]
     assert isinstance(caption_token_ids, torch.Tensor)
-    assert caption_token_ids.shape == (1, 77)
+    assert caption_token_ids.shape == (77,)
     assert caption_token_ids.dtype == torch.int64

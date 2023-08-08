@@ -1,4 +1,3 @@
-import torch
 from torchvision import transforms
 from transformers import CLIPTokenizer
 
@@ -57,7 +56,7 @@ class ImageCaptionDataset:
             truncation=True,
             return_tensors="pt",
         )
-        return input.input_ids
+        return input.input_ids[0, ...]
 
     def __len__(self) -> int:
         return len(self._reader)
@@ -65,7 +64,6 @@ class ImageCaptionDataset:
     def __getitem__(self, idx: int):
         example = self._reader[idx]
         image = self._image_transforms(example["image"])
-        image = torch.unsqueeze(image, 0)  # Add batch dimension.
         caption_token_ids = self._tokenize_caption(example["caption"])
         return {
             "image": image,
