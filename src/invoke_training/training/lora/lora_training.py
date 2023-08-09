@@ -28,6 +28,10 @@ from invoke_training.lora.injection.stable_diffusion_v1 import (
     inject_lora_into_unet_sd1,
 )
 from invoke_training.training.lora.lora_training_config import LoRATrainingConfig
+from invoke_training.training.shared.base_model_version import (
+    BaseModelVersionEnum,
+    check_base_model_version,
+)
 from invoke_training.training.shared.checkpoint_tracker import CheckpointTracker
 from invoke_training.training.shared.datasets.image_caption_dataloader import (
     build_image_caption_dataloader,
@@ -134,21 +138,11 @@ def _load_models(
     """
     weight_dtype = _get_weight_type(accelerator)
 
-    tokenizer: CLIPTokenizer = CLIPTokenizer.from_pretrained(config.model, subfolder="tokenizer", local_files_only=True)
-    noise_scheduler: DDPMScheduler = DDPMScheduler.from_pretrained(
-        config.model, subfolder="scheduler", local_files_only=True
-    )
-    text_encoder: CLIPTextModel = CLIPTextModel.from_pretrained(
-        config.model,
-        subfolder="text_encoder",
-        local_files_only=True,
-    )
-    vae: AutoencoderKL = AutoencoderKL.from_pretrained(config.model, subfolder="vae", local_files_only=True)
-    unet: UNet2DConditionModel = UNet2DConditionModel.from_pretrained(
-        config.model,
-        subfolder="unet",
-        local_files_only=True,
-    )
+    tokenizer: CLIPTokenizer = CLIPTokenizer.from_pretrained(config.model, subfolder="tokenizer")
+    noise_scheduler: DDPMScheduler = DDPMScheduler.from_pretrained(config.model, subfolder="scheduler")
+    text_encoder: CLIPTextModel = CLIPTextModel.from_pretrained(config.model, subfolder="text_encoder")
+    vae: AutoencoderKL = AutoencoderKL.from_pretrained(config.model, subfolder="vae")
+    unet: UNet2DConditionModel = UNet2DConditionModel.from_pretrained(config.model, subfolder="unet")
 
     # Disable gradient calculation for model weights to save memory.
     text_encoder.requires_grad_(False)
@@ -354,6 +348,13 @@ def _train_forward(
 
 
 def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
+    # Give a clear error message if an unsupported base model was chosen.
+    check_base_model_version(
+        {BaseModelVersionEnum.STABLE_DIFFUSION_V1, BaseModelVersionEnum.STABLE_DIFFUSION_V2},
+        config.model,
+        local_files_only=False,
+    )
+
     # Create a timestamped directory for all outputs.
     out_dir = os.path.join(config.output.base_output_dir, f"{time.time()}")
     os.makedirs(out_dir)

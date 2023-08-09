@@ -10,7 +10,9 @@ class BaseModelVersionEnum(Enum):
     STABLE_DIFFUSION_SDXL_REFINER = 4
 
 
-def get_base_model_version(diffusers_model_name: str, revision: str = "main") -> BaseModelVersionEnum:
+def get_base_model_version(
+    diffusers_model_name: str, revision: str = "main", local_files_only: bool = True
+) -> BaseModelVersionEnum:
     """Returns the `BaseModelVersionEnum` of a diffusers model.
 
     Args:
@@ -27,7 +29,7 @@ def get_base_model_version(diffusers_model_name: str, revision: str = "main") ->
         pretrained_model_name_or_path=diffusers_model_name,
         revision=revision,
         subfolder="unet",
-        local_files_only=True,
+        local_files_only=local_files_only,
     )
 
     # This logic was copied from
@@ -50,7 +52,10 @@ def get_base_model_version(diffusers_model_name: str, revision: str = "main") ->
 
 
 def check_base_model_version(
-    allowed_versions: set[BaseModelVersionEnum], diffusers_model_name: str, revision: str = "main"
+    allowed_versions: set[BaseModelVersionEnum],
+    diffusers_model_name: str,
+    revision: str = "main",
+    local_files_only: bool = True,
 ):
     """Helper function that checks if a diffusers model is compatible with a set of base model versions.
 
@@ -62,7 +67,7 @@ def check_base_model_version(
     Raises:
         ValueError: If the model has an unsupported version.
     """
-    version = get_base_model_version(diffusers_model_name, revision)
+    version = get_base_model_version(diffusers_model_name, revision, local_files_only)
     if version not in allowed_versions:
         raise ValueError(
             f"Model '{diffusers_model_name}' (revision='{revision}') has an unsupported version: '{version.name}'. "
