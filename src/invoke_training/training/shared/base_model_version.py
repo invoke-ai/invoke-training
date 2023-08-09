@@ -47,3 +47,24 @@ def get_base_model_version(diffusers_model_name: str, revision: str = "main") ->
             "Failed to determine base model version. UNet cross_attention_dim has unexpected value: "
             f"'{ unet_config.cross_attention_dim}'."
         )
+
+
+def check_base_model_version(
+    allowed_versions: set[BaseModelVersionEnum], diffusers_model_name: str, revision: str = "main"
+):
+    """Helper function that checks if a diffusers model is compatible with a set of base model versions.
+
+    Args:
+        allowed_versions (set[BaseModelVersionEnum]): The set of allowed base model versions.
+        diffusers_model_name (str): The diffusers model name (on Hugging Face Hub) to check.
+        revision (str, optional): The model revision (branch or commit hash). Defaults to "main".
+
+    Raises:
+        ValueError: If the model has an unsupported version.
+    """
+    version = get_base_model_version(diffusers_model_name, revision)
+    if version not in allowed_versions:
+        raise ValueError(
+            f"Model '{diffusers_model_name}' (revision='{revision}') has an unsupported version: '{version.name}'. "
+            f"Supported versions: {[v.name for v in allowed_versions]}."
+        )

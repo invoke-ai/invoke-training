@@ -3,6 +3,7 @@ from transformers import PretrainedConfig
 
 from invoke_training.training.shared.base_model_version import (
     BaseModelVersionEnum,
+    check_base_model_version,
     get_base_model_version,
 )
 
@@ -18,6 +19,7 @@ from invoke_training.training.shared.base_model_version import (
     ],
 )
 def test_get_base_model_version(diffusers_model_name: str, expected_version: BaseModelVersionEnum):
+    """Test get_base_model_version(...) with one test model for each supported version."""
     # Check if the diffusers_model_name model is downloaded and xfail if not.
     # This check ensures that users don't have to download all of the test models just to run the test suite.
     try:
@@ -31,3 +33,16 @@ def test_get_base_model_version(diffusers_model_name: str, expected_version: Bas
 
     version = get_base_model_version(diffusers_model_name)
     assert version == expected_version
+
+
+@pytest.mark.loads_model
+def test_check_base_model_version_pass():
+    """Test that check_base_model_version(...) does not raise an Exception when the model is valid."""
+    check_base_model_version({BaseModelVersionEnum.STABLE_DIFFUSION_V1}, "runwayml/stable-diffusion-v1-5")
+
+
+@pytest.mark.loads_model
+def test_check_base_model_version_fail():
+    """Test that check_base_model_version(...) raises a ValueError when the model is invalid."""
+    with pytest.raises(ValueError):
+        check_base_model_version({BaseModelVersionEnum.STABLE_DIFFUSION_V2}, "runwayml/stable-diffusion-v1-5")
