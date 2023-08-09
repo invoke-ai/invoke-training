@@ -4,14 +4,10 @@ import math
 import os
 import time
 
-import datasets
-import diffusers
 import numpy as np
 import torch
-import transformers
 from accelerate import Accelerator
-from accelerate.logging import MultiProcessAdapter, get_logger
-from accelerate.utils import ProjectConfiguration, set_seed
+from accelerate.utils import set_seed
 from diffusers import (
     AutoencoderKL,
     DDPMScheduler,
@@ -28,6 +24,11 @@ from invoke_training.lora.injection.stable_diffusion_v1 import (
     inject_lora_into_unet_sd1,
 )
 from invoke_training.training.lora.lora_training_config import LoRATrainingConfig
+from invoke_training.training.shared.accelerator_utils import (
+    get_mixed_precision_dtype,
+    initialize_accelerator,
+    initialize_logging,
+)
 from invoke_training.training.shared.base_model_version import (
     BaseModelVersionEnum,
     check_base_model_version,
@@ -37,83 +38,6 @@ from invoke_training.training.shared.datasets.image_caption_dataloader import (
     build_image_caption_dataloader,
 )
 from invoke_training.training.shared.serialization import save_state_dict
-
-
-def _initialize_accelerator(out_dir: str, config: LoRATrainingConfig) -> Accelerator:
-    """Configure Hugging Face accelerate and return an Accelerator.
-
-    Args:
-        out_dir (str): The output directory where results will be written.
-        config (LoRATrainingConfig): LoRA training configuration.
-
-    Returns:
-        Accelerator
-    """
-    accelerator_project_config = ProjectConfiguration(
-        project_dir=out_dir,
-        logging_dir=os.path.join(out_dir, "logs"),
-    )
-    return Accelerator(
-        project_config=accelerator_project_config,
-        gradient_accumulation_steps=config.gradient_accumulation_steps,
-        mixed_precision=config.mixed_precision,
-        log_with=config.output.report_to,
-    )
-
-
-def _initialize_logging(accelerator: Accelerator) -> MultiProcessAdapter:
-    """Configure logging.
-
-    Returns an accelerate logger with multi-process logging support. Logging is configured to be more verbose on the
-    main process. Non-main processes only log at error level for Hugging Face libraries (datasets, transformers,
-    diffusers).
-
-    Args:
-        accelerator (Accelerator): The Accelerator to configure.
-
-    Returns:
-        MultiProcessAdapter: _description_
-    """
-    logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-        datefmt="%m/%d/%Y %H:%M:%S",
-        level=logging.INFO,
-    )
-    if accelerator.is_local_main_process:
-        datasets.utils.logging.set_verbosity_warning()
-        transformers.utils.logging.set_verbosity_warning()
-        diffusers.utils.logging.set_verbosity_info()
-    else:
-        # Only log errors from non-main processes.
-        datasets.utils.logging.set_verbosity_error()
-        transformers.utils.logging.set_verbosity_error()
-        diffusers.utils.logging.set_verbosity_error()
-
-    return get_logger(__name__)
-
-
-def _get_weight_type(accelerator: Accelerator):
-    """Extract torch.dtype from Accelerator config.
-
-    Args:
-        accelerator (Accelerator): The Hugging Face Accelerator.
-
-    Raises:
-        NotImplementedError: If the accelerator's mixed_precision configuration is not recognized.
-
-    Returns:
-        torch.dtype: The weight type inferred from the accelerator mixed_precision configuration.
-    """
-    weight_dtype: torch.dtype = torch.float32
-    if accelerator.mixed_precision is None or accelerator.mixed_precision == "no":
-        weight_dtype = torch.float32
-    elif accelerator.mixed_precision == "fp16":
-        weight_dtype = torch.float16
-    elif accelerator.mixed_precision == "bf16":
-        weight_dtype = torch.bfloat16
-    else:
-        raise NotImplementedError(f"mixed_precision mode '{accelerator.mixed_precision}' is not yet supported.")
-    return weight_dtype
 
 
 def _load_models(
@@ -136,7 +60,7 @@ def _load_models(
             UNet2DConditionModel,
         ]: A tuple of loaded models.
     """
-    weight_dtype = _get_weight_type(accelerator)
+    weight_dtype = get_mixed_precision_dtype(accelerator)
 
     tokenizer: CLIPTokenizer = CLIPTokenizer.from_pretrained(config.model, subfolder="tokenizer")
     noise_scheduler: DDPMScheduler = DDPMScheduler.from_pretrained(config.model, subfolder="scheduler")
@@ -359,8 +283,10 @@ def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
     out_dir = os.path.join(config.output.base_output_dir, f"{time.time()}")
     os.makedirs(out_dir)
 
-    accelerator = _initialize_accelerator(out_dir, config)
-    logger = _initialize_logging(accelerator)
+    accelerator = initialize_accelerator(
+        out_dir, config.gradient_accumulation_steps, config.mixed_precision, config.output.report_to
+    )
+    logger = initialize_logging(__name__, accelerator)
 
     # Set the accelerate seed.
     if config.seed is not None:
@@ -377,7 +303,7 @@ def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
     with open(os.path.join(out_dir, "config.json"), "w") as f:
         json.dump(config.dict(), f, indent=2, default=str)
 
-    weight_dtype = _get_weight_type(accelerator)
+    weight_dtype = get_mixed_precision_dtype(accelerator)
 
     logger.info("Loading models.")
     tokenizer, noise_scheduler, text_encoder, vae, unet = _load_models(accelerator, config)
