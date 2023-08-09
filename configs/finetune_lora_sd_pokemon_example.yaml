@@ -1,4 +1,4 @@
-# This is a sample config for training a Pokemon LoRA model.
+# This is a sample config for finetuning a Stable Diffusion 1.5 model with LoRA to produce a Pokemon LoRA model.
 
 output:
   base_output_dir: output/
@@ -10,6 +10,7 @@ dataset:
   dataset_name: lambdalabs/pokemon-blip-captions
 
 # General
+model: runwayml/stable-diffusion-v1-5
 seed: 1
 gradient_accumulation_steps: 1
 mixed_precision: fp16

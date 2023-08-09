@@ -88,7 +88,7 @@ class DatasetConfig(BaseModel):
     dataloader_num_workers: int = 0
 
 
-class LoRATrainingConfig(BaseModel):
+class FinetuneLoRAConfig(BaseModel):
     """The configuration for a LoRA training run."""
 
     output: TrainingOutputConfig
