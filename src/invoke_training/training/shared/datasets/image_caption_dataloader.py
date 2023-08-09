@@ -8,8 +8,8 @@ from invoke_training.training.shared.datasets.hf_dir_image_caption_reader import
 from invoke_training.training.shared.datasets.hf_hub_image_caption_reader import (
     HFHubImageCaptionReader,
 )
-from invoke_training.training.shared.datasets.image_caption_dataset import (
-    ImageCaptionDataset,
+from invoke_training.training.shared.datasets.image_caption_sd_dataset import (
+    ImageCaptionSDDataset,
 )
 
 
@@ -44,7 +44,7 @@ def build_image_caption_dataloader(config: DatasetConfig, tokenizer: CLIPTokeniz
     else:
         raise ValueError("One of 'dataset_name' or 'dataset_dir' must be set.")
 
-    dataset = ImageCaptionDataset(
+    dataset = ImageCaptionSDDataset(
         reader=reader,
         tokenizer=tokenizer,
         resolution=config.resolution,

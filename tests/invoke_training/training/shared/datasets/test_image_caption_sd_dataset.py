@@ -6,24 +6,24 @@ import torch
 from PIL import Image
 from transformers import CLIPTokenizer
 
-from invoke_training.training.shared.datasets.image_caption_dataset import (
-    ImageCaptionDataset,
+from invoke_training.training.shared.datasets.image_caption_sd_dataset import (
+    ImageCaptionSDDataset,
 )
 
 
 def test_image_caption_dataset_len():
-    """Test that the ImageCaptionDataset __len__() function returns the length of the underlying reader."""
+    """Test that the ImageCaptionSDDataset __len__() function returns the length of the underlying reader."""
     reader_mock = unittest.mock.MagicMock()
     reader_mock.__len__.return_value = 5
 
-    dataset = ImageCaptionDataset(reader_mock, None, resolution=512)
+    dataset = ImageCaptionSDDataset(reader_mock, None, resolution=512)
 
     assert len(dataset) == 5
 
 
 @pytest.mark.loads_model
 def test_image_caption_dataset_getitem():
-    """Test that the ImageCaptionDataset __getitem__() function returns an example with the expected type and
+    """Test that the ImageCaptionSDDataset __getitem__() function returns an example with the expected type and
     dimensions.
     """
     # Prepare mock reader.
@@ -40,7 +40,7 @@ def test_image_caption_dataset_getitem():
         revision="c9ab35ff5f2c362e9e22fbafe278077e196057f0",
     )
 
-    dataset = ImageCaptionDataset(reader_mock, tokenizer, resolution=512)
+    dataset = ImageCaptionSDDataset(reader_mock, tokenizer, resolution=512)
 
     example = dataset[0]
 
