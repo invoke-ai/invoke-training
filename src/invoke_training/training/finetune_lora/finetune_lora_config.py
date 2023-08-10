@@ -25,6 +25,10 @@ class TrainingOutputConfig(BaseModel):
 class TrainingOptimizerConfig(BaseModel):
     """Configuration for the training optimizer. (Currently, only torch.optim.AdamW is supported.)"""
 
+    # Whether to use the 8-bit Adam optimizer provided by bitsandbytes. This will reduce the GPU memory requirements
+    # during training.
+    use_8bit_adam: bool = False
+
     # Initial learning rate to use (after the potential warmup period).
     learning_rate: float = 1e-4
 

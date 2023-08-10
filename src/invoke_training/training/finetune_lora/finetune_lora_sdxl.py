@@ -36,6 +36,7 @@ from invoke_training.training.shared.accelerator_utils import (
     initialize_accelerator,
     initialize_logging,
 )
+from invoke_training.training.shared.adam_optimizer import initialize_optimizer
 from invoke_training.training.shared.base_model_version import (
     BaseModelVersionEnum,
     check_base_model_version,
@@ -153,18 +154,6 @@ def _load_models(
     unet.to(accelerator.device, dtype=weight_dtype)
 
     return tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet
-
-
-# TODO(ryand): Split this function out to avoid duplication between sd and sdxl configs.
-def _initialize_optimizer(config: FinetuneLoRASDXLConfig, trainable_params: list) -> torch.optim.Optimizer:
-    """Initialize an optimizer based on the config."""
-    return torch.optim.AdamW(
-        trainable_params,
-        lr=config.optimizer.learning_rate,
-        betas=(config.optimizer.adam_beta1, config.optimizer.adam_beta2),
-        weight_decay=config.optimizer.adam_weight_decay,
-        eps=config.optimizer.adam_epsilon,
-    )
 
 
 def _save_checkpoint(
@@ -431,7 +420,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         unet.enable_xformers_memory_efficient_attention()
         vae.enable_xformers_memory_efficient_attention()
 
-    optimizer = _initialize_optimizer(config, lora_layers.parameters())
+    optimizer = initialize_optimizer(config.optimizer, lora_layers.parameters())
 
     data_loader = build_image_caption_sdxl_dataloader(config.dataset, tokenizer_1, tokenizer_2, config.train_batch_size)
 
