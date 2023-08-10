@@ -10,16 +10,19 @@ from invoke_training.lora.injection.stable_diffusion_v1 import (
 )
 
 
-@pytest.mark.loads_model
-def test_inject_lora_into_unet_sd1_smoke():
-    """Smoke test of inject_lora_into_unet_sd1(...) on full SD 1.5 model."""
-    unet = UNet2DConditionModel.from_pretrained(
+@pytest.fixture
+def unet():
+    return UNet2DConditionModel.from_pretrained(
         "runwayml/stable-diffusion-v1-5",
         subfolder="unet",
         local_files_only=True,
         revision="c9ab35ff5f2c362e9e22fbafe278077e196057f0",
     )
 
+
+@pytest.mark.loads_model
+def test_inject_lora_into_unet_sd1_smoke(unet):
+    """Smoke test of inject_lora_into_unet_sd1(...) on full SD 1.5 model."""
     lora_layers = inject_lora_into_unet_sd1(unet)
 
     # These assertions are based on a manual check of the injected layers and comparison against the behaviour of
@@ -28,6 +31,34 @@ def test_inject_lora_into_unet_sd1_smoke():
     for layer_name in lora_layers._names:
         assert layer_name.endswith(
             ("to_q", "to_k", "to_v", "to_out.0", "ff.net.0.proj", "ff.net.2", ".proj_in", ".proj_out")
+        )
+
+
+@pytest.mark.loads_model
+def test_inject_lora_into_unet_sd1_non_attention_layers_smoke(unet):
+    """Smoke test of inject_lora_into_unet_sd1(..., include_non_attention_blocks=True) on full SD 1.5 model."""
+    lora_layers = inject_lora_into_unet_sd1(unet, include_non_attention_blocks=True)
+
+    # These assertions are based on a manual check of the injected layers and comparison against the behaviour of
+    # kohya_ss. They are included here to force another manual review after any future breaking change.
+    assert len(lora_layers) == 278
+    for layer_name in lora_layers._names:
+        assert layer_name.endswith(
+            (
+                "to_q",
+                "to_k",
+                "to_v",
+                "to_out.0",
+                "ff.net.0.proj",
+                "ff.net.2",
+                ".proj_in",
+                ".proj_out",
+                ".conv1",
+                ".conv2",
+                ".time_emb_proj",
+                ".conv",
+                ".conv_shortcut",
+            )
         )
 
 
@@ -51,15 +82,8 @@ def test_inject_lora_into_clip_text_encoder_smoke():
 
 
 @pytest.mark.loads_model
-def test_convert_lora_state_dict_to_kohya_format_sd1_smoke():
+def test_convert_lora_state_dict_to_kohya_format_sd1_smoke(unet):
     """Smoke test of convert_lora_state_dict_to_kohya_format_sd1(...) with full SD 1.5 model."""
-    unet = UNet2DConditionModel.from_pretrained(
-        "runwayml/stable-diffusion-v1-5",
-        subfolder="unet",
-        local_files_only=True,
-        revision="c9ab35ff5f2c362e9e22fbafe278077e196057f0",
-    )
-
     lora_layers = inject_lora_into_unet_sd1(unet)
     lora_state_dict = lora_layers.get_lora_state_dict()
     kohya_state_dict = convert_lora_state_dict_to_kohya_format_sd1(lora_state_dict)

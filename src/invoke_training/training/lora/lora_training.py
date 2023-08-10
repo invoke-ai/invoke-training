@@ -383,7 +383,7 @@ def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
 
     lora_layers = torch.nn.ModuleDict()
     if config.train_unet:
-        lora_layers["unet"] = inject_lora_into_unet_sd1(unet)
+        lora_layers["unet"] = inject_lora_into_unet_sd1(unet, config.train_unet_non_attention_blocks)
     if config.train_text_encoder:
         lora_layers["text_encoder"] = inject_lora_into_clip_text_encoder(text_encoder)
 
