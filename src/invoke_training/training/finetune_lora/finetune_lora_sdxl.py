@@ -11,12 +11,17 @@ from accelerate.utils import set_seed
 from diffusers import (
     AutoencoderKL,
     DDPMScheduler,
-    StableDiffusionPipeline,
+    StableDiffusionXLPipeline,
     UNet2DConditionModel,
 )
 from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
-from transformers import CLIPTextModel, CLIPTokenizer
+from transformers import (
+    AutoTokenizer,
+    CLIPPreTrainedModel,
+    PretrainedConfig,
+    PreTrainedTokenizer,
+)
 
 from invoke_training.lora.injection.stable_diffusion_v1 import (
     convert_lora_state_dict_to_kohya_format_sd1,
@@ -24,7 +29,7 @@ from invoke_training.lora.injection.stable_diffusion_v1 import (
     inject_lora_into_unet_sd1,
 )
 from invoke_training.training.finetune_lora.finetune_lora_config import (
-    FinetuneLoRAConfig,
+    FinetuneLoRASDXLConfig,
 )
 from invoke_training.training.shared.accelerator_utils import (
     get_mixed_precision_dtype,
@@ -36,58 +41,122 @@ from invoke_training.training.shared.base_model_version import (
     check_base_model_version,
 )
 from invoke_training.training.shared.checkpoint_tracker import CheckpointTracker
-from invoke_training.training.shared.datasets.image_caption_dataloader import (
-    build_image_caption_dataloader,
+from invoke_training.training.shared.datasets.image_caption_sdxl_dataloader import (
+    build_image_caption_sdxl_dataloader,
 )
 from invoke_training.training.shared.serialization import save_state_dict
 
 
-def _load_models(
-    accelerator: Accelerator,
-    config: FinetuneLoRAConfig,
-) -> tuple[CLIPTokenizer, DDPMScheduler, CLIPTextModel, AutoencoderKL, UNet2DConditionModel]:
-    """Load all models required for training from disk, transfer them to the
-    target training device and cast their weight dtypes.
+def _import_model_class_for_model(pretrained_model_name_or_path: str, subfolder: str = "", revision: str = "main"):
+    """Lookup the model class in a diffusers model config, import the class, and return it. This function is useful when
+    loading models that could be one of many possible classes.
 
     Args:
-        config (FinetuneLoRAConfig): The LoRA training run config.
-        logger (logging.Logger): A logger.
+        pretrained_model_name_or_path (str): The diffusers model name/path.
+        subfolder (str, optional): The model subfolder.
+        revision (str, optional): The diffusers model revision.
+
+
+    Raises:
+        ValueError: If the detected model class is not recognize.
+
+    Returns:
+        type: The model class.
+    """
+    text_encoder_config = PretrainedConfig.from_pretrained(
+        pretrained_model_name_or_path, subfolder=subfolder, revision=revision
+    )
+    model_class = text_encoder_config.architectures[0]
+
+    if model_class == "CLIPTextModel":
+        from transformers import CLIPTextModel
+
+        return CLIPTextModel
+    elif model_class == "CLIPTextModelWithProjection":
+        from transformers import CLIPTextModelWithProjection
+
+        return CLIPTextModelWithProjection
+    else:
+        raise ValueError(f"{model_class} is not supported.")
+
+
+def _load_models(
+    accelerator: Accelerator,
+    config: FinetuneLoRASDXLConfig,
+) -> tuple[
+    PreTrainedTokenizer,
+    PreTrainedTokenizer,
+    DDPMScheduler,
+    CLIPPreTrainedModel,
+    CLIPPreTrainedModel,
+    AutoencoderKL,
+    UNet2DConditionModel,
+]:
+    """Load all models required for training, transfer them to the target training device and cast their weight dtypes.
+
+    Args:
+        accelerator (Accelerator): Accelerator
+        config (FinetuneLoRASDXLConfig): Training config.
 
     Returns:
         tuple[
-            CLIPTokenizer,
+            PreTrainedTokenizer,
+            PreTrainedTokenizer,
             DDPMScheduler,
-            CLIPTextModel,
+            CLIPPreTrainedModel,
+            CLIPPreTrainedModel,
             AutoencoderKL,
             UNet2DConditionModel,
         ]: A tuple of loaded models.
     """
     weight_dtype = get_mixed_precision_dtype(accelerator)
 
-    tokenizer: CLIPTokenizer = CLIPTokenizer.from_pretrained(config.model, subfolder="tokenizer")
+    # Load tokenizers.
+    tokenizer_1: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
+        config.model, subfolder="tokenizer", use_fast=False
+    )
+    tokenizer_2: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
+        config.model, subfolder="tokenizer_2", use_fast=False
+    )
+
+    # Load noise scheduler.
     noise_scheduler: DDPMScheduler = DDPMScheduler.from_pretrained(config.model, subfolder="scheduler")
-    text_encoder: CLIPTextModel = CLIPTextModel.from_pretrained(config.model, subfolder="text_encoder")
-    vae: AutoencoderKL = AutoencoderKL.from_pretrained(config.model, subfolder="vae")
+
+    # Load text encoders.
+    text_encoder_cls_1 = _import_model_class_for_model(config.model, subfolder="text_encoder")
+    text_encoder_1 = text_encoder_cls_1.from_pretrained(config.model, subfolder="text_encoder")
+    text_encoder_cls_2 = _import_model_class_for_model(config.model, subfolder="text_encoder_2")
+    text_encoder_2 = text_encoder_cls_2.from_pretrained(config.model, subfolder="text_encoder_2")
+
+    # Load VAE.
+    vae_model = config.vae_model if config.vae_model is not None else config.model
+    vae: AutoencoderKL = AutoencoderKL.from_pretrained(vae_model, subfolder="vae")
+
+    # Load UNet.
     unet: UNet2DConditionModel = UNet2DConditionModel.from_pretrained(config.model, subfolder="unet")
 
     # Disable gradient calculation for model weights to save memory.
-    text_encoder.requires_grad_(False)
+    text_encoder_1.requires_grad_(False)
+    text_encoder_2.requires_grad_(False)
     vae.requires_grad_(False)
     unet.requires_grad_(False)
 
     # Put models in 'eval' mode.
-    text_encoder.eval()
+    text_encoder_1.eval()
+    text_encoder_2.eval()
     vae.eval()
     unet.eval()
 
-    text_encoder.to(accelerator.device, dtype=weight_dtype)
+    text_encoder_1.to(accelerator.device, dtype=weight_dtype)
+    text_encoder_2.to(accelerator.device, dtype=weight_dtype)
     vae.to(accelerator.device, dtype=weight_dtype)
     unet.to(accelerator.device, dtype=weight_dtype)
 
-    return tokenizer, noise_scheduler, text_encoder, vae, unet
+    return tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet
 
 
-def _initialize_optimizer(config: FinetuneLoRAConfig, trainable_params: list) -> torch.optim.Optimizer:
+# TODO(ryand): Split this function out to avoid duplication between sd and sdxl configs.
+def _initialize_optimizer(config: FinetuneLoRASDXLConfig, trainable_params: list) -> torch.optim.Optimizer:
     """Initialize an optimizer based on the config."""
     return torch.optim.AdamW(
         trainable_params,
@@ -130,45 +199,62 @@ def _save_checkpoint(
     logger.info(f"Saved state to '{save_path}'.")
 
 
+# encode_prompt was adapted from:
+# https://github.com/huggingface/diffusers/blob/7b07f9812a58bfa96c06ed8ffe9e6b584286e2fd/examples/text_to_image/train_text_to_image_lora_sdxl.py#L470-L496
+def _encode_prompt(text_encoders: list[CLIPPreTrainedModel], prompt_token_ids_list: list[torch.Tensor]):
+    prompt_embeds_list = []
+
+    for i, text_encoder in enumerate(text_encoders):
+        text_input_ids = prompt_token_ids_list[i]
+
+        prompt_embeds = text_encoder(
+            text_input_ids.to(text_encoder.device),
+            output_hidden_states=True,
+        )
+
+        # We are only ALWAYS interested in the pooled output of the final text encoder.
+        # TODO(ryand): Document this logic more clearly.
+        pooled_prompt_embeds = prompt_embeds[0]
+        prompt_embeds = prompt_embeds.hidden_states[-2]
+        bs_embed, seq_len, _ = prompt_embeds.shape
+        prompt_embeds = prompt_embeds.view(bs_embed, seq_len, -1)
+        prompt_embeds_list.append(prompt_embeds)
+
+    prompt_embeds = torch.concat(prompt_embeds_list, dim=-1)
+    pooled_prompt_embeds = pooled_prompt_embeds.view(bs_embed, -1)
+    return prompt_embeds, pooled_prompt_embeds
+
+
 def _generate_validation_images(
     epoch: int,
     out_dir: str,
     accelerator: Accelerator,
     vae: AutoencoderKL,
-    text_encoder: CLIPTextModel,
-    tokenizer: CLIPTokenizer,
+    text_encoder_1: CLIPPreTrainedModel,
+    text_encoder_2: CLIPPreTrainedModel,
+    tokenizer_1: PreTrainedTokenizer,
+    tokenizer_2: PreTrainedTokenizer,
     noise_scheduler: DDPMScheduler,
     unet: UNet2DConditionModel,
-    config: FinetuneLoRAConfig,
+    config: FinetuneLoRASDXLConfig,
     logger: logging.Logger,
 ):
     """Generate validation images for the purpose of tracking image generation behaviour on fixed prompts throughout
     training.
-
-    Args:
-        epoch (int): Epoch number, for reporting purposes.
-        out_dir (str): The output directory where the validation images will be stored.
-        accelerator (Accelerator): Accelerator
-        vae (AutoencoderKL):
-        text_encoder (CLIPTextModel):
-        tokenizer (CLIPTokenizer):
-        noise_scheduler (DDPMScheduler):
-        unet (UNet2DConditionModel):
-        config (FinetuneLoRAConfig): Training configs.
-        logger (logging.Logger): Logger.
     """
     logger.info("Generating validation images.")
 
     # Create pipeline.
-    pipeline = StableDiffusionPipeline(
+    pipeline = StableDiffusionXLPipeline(
         vae=vae,
-        text_encoder=text_encoder,
-        tokenizer=tokenizer,
+        text_encoder=text_encoder_1,
+        text_encoder_2=text_encoder_2,
+        tokenizer=tokenizer_1,
+        tokenizer_2=tokenizer_2,
         unet=unet,
         scheduler=noise_scheduler,
         safety_checker=None,
         feature_extractor=None,
-        # TODO(ryand): Add safety checker support.
         requires_safety_checker=False,
     )
     pipeline = pipeline.to(accelerator.device)
@@ -219,11 +305,13 @@ def _generate_validation_images(
 
 
 def _train_forward(
-    config: FinetuneLoRAConfig,
+    accelerator: Accelerator,
+    config: FinetuneLoRASDXLConfig,
     data_batch: dict,
     vae: AutoencoderKL,
     noise_scheduler: DDPMScheduler,
-    text_encoder: CLIPTextModel,
+    text_encoder_1: CLIPPreTrainedModel,
+    text_encoder_2: CLIPPreTrainedModel,
     unet: UNet2DConditionModel,
     weight_dtype: torch.dtype,
 ):
@@ -249,12 +337,33 @@ def _train_forward(
     )
     timesteps = timesteps.long()
 
-    # Add noise to the latents according to the noise magnitude at each timestep (this is the forward
-    # diffusion process).
+    # Add noise to the latents according to the noise magnitude at each timestep (this is the forward diffusion
+    # process).
     noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
 
+    # compute_time_ids was copied from:
+    # https://github.com/huggingface/diffusers/blob/7b07f9812a58bfa96c06ed8ffe9e6b584286e2fd/examples/text_to_image/train_text_to_image_lora_sdxl.py#L1033-L1039
+    # "time_ids" may seem like a weird naming choice. The name comes from the diffusers SDXL implementation. Presumably,
+    # it is a result of the fact that the original size and crop values get concatenated with the time embeddings.
+    def compute_time_ids(original_size, crops_coords_top_left):
+        # Adapted from pipeline.StableDiffusionXLPipeline._get_add_time_ids
+        target_size = (config.dataset.resolution, config.dataset.resolution)
+        add_time_ids = list(original_size + crops_coords_top_left + target_size)
+        add_time_ids = torch.tensor([add_time_ids])
+        add_time_ids = add_time_ids.to(accelerator.device, dtype=weight_dtype)
+        return add_time_ids
+
+    add_time_ids = torch.cat(
+        [compute_time_ids(s, c) for s, c in zip(data_batch["original_size_hw"], data_batch["crop_top_left_yx"])]
+    )
+    unet_conditions = {"time_ids": add_time_ids}
+
     # Get the text embedding for conditioning.
-    encoder_hidden_states = text_encoder(data_batch["caption_token_ids"])[0]
+    prompt_embeds, pooled_prompt_embeds = _encode_prompt(
+        text_encoders=[text_encoder_1, text_encoder_2],
+        prompt_token_ids_list=[data_batch["caption_token_ids_1"], data_batch["caption_token_ids_2"]],
+    )
+    unet_conditions["text_embeds"] = pooled_prompt_embeds
 
     # Get the target for loss depending on the prediction type.
     if config.prediction_type is not None:
@@ -268,15 +377,15 @@ def _train_forward(
         raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
 
     # Predict the noise residual.
-    model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
+    model_pred = unet(noisy_latents, timesteps, prompt_embeds, added_cond_kwargs=unet_conditions).sample
 
     return torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="mean")
 
 
-def run_training(config: FinetuneLoRAConfig):  # noqa: C901
+def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     check_base_model_version(
-        {BaseModelVersionEnum.STABLE_DIFFUSION_V1, BaseModelVersionEnum.STABLE_DIFFUSION_V2},
+        {BaseModelVersionEnum.STABLE_DIFFUSION_SDXL},
         config.model,
         local_files_only=False,
     )
@@ -297,7 +406,7 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
     # Log the accelerator configuration from every process to help with debugging.
     logger.info(accelerator.state, main_process_only=False)
 
-    logger.info("Starting LoRA Training.")
+    logger.info("Starting Training.")
     logger.info(f"Configuration:\n{json.dumps(config.dict(), indent=2, default=str)}")
     logger.info(f"Output dir: '{out_dir}'")
 
@@ -308,13 +417,16 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
     weight_dtype = get_mixed_precision_dtype(accelerator)
 
     logger.info("Loading models.")
-    tokenizer, noise_scheduler, text_encoder, vae, unet = _load_models(accelerator, config)
+    tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = _load_models(
+        accelerator, config
+    )
 
     lora_layers = torch.nn.ModuleDict()
     if config.train_unet:
         lora_layers["unet"] = inject_lora_into_unet_sd1(unet, config.train_unet_non_attention_blocks)
     if config.train_text_encoder:
-        lora_layers["text_encoder"] = inject_lora_into_clip_text_encoder(text_encoder)
+        lora_layers["text_encoder_1"] = inject_lora_into_clip_text_encoder(text_encoder_1, "lora_te1")
+        lora_layers["text_encoder_2"] = inject_lora_into_clip_text_encoder(text_encoder_1, "lora_te2")
 
     if config.xformers:
         import xformers  # noqa: F401
@@ -324,7 +436,7 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
 
     optimizer = _initialize_optimizer(config, lora_layers.parameters())
 
-    data_loader = build_image_caption_dataloader(config.dataset, tokenizer, config.train_batch_size)
+    data_loader = build_image_caption_sdxl_dataloader(config.dataset, tokenizer_1, tokenizer_2, config.train_batch_size)
 
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
     # by the number of processes. This scaling logic was copied from the diffusers example training code, but it appears
@@ -340,13 +452,14 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
 
     prepared_result: tuple[
         UNet2DConditionModel,
-        CLIPTextModel,
+        CLIPPreTrainedModel,
+        CLIPPreTrainedModel,
         torch.nn.ModuleDict,
         torch.optim.Optimizer,
         torch.utils.data.DataLoader,
         torch.optim.lr_scheduler.LRScheduler,
-    ] = accelerator.prepare(unet, text_encoder, lora_layers, optimizer, data_loader, lr_scheduler)
-    unet, text_encoder, lora_layers, optimizer, data_loader, lr_scheduler = prepared_result
+    ] = accelerator.prepare(unet, text_encoder_1, text_encoder_2, lora_layers, optimizer, data_loader, lr_scheduler)
+    unet, text_encoder_1, text_encoder_2, lora_layers, optimizer, data_loader, lr_scheduler = prepared_result
 
     # Calculate the number of epochs and total training steps. A "step" represents a single weight update operation
     # (i.e. takes into account gradient accumulation steps).
@@ -403,7 +516,8 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
                     data_batch,
                     vae,
                     noise_scheduler,
-                    text_encoder,
+                    text_encoder_1,
+                    text_encoder_2,
                     unet,
                     weight_dtype,
                 )
@@ -457,8 +571,10 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
                     out_dir=out_dir,
                     accelerator=accelerator,
                     vae=vae,
-                    text_encoder=text_encoder,
-                    tokenizer=tokenizer,
+                    text_encoder_1=text_encoder_1,
+                    text_encoder_2=text_encoder_2,
+                    tokenizer_1=tokenizer_1,
+                    tokenizer_2=tokenizer_2,
                     noise_scheduler=noise_scheduler,
                     unet=unet,
                     config=config,

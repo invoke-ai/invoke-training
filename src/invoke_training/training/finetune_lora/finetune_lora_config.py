@@ -167,3 +167,9 @@ class FinetuneLoRAConfig(BaseModel):
 
     # The training batch size.
     train_batch_size: int = 4
+
+
+class FinetuneLoRASDXLConfig(FinetuneLoRAConfig):
+    # The name of the Hugging Face Hub VAE model to train against. This will override the VAE bundled with the base
+    # model (specified by the `model` parameter).
+    vae_model: typing.Optional[str] = None

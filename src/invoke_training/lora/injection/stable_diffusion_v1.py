@@ -45,7 +45,7 @@ def inject_lora_into_unet_sd1(
     return lora_layers
 
 
-def inject_lora_into_clip_text_encoder(text_encoder: CLIPTextModel):
+def inject_lora_into_clip_text_encoder(text_encoder: CLIPTextModel, prefix: str = "lora_te"):
     lora_layers = inject_lora_layers(
         module=text_encoder,
         lora_map={
