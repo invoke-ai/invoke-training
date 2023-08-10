@@ -385,7 +385,7 @@ def _train_forward(
 def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     check_base_model_version(
-        {BaseModelVersionEnum.STABLE_DIFFUSION_SDXL},
+        {BaseModelVersionEnum.STABLE_DIFFUSION_SDXL_BASE},
         config.model,
         local_files_only=False,
     )
@@ -512,6 +512,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         for data_batch in data_loader:
             with accelerator.accumulate(lora_layers):
                 loss = _train_forward(
+                    accelerator,
                     config,
                     data_batch,
                     vae,
