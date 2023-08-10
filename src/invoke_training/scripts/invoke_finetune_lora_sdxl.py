@@ -4,7 +4,7 @@ from pathlib import Path
 import yaml
 
 from invoke_training.training.finetune_lora.finetune_lora_config import (
-    FinetuneLoRAConfig,
+    FinetuneLoRASDXLConfig,
 )
 from invoke_training.training.finetune_lora.finetune_lora_sdxl import run_training
 
@@ -27,7 +27,7 @@ def main():
     with open(args.cfg_file, "r") as f:
         cfg = yaml.safe_load(f)
 
-    train_config = FinetuneLoRAConfig(**cfg)
+    train_config = FinetuneLoRASDXLConfig(**cfg)
 
     run_training(train_config)
 

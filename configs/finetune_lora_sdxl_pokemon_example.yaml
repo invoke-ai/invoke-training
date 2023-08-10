@@ -1,0 +1,30 @@
+# This is a sample config for finetuning a Stable Diffusion 1.5 model with LoRA to produce a Pokemon LoRA model.
+
+output:
+  base_output_dir: output/
+
+optimizer:
+  learning_rate: 5.0e-4
+
+dataset:
+  dataset_name: lambdalabs/pokemon-blip-captions
+
+# General
+model: stabilityai/stable-diffusion-xl-base-1.0
+vae_model: madebyollin/sdxl-vae-fp16-fix
+seed: 1
+train_text_encoder: False
+gradient_accumulation_steps: 4
+mixed_precision: fp16
+xformers: True
+gradient_checkpointing: True
+max_train_steps: 4000
+save_every_n_epochs: 1
+save_every_n_steps: null
+max_checkpoints: 100
+validation_prompts:
+  - yoda
+  - astronaut
+  - yoda in a space suit
+validate_every_n_epochs: 1
+train_batch_size: 1

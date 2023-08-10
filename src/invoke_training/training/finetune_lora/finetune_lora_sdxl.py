@@ -130,7 +130,7 @@ def _load_models(
 
     # Load VAE.
     vae_model = config.vae_model if config.vae_model is not None else config.model
-    vae: AutoencoderKL = AutoencoderKL.from_pretrained(vae_model, subfolder="vae")
+    vae: AutoencoderKL = AutoencoderKL.from_pretrained(vae_model, subfolder="vae" if config.vae_model is None else None)
 
     # Load UNet.
     unet: UNet2DConditionModel = UNet2DConditionModel.from_pretrained(config.model, subfolder="unet")
@@ -253,9 +253,6 @@ def _generate_validation_images(
         tokenizer_2=tokenizer_2,
         unet=unet,
         scheduler=noise_scheduler,
-        safety_checker=None,
-        feature_extractor=None,
-        requires_safety_checker=False,
     )
     pipeline = pipeline.to(accelerator.device)
     pipeline.set_progress_bar_config(disable=True)
@@ -385,7 +382,7 @@ def _train_forward(
 def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     check_base_model_version(
-        {BaseModelVersionEnum.STABLE_DIFFUSION_SDXL},
+        {BaseModelVersionEnum.STABLE_DIFFUSION_SDXL_BASE},
         config.model,
         local_files_only=False,
     )
@@ -512,6 +509,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         for data_batch in data_loader:
             with accelerator.accumulate(lora_layers):
                 loss = _train_forward(
+                    accelerator,
                     config,
                     data_batch,
                     vae,
