@@ -18,10 +18,10 @@ from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 
-from invoke_training.lora.injection.stable_diffusion_v1 import (
-    convert_lora_state_dict_to_kohya_format_sd1,
+from invoke_training.lora.injection.stable_diffusion import (
+    convert_lora_state_dict_to_kohya_format,
     inject_lora_into_clip_text_encoder,
-    inject_lora_into_unet_sd1,
+    inject_lora_into_unet,
 )
 from invoke_training.training.finetune_lora.finetune_lora_config import (
     FinetuneLoRAConfig,
@@ -122,7 +122,7 @@ def _save_checkpoint(
     state_dict = {}
     for model_lora_layers in lora_layers.values():
         model_state_dict = model_lora_layers.get_lora_state_dict()
-        model_kohya_state_dict = convert_lora_state_dict_to_kohya_format_sd1(model_state_dict)
+        model_kohya_state_dict = convert_lora_state_dict_to_kohya_format(model_state_dict)
         state_dict.update(model_kohya_state_dict)
 
     save_state_dict(state_dict, save_path)
@@ -312,7 +312,7 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
 
     lora_layers = torch.nn.ModuleDict()
     if config.train_unet:
-        lora_layers["unet"] = inject_lora_into_unet_sd1(unet, config.train_unet_non_attention_blocks)
+        lora_layers["unet"] = inject_lora_into_unet(unet, config.train_unet_non_attention_blocks)
     if config.train_text_encoder:
         lora_layers["text_encoder"] = inject_lora_into_clip_text_encoder(text_encoder)
 
