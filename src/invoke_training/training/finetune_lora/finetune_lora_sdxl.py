@@ -130,7 +130,7 @@ def _load_models(
 
     # Load VAE.
     vae_model = config.vae_model if config.vae_model is not None else config.model
-    vae: AutoencoderKL = AutoencoderKL.from_pretrained(vae_model, subfolder="vae")
+    vae: AutoencoderKL = AutoencoderKL.from_pretrained(vae_model, subfolder="vae" if config.vae_model is None else None)
 
     # Load UNet.
     unet: UNet2DConditionModel = UNet2DConditionModel.from_pretrained(config.model, subfolder="unet")
