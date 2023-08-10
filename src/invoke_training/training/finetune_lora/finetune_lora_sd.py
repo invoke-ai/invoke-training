@@ -189,6 +189,8 @@ def _generate_validation_images(
                             prompt,
                             num_inference_steps=30,
                             generator=generator,
+                            height=config.dataset.resolution,
+                            width=config.dataset.resolution,
                         ).images[0]
                     )
 
