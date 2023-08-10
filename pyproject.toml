@@ -19,6 +19,7 @@ dependencies = [
     "datasets~=2.14.3",
     "diffusers~=0.19.3",
     "numpy",
+    "Pillow",
     "pydantic",
     "pyyaml",
     "safetensors",
@@ -63,5 +64,5 @@ line-length = 120
 addopts = "--strict-markers"
 markers = [
     "cuda: marks tests that require a CUDA GPU",
-    "loads_model: marks tests that require a model from the HF hub",
+    "loads_model: marks tests that require a model (or data) from the HF hub",
 ]

@@ -29,7 +29,9 @@ from invoke_training.lora.injection.stable_diffusion_v1 import (
 )
 from invoke_training.training.lora.lora_training_config import LoRATrainingConfig
 from invoke_training.training.shared.checkpoint_tracker import CheckpointTracker
-from invoke_training.training.shared.hf_dataset import initialize_hf_dataloader
+from invoke_training.training.shared.datasets.image_caption_dataloader import (
+    build_image_caption_dataloader,
+)
 from invoke_training.training.shared.serialization import save_state_dict
 
 
@@ -311,7 +313,7 @@ def _train_forward(
         torch.Tensor: Loss
     """
     # Convert images to latent space.
-    latents = vae.encode(data_batch["pixel_values"].to(dtype=weight_dtype)).latent_dist.sample()
+    latents = vae.encode(data_batch["image"].to(dtype=weight_dtype)).latent_dist.sample()
     latents = latents * vae.config.scaling_factor
 
     # Sample noise that we'll add to the latents.
@@ -332,7 +334,7 @@ def _train_forward(
     noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
 
     # Get the text embedding for conditioning.
-    encoder_hidden_states = text_encoder(data_batch["input_ids"])[0]
+    encoder_hidden_states = text_encoder(data_batch["caption_token_ids"])[0]
 
     # Get the target for loss depending on the prediction type.
     if config.prediction_type is not None:
@@ -393,7 +395,7 @@ def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
 
     optimizer = _initialize_optimizer(config, lora_layers.parameters())
 
-    data_loader = initialize_hf_dataloader(config.dataset, accelerator, tokenizer, config.train_batch_size)
+    data_loader = build_image_caption_dataloader(config.dataset, tokenizer, config.train_batch_size)
 
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
     # by the number of processes. This scaling logic was copied from the diffusers example training code, but it appears

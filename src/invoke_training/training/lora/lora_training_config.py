@@ -53,7 +53,7 @@ class DatasetConfig(BaseModel):
     # The name of a Hugging Face dataset.
     # One of dataset_name and dataset_dir should be set (dataset_name takes precedence).
     # See also: dataset_config_name.
-    name: typing.Optional[str] = None
+    dataset_name: typing.Optional[str] = None
 
     # The directory to load a dataset from. The dataset is expected to be in
     # Hugging Face imagefolder format (https://huggingface.co/docs/datasets/v2.4.0/en/image_load#imagefolder).
