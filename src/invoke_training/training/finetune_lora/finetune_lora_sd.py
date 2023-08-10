@@ -36,8 +36,8 @@ from invoke_training.training.shared.base_model_version import (
     check_base_model_version,
 )
 from invoke_training.training.shared.checkpoint_tracker import CheckpointTracker
-from invoke_training.training.shared.datasets.image_caption_dataloader import (
-    build_image_caption_dataloader,
+from invoke_training.training.shared.datasets.image_caption_sd_dataloader import (
+    build_image_caption_sd_dataloader,
 )
 from invoke_training.training.shared.serialization import save_state_dict
 
@@ -324,7 +324,7 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
 
     optimizer = _initialize_optimizer(config, lora_layers.parameters())
 
-    data_loader = build_image_caption_dataloader(config.dataset, tokenizer, config.train_batch_size)
+    data_loader = build_image_caption_sd_dataloader(config.dataset, tokenizer, config.train_batch_size)
 
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
     # by the number of processes. This scaling logic was copied from the diffusers example training code, but it appears

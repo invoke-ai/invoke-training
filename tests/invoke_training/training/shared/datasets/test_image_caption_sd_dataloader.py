@@ -5,14 +5,14 @@ import torch
 from transformers import CLIPTokenizer
 
 from invoke_training.training.finetune_lora.finetune_lora_config import DatasetConfig
-from invoke_training.training.shared.datasets.image_caption_dataloader import (
-    build_image_caption_dataloader,
+from invoke_training.training.shared.datasets.image_caption_sd_dataloader import (
+    build_image_caption_sd_dataloader,
 )
 
 
 @pytest.mark.loads_model
-def test_build_image_caption_dataloader():
-    """Smoke test of build_image_caption_dataloader(...)."""
+def test_build_image_caption_sd_dataloader():
+    """Smoke test of build_image_caption_sd_dataloader(...)."""
 
     tokenizer = CLIPTokenizer.from_pretrained(
         "runwayml/stable-diffusion-v1-5",
@@ -22,7 +22,7 @@ def test_build_image_caption_dataloader():
     )
 
     config = DatasetConfig(dataset_name="lambdalabs/pokemon-blip-captions", resolution=512)
-    data_loader = build_image_caption_dataloader(config, tokenizer, 4)
+    data_loader = build_image_caption_sd_dataloader(config, tokenizer, 4)
 
     # 833 is the length of the dataset determined manually here:
     # https://huggingface.co/datasets/lambdalabs/pokemon-blip-captions
