@@ -54,7 +54,7 @@ def inject_lora_into_clip_text_encoder(text_encoder: CLIPTextModel, prefix: str 
         },
         include_descendants_of={CLIPAttention, CLIPMLP},
         exclude_descendants_of=None,
-        prefix="lora_te",
+        prefix=prefix,
         dtype=torch.float32,
     )
 

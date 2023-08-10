@@ -1,4 +1,4 @@
-# This is a sample config for finetuning a Stable Diffusion 1.5 model with LoRA to produce a Pokemon LoRA model.
+# This is a sample config for finetuning a SDXL 1.0 model with LoRA to produce a Pokemon LoRA model.
 
 output:
   base_output_dir: output/
