@@ -11,6 +11,7 @@ dataset:
 
 # General
 model: stabilityai/stable-diffusion-xl-base-1.0
+vae_model: madebyollin/sdxl-vae-fp16-fix
 seed: 1
 train_text_encoder: False
 gradient_accumulation_steps: 4
