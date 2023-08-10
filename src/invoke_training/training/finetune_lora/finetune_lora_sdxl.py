@@ -507,7 +507,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
 
         train_loss = 0.0
         for i, data_batch in enumerate(data_loader):
-            if i + 1 % 10 == 0:
+            if (i + 1) % 10 == 0:
                 break
             with accelerator.accumulate(lora_layers):
                 loss = _train_forward(
