@@ -253,9 +253,6 @@ def _generate_validation_images(
         tokenizer_2=tokenizer_2,
         unet=unet,
         scheduler=noise_scheduler,
-        safety_checker=None,
-        feature_extractor=None,
-        requires_safety_checker=False,
     )
     pipeline = pipeline.to(accelerator.device)
     pipeline.set_progress_bar_config(disable=True)
