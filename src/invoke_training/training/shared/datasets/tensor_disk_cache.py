@@ -26,6 +26,14 @@ class TensorDiskCache(BaseDataCache):
         """
         return os.path.join(self._cache_dir, f"{idx}.pt")
 
+    def __len__(self):
+        """Get the number of entries in the cache.
+
+        Returns:
+            int: The length of the cache.
+        """
+        return len(os.listdir(self._cache_dir))
+
     def save(self, idx: int, data: typing.Dict[str, torch.Tensor]):
         """Save data in the cache.
 

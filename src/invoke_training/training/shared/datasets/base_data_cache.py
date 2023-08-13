@@ -8,6 +8,14 @@ class BaseDataCache:
     disk, etc.)
     """
 
+    def __len__(self) -> int:
+        """Get the number of entries in the cache.
+
+        Returns:
+            int: The length of the cache.
+        """
+        raise NotImplementedError("__len__ is not implemented.")
+
     def save(self, idx: int, data: typing.Dict[str, typing.Any]):
         """Save data in the cache.
 
