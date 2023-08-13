@@ -1,5 +1,8 @@
 output/
 
+# Mac OS
+.DS_Store
+
 # pyenv
 .python-version
 
