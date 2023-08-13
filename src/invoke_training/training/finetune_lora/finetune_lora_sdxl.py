@@ -425,7 +425,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         lora_layers["unet"] = inject_lora_into_unet(unet, config.train_unet_non_attention_blocks)
     if config.train_text_encoder:
         lora_layers["text_encoder_1"] = inject_lora_into_clip_text_encoder(text_encoder_1, "lora_te1")
-        lora_layers["text_encoder_2"] = inject_lora_into_clip_text_encoder(text_encoder_1, "lora_te2")
+        lora_layers["text_encoder_2"] = inject_lora_into_clip_text_encoder(text_encoder_2, "lora_te2")
 
     if config.xformers:
         import xformers  # noqa: F401
