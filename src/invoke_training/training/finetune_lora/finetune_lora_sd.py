@@ -23,7 +23,9 @@ from invoke_training.lora.injection.stable_diffusion_v1 import (
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet_sd1,
 )
-from invoke_training.training.lora.lora_training_config import LoRATrainingConfig
+from invoke_training.training.finetune_lora.finetune_lora_config import (
+    FinetuneLoRAConfig,
+)
 from invoke_training.training.shared.accelerator_utils import (
     get_mixed_precision_dtype,
     initialize_accelerator,
@@ -42,13 +44,13 @@ from invoke_training.training.shared.serialization import save_state_dict
 
 def _load_models(
     accelerator: Accelerator,
-    config: LoRATrainingConfig,
+    config: FinetuneLoRAConfig,
 ) -> tuple[CLIPTokenizer, DDPMScheduler, CLIPTextModel, AutoencoderKL, UNet2DConditionModel]:
     """Load all models required for training from disk, transfer them to the
     target training device and cast their weight dtypes.
 
     Args:
-        config (LoRATrainingConfig): The LoRA training run config.
+        config (FinetuneLoRAConfig): The LoRA training run config.
         logger (logging.Logger): A logger.
 
     Returns:
@@ -85,7 +87,7 @@ def _load_models(
     return tokenizer, noise_scheduler, text_encoder, vae, unet
 
 
-def _initialize_optimizer(config: LoRATrainingConfig, trainable_params: list) -> torch.optim.Optimizer:
+def _initialize_optimizer(config: FinetuneLoRAConfig, trainable_params: list) -> torch.optim.Optimizer:
     """Initialize an optimizer based on the config."""
     return torch.optim.AdamW(
         trainable_params,
@@ -137,7 +139,7 @@ def _generate_validation_images(
     tokenizer: CLIPTokenizer,
     noise_scheduler: DDPMScheduler,
     unet: UNet2DConditionModel,
-    config: LoRATrainingConfig,
+    config: FinetuneLoRAConfig,
     logger: logging.Logger,
 ):
     """Generate validation images for the purpose of tracking image generation behaviour on fixed prompts throughout
@@ -152,7 +154,7 @@ def _generate_validation_images(
         tokenizer (CLIPTokenizer):
         noise_scheduler (DDPMScheduler):
         unet (UNet2DConditionModel):
-        config (LoRATrainingConfig): Training configs.
+        config (FinetuneLoRAConfig): Training configs.
         logger (logging.Logger): Logger.
     """
     logger.info("Generating validation images.")
@@ -217,7 +219,7 @@ def _generate_validation_images(
 
 
 def _train_forward(
-    config: LoRATrainingConfig,
+    config: FinetuneLoRAConfig,
     data_batch: dict,
     vae: AutoencoderKL,
     noise_scheduler: DDPMScheduler,
@@ -271,7 +273,7 @@ def _train_forward(
     return torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="mean")
 
 
-def run_lora_training(config: LoRATrainingConfig):  # noqa: C901
+def run_training(config: FinetuneLoRAConfig):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     check_base_model_version(
         {BaseModelVersionEnum.STABLE_DIFFUSION_V1, BaseModelVersionEnum.STABLE_DIFFUSION_V2},
