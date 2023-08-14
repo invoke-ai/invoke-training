@@ -32,6 +32,7 @@ class ImageCaptionSDXLDataset(torch.utils.data.Dataset):
                 False, crop at a random location.
             random_flip (bool, optional): Whether to apply a random horizontal flip to the images.
         """
+        super().__init__()
         self._base_dataset = base_dataset
         self._tokenizer_1 = tokenizer_1
         self._tokenizer_2 = tokenizer_2
