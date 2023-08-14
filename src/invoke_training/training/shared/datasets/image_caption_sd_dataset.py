@@ -6,9 +6,9 @@ from invoke_training.training.shared.datasets.base_image_caption_reader import (
 )
 
 
-class ImageCaptionDataset:
-    """A image-caption dataset class that wraps a BaseImageCaptionReader and applies common image transformations and
-    caption tokenization.
+class ImageCaptionSDDataset:
+    """A image-caption dataset for Stable Diffusion v1/v2 models. This class wraps a BaseImageCaptionReader and applies
+    common image transformations and caption tokenization.
     """
 
     def __init__(
@@ -19,7 +19,7 @@ class ImageCaptionDataset:
         center_crop: bool = False,
         random_flip: bool = False,
     ):
-        """Initialize ImageCaptionDataset.
+        """Initialize ImageCaptionSDDataset.
 
         Args:
             reader (BaseImageCaptionReader): The reader to wrap.

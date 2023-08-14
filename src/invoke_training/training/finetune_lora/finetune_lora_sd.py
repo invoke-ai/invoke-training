@@ -18,10 +18,10 @@ from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 
-from invoke_training.lora.injection.stable_diffusion_v1 import (
-    convert_lora_state_dict_to_kohya_format_sd1,
+from invoke_training.lora.injection.stable_diffusion import (
+    convert_lora_state_dict_to_kohya_format,
     inject_lora_into_clip_text_encoder,
-    inject_lora_into_unet_sd1,
+    inject_lora_into_unet,
 )
 from invoke_training.training.finetune_lora.finetune_lora_config import (
     FinetuneLoRAConfig,
@@ -36,8 +36,8 @@ from invoke_training.training.shared.base_model_version import (
     check_base_model_version,
 )
 from invoke_training.training.shared.checkpoint_tracker import CheckpointTracker
-from invoke_training.training.shared.datasets.image_caption_dataloader import (
-    build_image_caption_dataloader,
+from invoke_training.training.shared.datasets.image_caption_sd_dataloader import (
+    build_image_caption_sd_dataloader,
 )
 from invoke_training.training.shared.serialization import save_state_dict
 
@@ -122,7 +122,7 @@ def _save_checkpoint(
     state_dict = {}
     for model_lora_layers in lora_layers.values():
         model_state_dict = model_lora_layers.get_lora_state_dict()
-        model_kohya_state_dict = convert_lora_state_dict_to_kohya_format_sd1(model_state_dict)
+        model_kohya_state_dict = convert_lora_state_dict_to_kohya_format(model_state_dict)
         state_dict.update(model_kohya_state_dict)
 
     save_state_dict(state_dict, save_path)
@@ -189,6 +189,8 @@ def _generate_validation_images(
                             prompt,
                             num_inference_steps=30,
                             generator=generator,
+                            height=config.dataset.resolution,
+                            width=config.dataset.resolution,
                         ).images[0]
                     )
 
@@ -312,7 +314,7 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
 
     lora_layers = torch.nn.ModuleDict()
     if config.train_unet:
-        lora_layers["unet"] = inject_lora_into_unet_sd1(unet, config.train_unet_non_attention_blocks)
+        lora_layers["unet"] = inject_lora_into_unet(unet, config.train_unet_non_attention_blocks)
     if config.train_text_encoder:
         lora_layers["text_encoder"] = inject_lora_into_clip_text_encoder(text_encoder)
 
@@ -324,7 +326,7 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
 
     optimizer = _initialize_optimizer(config, lora_layers.parameters())
 
-    data_loader = build_image_caption_dataloader(config.dataset, tokenizer, config.train_batch_size)
+    data_loader = build_image_caption_sd_dataloader(config.dataset, tokenizer, config.train_batch_size)
 
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
     # by the number of processes. This scaling logic was copied from the diffusers example training code, but it appears

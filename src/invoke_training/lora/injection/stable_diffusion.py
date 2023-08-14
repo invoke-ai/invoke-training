@@ -12,10 +12,10 @@ from invoke_training.lora.injection.utils import inject_lora_layers
 from invoke_training.lora.layers import LoRAConv2dLayer, LoRALinearLayer
 
 
-def inject_lora_into_unet_sd1(
+def inject_lora_into_unet(
     unet: UNet2DConditionModel, include_non_attention_blocks: bool = False
 ) -> LoRALayerCollection:
-    """Inject LoRA layers into a Stable Diffusion v1 UNet model.
+    """Inject LoRA layers into a Stable Diffusion UNet model.
 
     Args:
         unet (UNet2DConditionModel): The UNet model to inject LoRA layers into.
@@ -45,7 +45,7 @@ def inject_lora_into_unet_sd1(
     return lora_layers
 
 
-def inject_lora_into_clip_text_encoder(text_encoder: CLIPTextModel):
+def inject_lora_into_clip_text_encoder(text_encoder: CLIPTextModel, prefix: str = "lora_te"):
     lora_layers = inject_lora_layers(
         module=text_encoder,
         lora_map={
@@ -54,17 +54,17 @@ def inject_lora_into_clip_text_encoder(text_encoder: CLIPTextModel):
         },
         include_descendants_of={CLIPAttention, CLIPMLP},
         exclude_descendants_of=None,
-        prefix="lora_te",
+        prefix=prefix,
         dtype=torch.float32,
     )
 
     return lora_layers
 
 
-def convert_lora_state_dict_to_kohya_format_sd1(
+def convert_lora_state_dict_to_kohya_format(
     state_dict: typing.Dict[str, torch.Tensor]
 ) -> typing.Dict[str, torch.Tensor]:
-    """Convert a Stable Diffusion v1 LoRA state_dict from internal invoke-training format to kohya_ss format.
+    """Convert a Stable Diffusion LoRA state_dict from internal invoke-training format to kohya_ss format.
 
     Args:
         state_dict (typing.Dict[str, torch.Tensor]): LoRA layer state_dict in invoke-training format.
