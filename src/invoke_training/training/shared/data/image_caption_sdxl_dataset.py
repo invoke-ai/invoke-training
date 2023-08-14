@@ -1,23 +1,20 @@
 import random
 
 import PIL
+import torch.utils.data
 from torchvision import transforms
 from torchvision.transforms.functional import crop
 from transformers import PreTrainedTokenizer
 
-from invoke_training.training.shared.data.base_image_caption_reader import (
-    BaseImageCaptionReader,
-)
 
-
-class ImageCaptionSDXLDataset:
-    """A image-caption dataset for Stable Diffusion XL models. This class wraps a BaseImageCaptionReader and applies
+class ImageCaptionSDXLDataset(torch.utils.data.Dataset):
+    """A image-caption dataset for Stable Diffusion XL models. This class wraps a `torch.utils.data.Dataset` and applies
     common image transformations and caption tokenization.
     """
 
     def __init__(
         self,
-        reader: BaseImageCaptionReader,
+        reader: torch.utils.data.Dataset,
         tokenizer_1: PreTrainedTokenizer,
         tokenizer_2: PreTrainedTokenizer,
         resolution: int,
@@ -27,7 +24,7 @@ class ImageCaptionSDXLDataset:
         """Initialize ImageCaptionSDDataset.
 
         Args:
-            reader (BaseImageCaptionReader): The reader to wrap.
+            reader (torch.utils.data.Dataset): The reader to wrap.
             tokenizer_1 (PreTrainedTokenizer): The first SDXL text tokenizer.
             tokenizer_2 (PreTrainedTokenizer): The second SDXL text tokenizer.
             resolution (int): The image resolution that will be produced (square images are assumed).

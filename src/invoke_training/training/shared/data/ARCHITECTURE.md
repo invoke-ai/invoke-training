@@ -1,3 +1,5 @@
+TODO(ryand): Update this document. It is out-of-date.
+
 # Dataset Architecture
 Dataset handling is split into 3 layers of abstraction: Readers, Datasets, and DataLoaders. Each is explained in more detail below.
 

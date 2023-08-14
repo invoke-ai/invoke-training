@@ -1,13 +1,10 @@
 import typing
 
 import datasets
-
-from invoke_training.training.shared.data.base_image_caption_reader import (
-    BaseImageCaptionReader,
-)
+import torch.utils.data
 
 
-class HFHubImageCaptionReader(BaseImageCaptionReader):
+class HFHubImageCaptionReader(torch.utils.data.Dataset):
     """An image-caption dataset reader for Text-to-Image datasets from the HuggingFace Hub."""
 
     def __init__(

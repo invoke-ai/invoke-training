@@ -1,19 +1,16 @@
+import torch.utils.data
 from torchvision import transforms
 from transformers import CLIPTokenizer
 
-from invoke_training.training.shared.data.base_image_caption_reader import (
-    BaseImageCaptionReader,
-)
 
-
-class ImageCaptionSDDataset:
-    """A image-caption dataset for Stable Diffusion v1/v2 models. This class wraps a BaseImageCaptionReader and applies
-    common image transformations and caption tokenization.
+class ImageCaptionSDDataset(torch.utils.data.Dataset):
+    """A image-caption dataset for Stable Diffusion v1/v2 models. This class wraps a `torch.utils.data.Dataset` and
+    applies common image transformations and caption tokenization.
     """
 
     def __init__(
         self,
-        reader: BaseImageCaptionReader,
+        reader: torch.utils.data.Dataset,
         tokenizer: CLIPTokenizer,
         resolution: int,
         center_crop: bool = False,
@@ -22,7 +19,7 @@ class ImageCaptionSDDataset:
         """Initialize ImageCaptionSDDataset.
 
         Args:
-            reader (BaseImageCaptionReader): The reader to wrap.
+            reader (torch.utils.data.Dataset): The reader to wrap.
             tokenizer (CLIPTokenizer): The tokenizer to apply to the captions.
             resolution (int): The image resolution that will be produced (square images are assumed).
             center_crop (bool, optional): If True, crop to the center of the image to achieve the target resolution. If

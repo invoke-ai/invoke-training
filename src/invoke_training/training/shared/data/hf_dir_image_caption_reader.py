@@ -2,13 +2,10 @@ import os
 import typing
 
 import datasets
-
-from invoke_training.training.shared.data.base_image_caption_reader import (
-    BaseImageCaptionReader,
-)
+import torch.utils.data
 
 
-class HFDirImageCaptionReader(BaseImageCaptionReader):
+class HFDirImageCaptionReader(torch.utils.data.Dataset):
     """An image-caption dataset reader for datasets in the Hugging Face Datasets Imagefolder format
     (https://huggingface.co/docs/datasets/v2.4.0/en/image_load#imagefolder).
     """
