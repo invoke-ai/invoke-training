@@ -6,7 +6,7 @@ import PIL
 import pytest
 from PIL import Image
 
-from invoke_training.training.shared.datasets.hf_dir_image_caption_reader import (
+from invoke_training.training.shared.data.hf_dir_image_caption_reader import (
     HFDirImageCaptionReader,
 )
 

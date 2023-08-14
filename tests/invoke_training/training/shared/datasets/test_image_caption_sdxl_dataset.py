@@ -6,7 +6,7 @@ import torch
 from PIL import Image
 from transformers import CLIPTokenizer
 
-from invoke_training.training.shared.datasets.image_caption_sdxl_dataset import (
+from invoke_training.training.shared.data.image_caption_sdxl_dataset import (
     ImageCaptionSDXLDataset,
 )
 

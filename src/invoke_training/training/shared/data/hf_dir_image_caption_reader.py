@@ -3,7 +3,7 @@ import typing
 
 import datasets
 
-from invoke_training.training.shared.datasets.base_image_caption_reader import (
+from invoke_training.training.shared.data.base_image_caption_reader import (
     BaseImageCaptionReader,
 )
 

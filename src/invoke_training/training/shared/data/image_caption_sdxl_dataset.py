@@ -5,7 +5,7 @@ from torchvision import transforms
 from torchvision.transforms.functional import crop
 from transformers import PreTrainedTokenizer
 
-from invoke_training.training.shared.datasets.base_image_caption_reader import (
+from invoke_training.training.shared.data.base_image_caption_reader import (
     BaseImageCaptionReader,
 )
 

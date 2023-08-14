@@ -1,7 +1,7 @@
 import PIL
 import pytest
 
-from invoke_training.training.shared.datasets.hf_hub_image_caption_reader import (
+from invoke_training.training.shared.data.hf_hub_image_caption_reader import (
     HFHubImageCaptionReader,
 )
 

@@ -36,7 +36,7 @@ from invoke_training.training.shared.base_model_version import (
     check_base_model_version,
 )
 from invoke_training.training.shared.checkpoint_tracker import CheckpointTracker
-from invoke_training.training.shared.datasets.image_caption_sd_dataloader import (
+from invoke_training.training.shared.data.image_caption_sd_dataloader import (
     build_image_caption_sd_dataloader,
 )
 from invoke_training.training.shared.serialization import save_state_dict

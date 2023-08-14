@@ -1,20 +1,34 @@
+import torch
 from torch.utils.data import DataLoader
-from transformers import CLIPTokenizer
+from transformers import PreTrainedTokenizer
 
 from invoke_training.training.finetune_lora.finetune_lora_config import DatasetConfig
-from invoke_training.training.shared.datasets.hf_dir_image_caption_reader import (
+from invoke_training.training.shared.data.hf_dir_image_caption_reader import (
     HFDirImageCaptionReader,
 )
-from invoke_training.training.shared.datasets.hf_hub_image_caption_reader import (
+from invoke_training.training.shared.data.hf_hub_image_caption_reader import (
     HFHubImageCaptionReader,
 )
-from invoke_training.training.shared.datasets.image_caption_sd_dataset import (
-    ImageCaptionSDDataset,
+from invoke_training.training.shared.data.image_caption_sdxl_dataset import (
+    ImageCaptionSDXLDataset,
 )
 
 
-def build_image_caption_sd_dataloader(config: DatasetConfig, tokenizer: CLIPTokenizer, batch_size: int) -> DataLoader:
-    """Construct a DataLoader for an image-caption dataset for Stable Diffusion v1/v2..
+def _collate_fn(examples):
+    """A batch collation function for the ImageCaptionSDXLDataset."""
+    return {
+        "image": torch.stack([example["image"] for example in examples]),
+        "original_size_hw": [example["original_size_hw"] for example in examples],
+        "crop_top_left_yx": [example["crop_top_left_yx"] for example in examples],
+        "caption_token_ids_1": torch.stack([example["caption_token_ids_1"] for example in examples]),
+        "caption_token_ids_2": torch.stack([example["caption_token_ids_2"] for example in examples]),
+    }
+
+
+def build_image_caption_sdxl_dataloader(
+    config: DatasetConfig, tokenizer_1: PreTrainedTokenizer, tokenizer_2: PreTrainedTokenizer, batch_size: int
+) -> DataLoader:
+    """Construct a DataLoader for an image-caption dataset for Stable Diffusion XL.
 
     Args:
         config (DatasetConfig): The dataset config.
@@ -44,9 +58,10 @@ def build_image_caption_sd_dataloader(config: DatasetConfig, tokenizer: CLIPToke
     else:
         raise ValueError("One of 'dataset_name' or 'dataset_dir' must be set.")
 
-    dataset = ImageCaptionSDDataset(
+    dataset = ImageCaptionSDXLDataset(
         reader=reader,
-        tokenizer=tokenizer,
+        tokenizer_1=tokenizer_1,
+        tokenizer_2=tokenizer_2,
         resolution=config.resolution,
         center_crop=config.center_crop,
         random_flip=config.random_flip,
@@ -55,7 +70,7 @@ def build_image_caption_sd_dataloader(config: DatasetConfig, tokenizer: CLIPToke
     return DataLoader(
         dataset,
         shuffle=True,
-        # collate_fn=collate_fn,
+        collate_fn=_collate_fn,
         batch_size=batch_size,
         num_workers=config.dataloader_num_workers,
     )
