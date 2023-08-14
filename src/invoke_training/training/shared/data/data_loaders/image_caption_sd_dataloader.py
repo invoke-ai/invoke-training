@@ -8,8 +8,14 @@ from invoke_training.training.shared.data.datasets.hf_dir_image_caption_dataset 
 from invoke_training.training.shared.data.datasets.hf_hub_image_caption_dataset import (
     HFHubImageCaptionDataset,
 )
-from invoke_training.training.shared.data.datasets.image_caption_sd_dataset import (
-    ImageCaptionSDDataset,
+from invoke_training.training.shared.data.datasets.transform_dataset import (
+    TransformDataset,
+)
+from invoke_training.training.shared.data.transforms.sd_image_transform import (
+    SDImageTransform,
+)
+from invoke_training.training.shared.data.transforms.sd_tokenize_transform import (
+    SDTokenizeTransform,
 )
 
 
@@ -24,6 +30,7 @@ def build_image_caption_sd_dataloader(config: DatasetConfig, tokenizer: CLIPToke
     Returns:
         DataLoader
     """
+
     if config.dataset_name is not None:
         base_dataset = HFHubImageCaptionDataset(
             dataset_name=config.dataset_name,
@@ -44,18 +51,16 @@ def build_image_caption_sd_dataloader(config: DatasetConfig, tokenizer: CLIPToke
     else:
         raise ValueError("One of 'dataset_name' or 'dataset_dir' must be set.")
 
-    dataset = ImageCaptionSDDataset(
-        base_dataset=base_dataset,
-        tokenizer=tokenizer,
-        resolution=config.resolution,
-        center_crop=config.center_crop,
-        random_flip=config.random_flip,
+    image_transform = SDImageTransform(
+        resolution=config.resolution, center_crop=config.center_crop, random_flip=config.random_flip
     )
+    tokenize_transform = SDTokenizeTransform(tokenizer)
+
+    dataset = TransformDataset(base_dataset, [image_transform, tokenize_transform])
 
     return DataLoader(
         dataset,
         shuffle=True,
-        # collate_fn=collate_fn,
         batch_size=batch_size,
         num_workers=config.dataloader_num_workers,
     )
