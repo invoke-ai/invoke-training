@@ -14,7 +14,7 @@ class ImageCaptionSDXLDataset(torch.utils.data.Dataset):
 
     def __init__(
         self,
-        reader: torch.utils.data.Dataset,
+        base_dataset: torch.utils.data.Dataset,
         tokenizer_1: PreTrainedTokenizer,
         tokenizer_2: PreTrainedTokenizer,
         resolution: int,
@@ -24,7 +24,7 @@ class ImageCaptionSDXLDataset(torch.utils.data.Dataset):
         """Initialize ImageCaptionSDDataset.
 
         Args:
-            reader (torch.utils.data.Dataset): The reader to wrap.
+            base_dataset (torch.utils.data.Dataset): The base dataset to wrap.
             tokenizer_1 (PreTrainedTokenizer): The first SDXL text tokenizer.
             tokenizer_2 (PreTrainedTokenizer): The second SDXL text tokenizer.
             resolution (int): The image resolution that will be produced (square images are assumed).
@@ -32,7 +32,7 @@ class ImageCaptionSDXLDataset(torch.utils.data.Dataset):
                 False, crop at a random location.
             random_flip (bool, optional): Whether to apply a random horizontal flip to the images.
         """
-        self._reader = reader
+        self._base_dataset = base_dataset
         self._tokenizer_1 = tokenizer_1
         self._tokenizer_2 = tokenizer_2
 
@@ -92,10 +92,10 @@ class ImageCaptionSDXLDataset(torch.utils.data.Dataset):
         return original_size_hw, crop_top_left_yx, image
 
     def __len__(self) -> int:
-        return len(self._reader)
+        return len(self._base_dataset)
 
     def __getitem__(self, idx: int):
-        example = self._reader[idx]
+        example = self._base_dataset[idx]
         original_size_hw, crop_top_left_yx, image = self._preprocess_image(example["image"])
         return {
             "image": image,

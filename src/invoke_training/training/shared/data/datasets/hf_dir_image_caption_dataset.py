@@ -1,23 +1,26 @@
+import os
 import typing
 
 import datasets
 import torch.utils.data
 
 
-class HFHubImageCaptionReader(torch.utils.data.Dataset):
-    """An image-caption dataset reader for Text-to-Image datasets from the HuggingFace Hub."""
+class HFDirImageCaptionDataset(torch.utils.data.Dataset):
+    """An image-caption dataset for datasets in the Hugging Face Datasets Imagefolder format
+    (https://huggingface.co/docs/datasets/v2.4.0/en/image_load#imagefolder).
+    """
 
     def __init__(
         self,
-        dataset_name: str,
+        dataset_dir: str,
         hf_load_dataset_kwargs: typing.Optional[dict[str, typing.Any]] = None,
         image_column: str = "image",
         caption_column: str = "text",
     ):
-        """Initialize a HFHubImageCaptionReader.
+        """Initialize a HFDirImageCaptionDataset.
 
         Args:
-            dataset_name (str): The HF Hub dataset name (a.k.a. path).
+            dataset_dir (str): The path to the dataset directory.
             hf_load_dataset_kwargs (dict[str, typing.Any], optional): kwargs to forward to `datasets.load_dataset(...)`.
             image_column (str, optional): The name of the image column in the dataset. Defaults to "image".
             caption_column (str, optional): The name of the caption column in the dataset. Defaults to "text".
@@ -28,7 +31,10 @@ class HFHubImageCaptionReader(torch.utils.data.Dataset):
         """
         super().__init__()
         hf_load_dataset_kwargs = hf_load_dataset_kwargs or {}
-        hf_dataset = datasets.load_dataset(dataset_name, **hf_load_dataset_kwargs)
+        data_files = {"train": os.path.join(dataset_dir, "**")}
+        # See more about loading custom images at
+        # https://huggingface.co/docs/datasets/v2.4.0/en/image_load#imagefolder
+        hf_dataset = datasets.load_dataset("imagefolder", data_files=data_files, **hf_load_dataset_kwargs)
 
         column_names = hf_dataset["train"].column_names
         if image_column not in column_names:

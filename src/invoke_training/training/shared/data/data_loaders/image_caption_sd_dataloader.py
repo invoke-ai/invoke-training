@@ -2,11 +2,11 @@ from torch.utils.data import DataLoader
 from transformers import CLIPTokenizer
 
 from invoke_training.training.finetune_lora.finetune_lora_config import DatasetConfig
-from invoke_training.training.shared.data.datasets.hf_dir_image_caption_reader import (
-    HFDirImageCaptionReader,
+from invoke_training.training.shared.data.datasets.hf_dir_image_caption_dataset import (
+    HFDirImageCaptionDataset,
 )
-from invoke_training.training.shared.data.datasets.hf_hub_image_caption_reader import (
-    HFHubImageCaptionReader,
+from invoke_training.training.shared.data.datasets.hf_hub_image_caption_dataset import (
+    HFHubImageCaptionDataset,
 )
 from invoke_training.training.shared.data.datasets.image_caption_sd_dataset import (
     ImageCaptionSDDataset,
@@ -25,7 +25,7 @@ def build_image_caption_sd_dataloader(config: DatasetConfig, tokenizer: CLIPToke
         DataLoader
     """
     if config.dataset_name is not None:
-        reader = HFHubImageCaptionReader(
+        base_dataset = HFHubImageCaptionDataset(
             dataset_name=config.dataset_name,
             hf_load_dataset_kwargs={
                 "name": config.dataset_config_name,
@@ -35,7 +35,7 @@ def build_image_caption_sd_dataloader(config: DatasetConfig, tokenizer: CLIPToke
             caption_column=config.caption_column,
         )
     elif config.dataset_dir is not None:
-        reader = HFDirImageCaptionReader(
+        base_dataset = HFDirImageCaptionDataset(
             dataset_dir=config.dataset_dir,
             hf_load_dataset_kwargs=None,
             image_column=config.image_column,
@@ -45,7 +45,7 @@ def build_image_caption_sd_dataloader(config: DatasetConfig, tokenizer: CLIPToke
         raise ValueError("One of 'dataset_name' or 'dataset_dir' must be set.")
 
     dataset = ImageCaptionSDDataset(
-        reader=reader,
+        base_dataset=base_dataset,
         tokenizer=tokenizer,
         resolution=config.resolution,
         center_crop=config.center_crop,

@@ -12,11 +12,11 @@ from invoke_training.training.shared.data.datasets.image_caption_sdxl_dataset im
 
 
 def test_image_caption_sdxl_dataset_len():
-    """Test that the ImageCaptionSDXLDataset __len__() function returns the length of the underlying reader."""
-    reader_mock = unittest.mock.MagicMock()
-    reader_mock.__len__.return_value = 5
+    """Test that the ImageCaptionSDXLDataset __len__() function returns the length of the underlying base_dataset."""
+    base_dataset_mock = unittest.mock.MagicMock()
+    base_dataset_mock.__len__.return_value = 5
 
-    dataset = ImageCaptionSDXLDataset(reader_mock, None, None, resolution=512)
+    dataset = ImageCaptionSDXLDataset(base_dataset_mock, None, None, resolution=512)
 
     assert len(dataset) == 5
 
@@ -24,11 +24,11 @@ def test_image_caption_sdxl_dataset_len():
 @pytest.mark.loads_model
 def test_image_caption_sdxl_dataset_getitem():
     """Test that the ImageCaptionSDXLDataset __getitem__() function returns a valid example."""
-    # Prepare mock reader.
+    # Prepare mock base_dataset.
     rgb_np = np.ones((256, 128, 3), dtype=np.uint8)
     rgb_pil = Image.fromarray(rgb_np)
-    reader_mock = unittest.mock.MagicMock()
-    reader_mock.__getitem__.return_value = {"image": rgb_pil, "caption": "This is a test caption."}
+    base_dataset_mock = unittest.mock.MagicMock()
+    base_dataset_mock.__getitem__.return_value = {"image": rgb_pil, "caption": "This is a test caption."}
 
     # Load tokenizers.
     tokenizer_1 = CLIPTokenizer.from_pretrained(
@@ -46,12 +46,12 @@ def test_image_caption_sdxl_dataset_getitem():
     # 1. Resize to 1024x512.
     # 2. Center crop at top_left_yx = (256, 0) to produce a 512x512 image.
     dataset = ImageCaptionSDXLDataset(
-        reader_mock, tokenizer_1, tokenizer_2, center_crop=True, random_flip=False, resolution=512
+        base_dataset_mock, tokenizer_1, tokenizer_2, center_crop=True, random_flip=False, resolution=512
     )
 
     example = dataset[0]
 
-    reader_mock.__getitem__.assert_called_with(0)
+    base_dataset_mock.__getitem__.assert_called_with(0)
     assert set(example.keys()) == {
         "image",
         "original_size_hw",

@@ -10,7 +10,7 @@ class ImageCaptionSDDataset(torch.utils.data.Dataset):
 
     def __init__(
         self,
-        reader: torch.utils.data.Dataset,
+        base_dataset: torch.utils.data.Dataset,
         tokenizer: CLIPTokenizer,
         resolution: int,
         center_crop: bool = False,
@@ -19,14 +19,14 @@ class ImageCaptionSDDataset(torch.utils.data.Dataset):
         """Initialize ImageCaptionSDDataset.
 
         Args:
-            reader (torch.utils.data.Dataset): The reader to wrap.
+            base_dataset (torch.utils.data.Dataset): The base dataset to wrap.
             tokenizer (CLIPTokenizer): The tokenizer to apply to the captions.
             resolution (int): The image resolution that will be produced (square images are assumed).
             center_crop (bool, optional): If True, crop to the center of the image to achieve the target resolution. If
                 False, crop at a random location.
             random_flip (bool, optional): Whether to apply a random horizontal flip to the images.
         """
-        self._reader = reader
+        self._base_dataset = base_dataset
         self._tokenizer = tokenizer
         self._image_transforms = transforms.Compose(
             [
@@ -56,10 +56,10 @@ class ImageCaptionSDDataset(torch.utils.data.Dataset):
         return input.input_ids[0, ...]
 
     def __len__(self) -> int:
-        return len(self._reader)
+        return len(self._base_dataset)
 
     def __getitem__(self, idx: int):
-        example = self._reader[idx]
+        example = self._base_dataset[idx]
         image = self._image_transforms(example["image"])
         caption_token_ids = self._tokenize_caption(example["caption"])
         return {

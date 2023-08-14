@@ -12,11 +12,11 @@ from invoke_training.training.shared.data.datasets.image_caption_sd_dataset impo
 
 
 def test_image_caption_dataset_len():
-    """Test that the ImageCaptionSDDataset __len__() function returns the length of the underlying reader."""
-    reader_mock = unittest.mock.MagicMock()
-    reader_mock.__len__.return_value = 5
+    """Test that the ImageCaptionSDDataset __len__() function returns the length of the underlying base_dataset."""
+    base_dataset_mock = unittest.mock.MagicMock()
+    base_dataset_mock.__len__.return_value = 5
 
-    dataset = ImageCaptionSDDataset(reader_mock, None, resolution=512)
+    dataset = ImageCaptionSDDataset(base_dataset_mock, None, resolution=512)
 
     assert len(dataset) == 5
 
@@ -26,11 +26,11 @@ def test_image_caption_dataset_getitem():
     """Test that the ImageCaptionSDDataset __getitem__() function returns an example with the expected type and
     dimensions.
     """
-    # Prepare mock reader.
+    # Prepare mock base_dataset.
     rgb_np = np.ones((128, 128, 3), dtype=np.uint8)
     rgb_pil = Image.fromarray(rgb_np)
-    reader_mock = unittest.mock.MagicMock()
-    reader_mock.__getitem__.return_value = {"image": rgb_pil, "caption": "This is a test caption."}
+    base_dataset_mock = unittest.mock.MagicMock()
+    base_dataset_mock.__getitem__.return_value = {"image": rgb_pil, "caption": "This is a test caption."}
 
     # Load CLIPTokenizer.
     tokenizer = CLIPTokenizer.from_pretrained(
@@ -40,11 +40,11 @@ def test_image_caption_dataset_getitem():
         revision="c9ab35ff5f2c362e9e22fbafe278077e196057f0",
     )
 
-    dataset = ImageCaptionSDDataset(reader_mock, tokenizer, resolution=512)
+    dataset = ImageCaptionSDDataset(base_dataset_mock, tokenizer, resolution=512)
 
     example = dataset[0]
 
-    reader_mock.__getitem__.assert_called_with(0)
+    base_dataset_mock.__getitem__.assert_called_with(0)
     assert set(example.keys()) == {"image", "caption_token_ids"}
 
     image = example["image"]

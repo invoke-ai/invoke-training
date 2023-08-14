@@ -9,7 +9,7 @@ Dataset handling is split into 3 layers of abstraction: Readers, Datasets, and D
 
 `BaseImageCaptionReader` sub-classes are intended as an abstraction over different dataset formats. They are responsible for loading image-caption pairs from disk. Readers implement the [torch Dataset interface](https://pytorch.org/tutorials/beginner/basics/data_tutorial.html#creating-a-custom-dataset-for-your-files), i.e. they implement `__init__`, `__len__`, and `__getitem__`.
 
-Two examples of concrete reader implementations are the `HFHubImageCaptionReader` and the `HFDirImageCaptionReader`.
+Two examples of concrete reader implementations are the `HFHubImageCaptionDataset` and the `HFDirImageCaptionDataset`.
 
 ## Datasets
 
