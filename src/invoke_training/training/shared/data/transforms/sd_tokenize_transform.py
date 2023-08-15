@@ -4,7 +4,7 @@ from transformers import CLIPTokenizer
 
 
 def tokenize_caption(tokenizer: CLIPTokenizer, caption: str):
-    """Tokenize a caption for Stable Diffusion v1/v2 training.
+    """Tokenize a caption.
 
     Args:
         tokenizer (CLIPTokenizer): The tokenizer.
@@ -24,11 +24,15 @@ def tokenize_caption(tokenizer: CLIPTokenizer, caption: str):
 
 
 class SDTokenizeTransform:
-    """A transform that tokenizes captions for Stable Diffusion v1/v2 training."""
+    """A transform that tokenizes captions for Stable Diffusion training."""
 
-    def __init__(self, tokenizer: CLIPTokenizer):
+    def __init__(
+        self, tokenizer: CLIPTokenizer, src_caption_key: str = "caption", dst_token_key: str = "caption_token_ids"
+    ):
         self._tokenizer = tokenizer
+        self._src_caption_key = src_caption_key
+        self._dst_token_key = dst_token_key
 
     def __call__(self, data: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:
-        data["caption_token_ids"] = tokenize_caption(self._tokenizer, data["caption"])
+        data[self._dst_token_key] = tokenize_caption(self._tokenizer, data[self._src_caption_key])
         return data
