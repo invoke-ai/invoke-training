@@ -60,7 +60,8 @@ def test_hf_hub_image_caption_dataset_getitem(hf_hub_dataset: HFHubImageCaptionD
     """Test that HFHubImageCaptionDataset.__getitem__(...) returns a valid example."""
     example = hf_hub_dataset[0]
 
-    assert set(example.keys()) == {"image", "caption"}
+    assert set(example.keys()) == {"image", "caption", "id"}
     assert isinstance(example["image"], PIL.Image.Image)
     assert example["image"].mode == "RGB"
     assert isinstance(example["caption"], str)
+    assert example["id"] == 0

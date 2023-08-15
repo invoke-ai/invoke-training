@@ -91,7 +91,8 @@ def test_hf_dir_image_caption_dataset_getitem(hf_dir_dataset: HFDirImageCaptionD
     """Test that HFDirImageCaptionDataset.__getitem__(...) returns a valid example."""
     example = hf_dir_dataset[0]
 
-    assert set(example.keys()) == {"image", "caption"}
+    assert set(example.keys()) == {"image", "caption", "id"}
     assert isinstance(example["image"], PIL.Image.Image)
     assert example["image"].mode == "RGB"
     assert isinstance(example["caption"], str)
+    assert example["id"] == 0

@@ -24,6 +24,7 @@ def _collate_fn(examples):
     """A batch collation function for the image-caption SDXL data loader."""
     return {
         "image": torch.stack([example["image"] for example in examples]),
+        "id": [example["id"] for example in examples],
         "original_size_hw": [example["original_size_hw"] for example in examples],
         "crop_top_left_yx": [example["crop_top_left_yx"] for example in examples],
         "caption_token_ids_1": torch.stack([example["caption_token_ids_1"] for example in examples]),

@@ -65,8 +65,11 @@ class HFHubImageCaptionDataset(torch.utils.data.Dataset):
             IndexError: If `idx` is out of range.
 
         Returns:
-            dict: A dataset example with 2 keys: "image", and "caption".
+            dict: A dataset example with 3 keys: "image", "caption", and "id".
                 The "image" key maps to a `PIL` image in RGB format.
                 The "caption" key maps to a string.
+                The "id" key is the example's index (often used for caching).
         """
-        return self._hf_dataset[idx]
+        example = self._hf_dataset[idx]
+        example["id"] = idx
+        return example
