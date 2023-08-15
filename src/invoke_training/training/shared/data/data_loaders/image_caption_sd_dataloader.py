@@ -1,3 +1,5 @@
+import typing
+
 from torch.utils.data import DataLoader
 from transformers import CLIPTokenizer
 
@@ -11,22 +13,37 @@ from invoke_training.training.shared.data.datasets.hf_hub_image_caption_dataset 
 from invoke_training.training.shared.data.datasets.transform_dataset import (
     TransformDataset,
 )
+from invoke_training.training.shared.data.transforms.load_cache_transform import (
+    LoadCacheTransform,
+)
 from invoke_training.training.shared.data.transforms.sd_image_transform import (
     SDImageTransform,
 )
 from invoke_training.training.shared.data.transforms.sd_tokenize_transform import (
     SDTokenizeTransform,
 )
+from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
+    TensorDiskCache,
+)
 
 
-def build_image_caption_sd_dataloader(config: DatasetConfig, tokenizer: CLIPTokenizer, batch_size: int) -> DataLoader:
+def build_image_caption_sd_dataloader(
+    config: DatasetConfig,
+    tokenizer: typing.Optional[CLIPTokenizer],
+    batch_size: int,
+    text_encoder_output_cache_dir: typing.Optional[str] = None,
+    shuffle: bool = True,
+) -> DataLoader:
     """Construct a DataLoader for an image-caption dataset for Stable Diffusion v1/v2..
 
     Args:
         config (DatasetConfig): The dataset config.
-        tokenizer (CLIPTokenizer): The tokenizer to apply to the captions.
+        tokenizer (CLIPTokenizer, option): The tokenizer to apply to the captions. Can be None if
+            `text_encoder_output_cache_dir` is set.
         batch_size (int): The DataLoader batch size.
-
+        text_encoder_output_cache_dir (str, optional): The directory where text encoder outputs are cached and should be
+            loaded from. If set, then the TokenizeTransform will not be applied.
+        shuffle (bool, optional): Whether to shuffle the dataset order.
     Returns:
         DataLoader
     """
@@ -54,13 +71,18 @@ def build_image_caption_sd_dataloader(config: DatasetConfig, tokenizer: CLIPToke
     image_transform = SDImageTransform(
         resolution=config.resolution, center_crop=config.center_crop, random_flip=config.random_flip
     )
-    tokenize_transform = SDTokenizeTransform(tokenizer)
 
-    dataset = TransformDataset(base_dataset, [image_transform, tokenize_transform])
+    if text_encoder_output_cache_dir is None:
+        caption_transform = SDTokenizeTransform(tokenizer)
+    else:
+        cache = TensorDiskCache(text_encoder_output_cache_dir)
+        caption_transform = LoadCacheTransform(cache=cache, cache_key_field="id", output_field="text_encoder_output")
+
+    dataset = TransformDataset(base_dataset, [image_transform, caption_transform])
 
     return DataLoader(
         dataset,
-        shuffle=True,
+        shuffle=shuffle,
         batch_size=batch_size,
         num_workers=config.dataloader_num_workers,
     )
