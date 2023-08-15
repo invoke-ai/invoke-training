@@ -9,13 +9,19 @@ from invoke_training.training.shared.data.datasets.hf_dir_image_caption_dataset 
 from invoke_training.training.shared.data.datasets.hf_hub_image_caption_dataset import (
     HFHubImageCaptionDataset,
 )
-from invoke_training.training.shared.data.datasets.image_caption_sdxl_dataset import (
-    ImageCaptionSDXLDataset,
+from invoke_training.training.shared.data.datasets.transform_dataset import (
+    TransformDataset,
+)
+from invoke_training.training.shared.data.transforms.sd_tokenize_transform import (
+    SDTokenizeTransform,
+)
+from invoke_training.training.shared.data.transforms.sdxl_image_transform import (
+    SDXLImageTransform,
 )
 
 
 def _collate_fn(examples):
-    """A batch collation function for the ImageCaptionSDXLDataset."""
+    """A batch collation function for the image-caption SDXL data loader."""
     return {
         "image": torch.stack([example["image"] for example in examples]),
         "original_size_hw": [example["original_size_hw"] for example in examples],
@@ -58,14 +64,17 @@ def build_image_caption_sdxl_dataloader(
     else:
         raise ValueError("One of 'dataset_name' or 'dataset_dir' must be set.")
 
-    dataset = ImageCaptionSDXLDataset(
-        base_dataset=base_dataset,
-        tokenizer_1=tokenizer_1,
-        tokenizer_2=tokenizer_2,
-        resolution=config.resolution,
-        center_crop=config.center_crop,
-        random_flip=config.random_flip,
+    image_transform = SDXLImageTransform(
+        resolution=config.resolution, center_crop=config.center_crop, random_flip=config.random_flip
     )
+    tokenize_transform_1 = SDTokenizeTransform(
+        tokenizer_1, src_caption_key="caption", dst_token_key="caption_token_ids_1"
+    )
+    tokenize_transform_2 = SDTokenizeTransform(
+        tokenizer_2, src_caption_key="caption", dst_token_key="caption_token_ids_2"
+    )
+
+    dataset = TransformDataset(base_dataset, [image_transform, tokenize_transform_1, tokenize_transform_2])
 
     return DataLoader(
         dataset,
