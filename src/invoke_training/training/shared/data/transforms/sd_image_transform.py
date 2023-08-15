@@ -7,6 +7,14 @@ class SDImageTransform:
     """A transform that prepares and augments images for Stable Diffusion v1/v2 training."""
 
     def __init__(self, resolution: int, center_crop: bool = False, random_flip: bool = False):
+        """Initialize SDImageTransform.
+
+        Args:
+            resolution (int): The image resolution that will be produced (square images are assumed).
+            center_crop (bool, optional): If True, crop to the center of the image to achieve the target resolution. If
+                False, crop at a random location.
+            random_flip (bool, optional): Whether to apply a random horizontal flip to the images.
+        """
         self._image_transforms = transforms.Compose(
             [
                 # Resize smaller image dimension to `resolution`.

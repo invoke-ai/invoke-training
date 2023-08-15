@@ -10,6 +10,14 @@ class SDXLImageTransform:
     """A transform that prepares and augments images for Stable Diffusion XL training."""
 
     def __init__(self, resolution: int, center_crop: bool = False, random_flip: bool = False):
+        """Initialize SDXLImageTransform.
+
+        Args:
+            resolution (int): The image resolution that will be produced (square images are assumed).
+            center_crop (bool, optional): If True, crop to the center of the image to achieve the target resolution. If
+                False, crop at a random location.
+            random_flip (bool, optional): Whether to apply a random horizontal flip to the images.
+        """
         self._resolution = resolution
         self._resize_transform = transforms.Resize(resolution, interpolation=transforms.InterpolationMode.BILINEAR)
         self._center_crop_enabled = center_crop
