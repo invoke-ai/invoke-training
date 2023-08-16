@@ -36,6 +36,7 @@ from invoke_training.training.shared.base_model_version import (
     check_base_model_version,
 )
 from invoke_training.training.shared.checkpoint_tracker import CheckpointTracker
+from invoke_training.training.shared.config_utils import flatten_config
 from invoke_training.training.shared.datasets.image_caption_sd_dataloader import (
     build_image_caption_sd_dataloader,
 )
@@ -358,7 +359,7 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
     num_train_epochs = math.ceil(config.max_train_steps / num_steps_per_epoch)
 
     if accelerator.is_main_process:
-        accelerator.init_trackers("lora_training")
+        accelerator.init_trackers("lora_training", config=flatten_config(config.dict()))
 
     epoch_checkpoint_tracker = CheckpointTracker(
         base_dir=out_dir,
