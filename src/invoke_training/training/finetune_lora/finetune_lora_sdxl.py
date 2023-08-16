@@ -469,6 +469,8 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
 
     if accelerator.is_main_process:
         accelerator.init_trackers("lora_training")
+        # Tensorboard uses markdown formatting, so we wrap the config json in a code block.
+        accelerator.log({"configuration": f"```json\n{json.dumps(config.dict(), indent=2, default=str)}\n```\n"})
 
     epoch_checkpoint_tracker = CheckpointTracker(
         base_dir=out_dir,
