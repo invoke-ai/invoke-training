@@ -53,17 +53,17 @@ invoke-finetune-lora-sdxl --cfg-file configs/finetune_lora_sdxl_pokemon_1x8gb_ex
 ![Screenshot of the Tensorboard UI showing validation images.](images/tensorboard_val_images_screenshot.png)
 *Validation images in the Tensorboard UI.*
 
-4. Select a checkpoint based on the quality of the generated images. In this short training run, there are only 3 checkpoints to choose from. As an example, we'll use the **Epoch 3** checkpoint.
+4. Select a checkpoint based on the quality of the generated images. In this short training run, there are only 3 checkpoints to choose from. As an example, we'll use the **Epoch 2** checkpoint.
 5. If you haven't already, setup [InvokeAI](https://github.com/invoke-ai/InvokeAI) by following its documentation.
 6. Copy your selected LoRA checkpoint into your `${INVOKEAI_ROOT}/autoimport/lora` directory. For example:
 ```bash
 # Note: You will have to replace the timestamp in the checkpoint path.
-cp output/1691088769.5694647/checkpoint_epoch-00000003.safetensors ${INVOKEAI_ROOT}/autoimport/lora/pokemon_epoch-00000003.safetensors
+cp output/1691088769.5694647/checkpoint_epoch-00000002.safetensors ${INVOKEAI_ROOT}/autoimport/lora/pokemon_epoch-00000002.safetensors
 ```
 7. You can now use your trained Pokemon LoRA in the InvokeAI UI! 🎉
 
-![Screenshot of the InvokeAI UI with an example of a Yoda pokemon generated using a Pokemon LoRA.](images/invokeai_yoda_pokemon_lora.png)
-*Example image generated with the prompt "yoda" and Pokemon LoRA.*
+![Screenshot of the InvokeAI UI with an example of a Yoda pokemon generated using a Pokemon LoRA model.](images/invokeai_yoda_pokemon_lora.png)
+*Example image generated with the prompt "A cute yoda pokemon creature." and Pokemon LoRA.*
 
 ### Custom Datasets
 
