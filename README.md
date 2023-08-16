@@ -17,9 +17,16 @@ More training modes will be added soon.
 
 ### Setup Development Environment
 1. (Optional) Create a python virtual environment.
-1. Install dependencies: `pip install -e .[test]`.
-1. (Optional) Install the pre-commit hooks: `pre-commit install`. This will run static analysis tools (black, ruff, isort) on `git commit`.
-1. (Optional) Set up `black`, `isort`, and `ruff` in your IDE of choice.
+2. Install `invoke-training` and its dependencies:
+```bash
+# A recent version of pip is required, so first upgrade pip:
+python -m pip install --upgrade pip
+
+# Editable install:
+pip install -e ".[test]" --extra-index-url https://download.pytorch.org/whl/cu118
+```
+3. (Optional) Install the pre-commit hooks: `pre-commit install`. This will run static analysis tools (black, ruff, isort) on `git commit`.
+4. (Optional) Set up `black`, `isort`, and `ruff` in your IDE of choice.
 
 ### Unit Tests
 Run all unit tests with:
