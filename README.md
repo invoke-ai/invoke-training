@@ -48,13 +48,17 @@ invoke-finetune-lora-sd --cfg-file configs/finetune_lora_sd_pokemon_1x8gb_exampl
 invoke-finetune-lora-sdxl --cfg-file configs/finetune_lora_sdxl_pokemon_1x24gb_example.yaml
 invoke-finetune-lora-sdxl --cfg-file configs/finetune_lora_sdxl_pokemon_1x8gb_example.yaml
 ```
-3. Monitor the training process with Tensorboard by running `tensorboard --logdir output/` and visiting [localhost:6006](http://localhost:6006) in your browser. Here you can see generated images for fixed prompts throughout the training process.
-4. Select a checkpoint based on the quality of the generated images. In this short training run, there are only 2 checkpoints to choose from. As an example, we'll use the **Epoch 2** checkpoint.
+3. Monitor the training process with Tensorboard by running `tensorboard --logdir output/` and visiting [localhost:6006](http://localhost:6006) in your browser. Here you can see generated images for fixed validation prompts throughout the training process.
+
+![Screenshot of the Tensorboard UI showing validation images.](images/tensorboard_val_images_screenshot.png)
+*Validation images in the Tensorboard UI.*
+
+4. Select a checkpoint based on the quality of the generated images. In this short training run, there are only 3 checkpoints to choose from. As an example, we'll use the **Epoch 3** checkpoint.
 5. If you haven't already, setup [InvokeAI](https://github.com/invoke-ai/InvokeAI) by following its documentation.
 6. Copy your selected LoRA checkpoint into your `${INVOKEAI_ROOT}/autoimport/lora` directory. For example:
 ```bash
 # Note: You will have to replace the timestamp in the checkpoint path.
-cp output/1691088769.5694647/checkpoint_epoch-00000002.safetensors ${INVOKEAI_ROOT}/autoimport/lora/pokemon_epoch-00000002.safetensors
+cp output/1691088769.5694647/checkpoint_epoch-00000003.safetensors ${INVOKEAI_ROOT}/autoimport/lora/pokemon_epoch-00000003.safetensors
 ```
 7. You can now use your trained Pokemon LoRA in the InvokeAI UI! 🎉
 
