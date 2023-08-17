@@ -13,7 +13,7 @@ from invoke_training.lora.layers import LoRAConv2dLayer, LoRALinearLayer
 
 
 def inject_lora_into_unet(
-    unet: UNet2DConditionModel, include_non_attention_blocks: bool = False
+    unet: UNet2DConditionModel, include_non_attention_blocks: bool = False, lora_rank_dim: int = 4
 ) -> LoRALayerCollection:
     """Inject LoRA layers into a Stable Diffusion UNet model.
 
@@ -21,6 +21,7 @@ def inject_lora_into_unet(
         unet (UNet2DConditionModel): The UNet model to inject LoRA layers into.
         include_non_attention_blocks (bool, optional): Whether to inject LoRA layers into the linear/conv layers of the
             non-attention blocks (`ResnetBlock2D`, `Downsample2D`, `Upsample2D`). Defaults to False.
+        lora_rank_dim (int, optional): The LoRA layer rank dimension.
     Returns:
         LoRALayerCollection: The LoRA layers that were added to the UNet.
     """
@@ -40,12 +41,13 @@ def inject_lora_into_unet(
         exclude_descendants_of=None,
         prefix="lora_unet",
         dtype=torch.float32,
+        lora_rank_dim=lora_rank_dim,
     )
 
     return lora_layers
 
 
-def inject_lora_into_clip_text_encoder(text_encoder: CLIPTextModel, prefix: str = "lora_te"):
+def inject_lora_into_clip_text_encoder(text_encoder: CLIPTextModel, prefix: str = "lora_te", lora_rank_dim: int = 4):
     lora_layers = inject_lora_layers(
         module=text_encoder,
         lora_map={
@@ -56,6 +58,7 @@ def inject_lora_into_clip_text_encoder(text_encoder: CLIPTextModel, prefix: str 
         exclude_descendants_of=None,
         prefix=prefix,
         dtype=torch.float32,
+        lora_rank_dim=lora_rank_dim,
     )
 
     return lora_layers

@@ -118,6 +118,10 @@ class FinetuneLoRAConfig(BaseModel):
     # file.
     train_unet_non_attention_blocks: bool = False
 
+    # The rank dimension to use for the LoRA layers. Increasing the rank dimension increases the model's expressivity,
+    # but also increases the size of the generated LoRA model.
+    lora_rank_dim: int = 4
+
     # If True, the text encoder(s) will be applied to all of the captions in the dataset before starting training and
     # the results will be cached to disk. This reduces the VRAM requirements during training (don't have to keep the
     # text encoders in VRAM), and speeds up training  (don't have to run the text encoders for each training example).
