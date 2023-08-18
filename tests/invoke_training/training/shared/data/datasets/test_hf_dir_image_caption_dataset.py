@@ -6,8 +6,8 @@ import PIL
 import pytest
 from PIL import Image
 
-from invoke_training.training.shared.datasets.hf_dir_image_caption_reader import (
-    HFDirImageCaptionReader,
+from invoke_training.training.shared.data.datasets.hf_dir_image_caption_dataset import (
+    HFDirImageCaptionDataset,
 )
 
 
@@ -57,38 +57,38 @@ def hf_imagefolder_dir(tmp_path_factory: pytest.TempPathFactory):
 
 @pytest.fixture
 def hf_dir_dataset(hf_imagefolder_dir: Path):
-    return HFDirImageCaptionReader(str(hf_imagefolder_dir))
+    return HFDirImageCaptionDataset(str(hf_imagefolder_dir))
 
 
-def test_hf_dir_image_caption_reader_bad_image_column(hf_imagefolder_dir: Path):
-    """Test that a ValueError is raised if HFDirImageCaptionReader is initialized with an `image_column` that does not
+def test_hf_dir_image_caption_dataset_bad_image_column(hf_imagefolder_dir: Path):
+    """Test that a ValueError is raised if HFDirImageCaptionDataset is initialized with an `image_column` that does not
     exist.
     """
     with pytest.raises(ValueError):
-        _ = HFDirImageCaptionReader(str(hf_imagefolder_dir), image_column="does_not_exist")
+        _ = HFDirImageCaptionDataset(str(hf_imagefolder_dir), image_column="does_not_exist")
 
 
-def test_hf_dir_image_caption_reader_bad_caption_column(hf_imagefolder_dir: Path):
-    """Test that a ValueError is raised if HFDirImageCaptionReader is initialized with a `caption_column` that does not
+def test_hf_dir_image_caption_dataset_bad_caption_column(hf_imagefolder_dir: Path):
+    """Test that a ValueError is raised if HFDirImageCaptionDataset is initialized with a `caption_column` that does not
     exist.
     """
     with pytest.raises(ValueError):
-        _ = HFDirImageCaptionReader(str(hf_imagefolder_dir), caption_column="does_not_exist")
+        _ = HFDirImageCaptionDataset(str(hf_imagefolder_dir), caption_column="does_not_exist")
 
 
-def test_hf_dir_image_caption_reader_len(hf_dir_dataset: HFDirImageCaptionReader):
-    """Test the behaviour of HFDirImageCaptionReader.__len__()."""
+def test_hf_dir_image_caption_dataset_len(hf_dir_dataset: HFDirImageCaptionDataset):
+    """Test the behaviour of HFDirImageCaptionDataset.__len__()."""
     assert len(hf_dir_dataset) == 5
 
 
-def test_hf_dir_image_caption_reader_index_error(hf_dir_dataset: HFDirImageCaptionReader):
+def test_hf_dir_image_caption_dataset_index_error(hf_dir_dataset: HFDirImageCaptionDataset):
     """Test that an IndexError is raised if a dataset element is accessed with an index that is out-of-bounds."""
     with pytest.raises(IndexError):
         _ = hf_dir_dataset[1000]
 
 
-def test_hf_dir_image_caption_reader_getitem(hf_dir_dataset: HFDirImageCaptionReader):
-    """Test that HFDirImageCaptionReader.__getitem__(...) returns a valid example."""
+def test_hf_dir_image_caption_dataset_getitem(hf_dir_dataset: HFDirImageCaptionDataset):
+    """Test that HFDirImageCaptionDataset.__getitem__(...) returns a valid example."""
     example = hf_dir_dataset[0]
 
     assert set(example.keys()) == {"image", "caption"}
