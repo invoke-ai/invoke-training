@@ -2,6 +2,7 @@ import json
 import logging
 import math
 import os
+import tempfile
 import time
 
 import numpy as np
@@ -480,19 +481,22 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = _load_models(config)
 
     # Prepare text encoder output cache.
-    text_encoder_output_cache_dir = None
+    text_encoder_output_cache_dir_name = None
     if config.cache_text_encoder_outputs:
         if config.train_text_encoder:
             raise ValueError("'cache_text_encoder_outputs' and 'train_text_encoder' cannot both be True.")
 
-        text_encoder_output_cache_dir = os.path.join(out_dir, "text_encoder_output_cache")
+        # We use a temporary directory for the cache. The directory will automatically be cleaned up when
+        # tmp_text_encoder_output_cache_dir is destroyed.
+        tmp_text_encoder_output_cache_dir = tempfile.TemporaryDirectory()
+        text_encoder_output_cache_dir_name = tmp_text_encoder_output_cache_dir.name
         if accelerator.is_local_main_process:
             # Only the main process should to populate the cache.
-            logger.info("Generating text encoder output cache.")
+            logger.info(f"Generating text encoder output cache ('{text_encoder_output_cache_dir_name}').")
             text_encoder_1.to(accelerator.device, dtype=weight_dtype)
             text_encoder_2.to(accelerator.device, dtype=weight_dtype)
             _cache_text_encoder_outputs(
-                text_encoder_output_cache_dir, config, tokenizer_1, tokenizer_2, text_encoder_1, text_encoder_2
+                text_encoder_output_cache_dir_name, config, tokenizer_1, tokenizer_2, text_encoder_1, text_encoder_2
             )
         # Move the text_encoders back to the CPU, because they are not needed for training.
         text_encoder_1.to("cpu")
@@ -521,7 +525,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     optimizer = _initialize_optimizer(config, lora_layers.parameters())
 
     data_loader = build_image_caption_sdxl_dataloader(
-        config.dataset, tokenizer_1, tokenizer_2, config.train_batch_size, text_encoder_output_cache_dir
+        config.dataset, tokenizer_1, tokenizer_2, config.train_batch_size, text_encoder_output_cache_dir_name
     )
 
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
