@@ -16,6 +16,7 @@ classifiers = [
 ]
 dependencies = [
     "accelerate~=0.21.0",
+    "bitsandbytes",
     "datasets~=2.14.3",
     "diffusers~=0.19.3",
     "numpy",
@@ -23,6 +24,8 @@ dependencies = [
     "pydantic",
     "pyyaml",
     "safetensors",
+    # scipy is not used directly, but is a dependency of bitsandbytes.
+    "scipy",
     "tensorboard",
     "torch>=2.0.1",
     "torchvision~=0.15.2",
