@@ -118,6 +118,17 @@ class FinetuneLoRAConfig(BaseModel):
     # file.
     train_unet_non_attention_blocks: bool = False
 
+    # If True, the text encoder(s) will be applied to all of the captions in the dataset before starting training and
+    # the results will be cached to disk. This reduces the VRAM requirements during training (don't have to keep the
+    # text encoders in VRAM), and speeds up training  (don't have to run the text encoders for each training example).
+    # This option can only be enabled if `train_text_encoder == False` and there are no caption augmentations being
+    # applied.
+    cache_text_encoder_outputs: bool = False
+
+    # If True, models will be kept in CPU memory and loaded into GPU memory one-by-one while generating validation
+    # images. This reduces VRAM requirements at the cost of slower generation of validation images.
+    enable_cpu_offload_during_validation: bool = False
+
     # The number of gradient steps to accumulate before each weight update. This value is passed to Hugging Face
     # Accelerate. This is an alternative to increasing the batch size when training with limited VRAM.
     gradient_accumulation_steps: int = 1

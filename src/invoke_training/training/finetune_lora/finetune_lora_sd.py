@@ -2,11 +2,13 @@ import json
 import logging
 import math
 import os
+import tempfile
 import time
 
 import numpy as np
 import torch
 from accelerate import Accelerator
+from accelerate.hooks import remove_hook_from_module
 from accelerate.utils import set_seed
 from diffusers import (
     AutoencoderKL,
@@ -39,11 +41,13 @@ from invoke_training.training.shared.checkpoint_tracker import CheckpointTracker
 from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
     build_image_caption_sd_dataloader,
 )
+from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
+    TensorDiskCache,
+)
 from invoke_training.training.shared.serialization import save_state_dict
 
 
 def _load_models(
-    accelerator: Accelerator,
     config: FinetuneLoRAConfig,
 ) -> tuple[CLIPTokenizer, DDPMScheduler, CLIPTextModel, AutoencoderKL, UNet2DConditionModel]:
     """Load all models required for training from disk, transfer them to the
@@ -62,8 +66,6 @@ def _load_models(
             UNet2DConditionModel,
         ]: A tuple of loaded models.
     """
-    weight_dtype = get_mixed_precision_dtype(accelerator)
-
     tokenizer: CLIPTokenizer = CLIPTokenizer.from_pretrained(config.model, subfolder="tokenizer")
     noise_scheduler: DDPMScheduler = DDPMScheduler.from_pretrained(config.model, subfolder="scheduler")
     text_encoder: CLIPTextModel = CLIPTextModel.from_pretrained(config.model, subfolder="text_encoder")
@@ -80,10 +82,6 @@ def _load_models(
     vae.eval()
     unet.eval()
 
-    text_encoder.to(accelerator.device, dtype=weight_dtype)
-    vae.to(accelerator.device, dtype=weight_dtype)
-    unet.to(accelerator.device, dtype=weight_dtype)
-
     return tokenizer, noise_scheduler, text_encoder, vae, unet
 
 
@@ -96,6 +94,31 @@ def _initialize_optimizer(config: FinetuneLoRAConfig, trainable_params: list) ->
         weight_decay=config.optimizer.adam_weight_decay,
         eps=config.optimizer.adam_epsilon,
     )
+
+
+def _cache_text_encoder_outputs(
+    cache_dir: str, config: FinetuneLoRAConfig, tokenizer: CLIPTokenizer, text_encoder: CLIPTextModel
+):
+    """Run the text encoder on all captions in the dataset and cache the results to disk.
+
+    Args:
+        cache_dir (str): The directory where the results will be cached.
+        config (FinetuneLoRAConfig): Training config.
+        tokenizer (CLIPTokenizer): The tokenizer.
+        text_encoder (CLIPTextModel): The text_encoder.
+    """
+    data_loader = build_image_caption_sd_dataloader(
+        config.dataset, tokenizer, batch_size=config.train_batch_size, shuffle=False
+    )
+
+    cache = TensorDiskCache(cache_dir)
+
+    for data_batch in tqdm(data_loader):
+        caption_token_ids = data_batch["caption_token_ids"].to(text_encoder.device)
+        text_encoder_output_batch = text_encoder(caption_token_ids)[0]
+        # Split batch before caching.
+        for i in range(len(data_batch["id"])):
+            cache.save(data_batch["id"][i], text_encoder_output_batch[i])
 
 
 def _save_checkpoint(
@@ -159,6 +182,12 @@ def _generate_validation_images(
     """
     logger.info("Generating validation images.")
 
+    # Record original model devices so that we can restore this state after running the pipeline with CPU model
+    # offloading.
+    unet_device = unet.device
+    vae_device = vae.device
+    text_encoder_device = text_encoder.device
+
     # Create pipeline.
     pipeline = StableDiffusionPipeline(
         vae=vae,
@@ -171,7 +200,10 @@ def _generate_validation_images(
         # TODO(ryand): Add safety checker support.
         requires_safety_checker=False,
     )
-    pipeline = pipeline.to(accelerator.device)
+    if config.enable_cpu_offload_during_validation:
+        pipeline.enable_model_cpu_offload(accelerator.device.index or 0)
+    else:
+        pipeline = pipeline.to(accelerator.device)
     pipeline.set_progress_bar_config(disable=True)
 
     # Run inference.
@@ -219,6 +251,17 @@ def _generate_validation_images(
     del pipeline
     torch.cuda.empty_cache()
 
+    # Remove hooks from models.
+    # HACK(ryand): Hooks get added when calling `pipeline.enable_model_cpu_offload(...)`, but `StableDiffusionPipeline`
+    # does not offer a way to clean them up so we have to do this manually.
+    for model in [unet, vae, text_encoder]:
+        remove_hook_from_module(model)
+
+    # Restore models to original devices.
+    unet.to(unet_device)
+    vae.to(vae_device)
+    text_encoder.to(text_encoder_device)
+
 
 def _train_forward(
     config: FinetuneLoRAConfig,
@@ -256,7 +299,10 @@ def _train_forward(
     noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
 
     # Get the text embedding for conditioning.
-    encoder_hidden_states = text_encoder(data_batch["caption_token_ids"])[0]
+    # The text_encoder_output may have been cached and included in the data_batch. If not, we calculate it here.
+    encoder_hidden_states = data_batch.get("text_encoder_output", None)
+    if encoder_hidden_states is None:
+        encoder_hidden_states = text_encoder(data_batch["caption_token_ids"])[0]
 
     # Get the target for loss depending on the prediction type.
     if config.prediction_type is not None:
@@ -310,7 +356,31 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
     weight_dtype = get_mixed_precision_dtype(accelerator)
 
     logger.info("Loading models.")
-    tokenizer, noise_scheduler, text_encoder, vae, unet = _load_models(accelerator, config)
+    tokenizer, noise_scheduler, text_encoder, vae, unet = _load_models(config)
+
+    # Prepare text encoder output cache.
+    text_encoder_output_cache_dir_name = None
+    if config.cache_text_encoder_outputs:
+        if config.train_text_encoder:
+            raise ValueError("'cache_text_encoder_outputs' and 'train_text_encoder' cannot both be True.")
+
+        # We use a temporary directory for the cache. The directory will automatically be cleaned up when
+        # tmp_text_encoder_output_cache_dir is destroyed.
+        tmp_text_encoder_output_cache_dir = tempfile.TemporaryDirectory()
+        text_encoder_output_cache_dir_name = tmp_text_encoder_output_cache_dir.name
+        if accelerator.is_local_main_process:
+            # Only the main process should to populate the cache.
+            logger.info(f"Generating text encoder output cache ('{text_encoder_output_cache_dir_name}').")
+            text_encoder.to(accelerator.device, dtype=weight_dtype)
+            _cache_text_encoder_outputs(text_encoder_output_cache_dir_name, config, tokenizer, text_encoder)
+        # Move the text_encoder back to the CPU, because it is not needed for training.
+        text_encoder.to("cpu")
+        accelerator.wait_for_everyone()
+    else:
+        text_encoder.to(accelerator.device, dtype=weight_dtype)
+
+    vae.to(accelerator.device, dtype=weight_dtype)
+    unet.to(accelerator.device, dtype=weight_dtype)
 
     lora_layers = torch.nn.ModuleDict()
     if config.train_unet:
@@ -326,7 +396,9 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
 
     optimizer = _initialize_optimizer(config, lora_layers.parameters())
 
-    data_loader = build_image_caption_sd_dataloader(config.dataset, tokenizer, config.train_batch_size)
+    data_loader = build_image_caption_sd_dataloader(
+        config.dataset, tokenizer, config.train_batch_size, text_encoder_output_cache_dir_name
+    )
 
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
     # by the number of processes. This scaling logic was copied from the diffusers example training code, but it appears
@@ -347,7 +419,16 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
         torch.optim.Optimizer,
         torch.utils.data.DataLoader,
         torch.optim.lr_scheduler.LRScheduler,
-    ] = accelerator.prepare(unet, text_encoder, lora_layers, optimizer, data_loader, lr_scheduler)
+    ] = accelerator.prepare(
+        unet,
+        text_encoder,
+        lora_layers,
+        optimizer,
+        data_loader,
+        lr_scheduler,
+        # Disable automatic device placement for text_encoder if the text encoder outputs were cached.
+        device_placement=[True, not config.cache_text_encoder_outputs, True, True, True, True],
+    )
     unet, text_encoder, lora_layers, optimizer, data_loader, lr_scheduler = prepared_result
 
     # Calculate the number of epochs and total training steps. A "step" represents a single weight update operation

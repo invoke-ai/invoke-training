@@ -35,6 +35,7 @@ def test_build_image_caption_sdxl_dataloader():
     example = next(iter(data_loader))
     assert set(example.keys()) == {
         "image",
+        "id",
         "original_size_hw",
         "crop_top_left_yx",
         "caption_token_ids_1",
