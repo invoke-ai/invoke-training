@@ -6,15 +6,12 @@ A library for training custom Stable Diffusion models (fine-tuning, LoRA trainin
 
 ## Training Modes
 
-- Finetune *(Not implemented yet)*
+There are currently 2 supported training scripts:
 - Finetune with LoRA
     - Stable Diffusion v1/v2: `invoke-finetune-lora-sd`
     - Stable Diffusion XL: `invoke-finetune-lora-sdxl`
-- DreamBooth *(Not implemented yet)*
-- DreamBooth with LoRA *(Not implemented yet)*
-- Textual Inversion *(Not implemented yet)*
-- Pivotal Tuning Inversion *(Not implemented yet)*
-- Pivotal Tuning Inversion with LoRA *(Not implemented yet)*
+
+More training modes will be added soon.
 
 ## Developer Quick Start
 
@@ -47,16 +44,34 @@ The following steps explain how to train a basic Pokemon Style LoRA using the [l
 
 This training process has been tested on an Nvidia GPU with 8GB of VRAM.
 
-1. For this example, we will use the [finetune_lora_sd_pokemon_example.yaml](/configs/finetune_lora_sd_pokemon_example.yaml) config file. See [lora_training_config.py](/src/invoke_training/training/lora/lora_training_config.py) for the full list of supported LoRA training configs.
-2. Start training with `invoke-finetune-lora-sd --cfg-file configs/finetune_lora_sd_pokemon_example.yaml`.
-3. Monitor the training process with Tensorboard by running `tensorboard --logdir output/` and visiting [localhost:6006](http://localhost:6006) in your browser. Here you can see generated images for fixed prompts throughout the training process.
-4. Select a checkpoint based on the quality of the generated images. As an example, we'll use the **Epoch 19** checkpoint.
+1. Select the training configuration file based on your available GPU VRAM and the base model that you want to use:
+- [configs/finetune_lora_sd_pokemon_1x8gb_example.yaml](/configs/finetune_lora_sd_pokemon_1x8gb_example.yaml) (SD v1.5, 8GB VRAM)
+- [configs/finetune_lora_sdxl_pokemon_1x24gb_example.yaml](/configs/finetune_lora_sdxl_pokemon_1x24gb_example.yaml) (SDXL v1.0, 24GB VRAM)
+- [finetune_lora_sdxl_pokemon_1x8gb_example.yaml](/configs/finetune_lora_sdxl_pokemon_1x8gb_example.yaml) (SDXL v1.0, 8GB VRAM, UNet only)
+2. Start training with the appropriate command for the config file that you selected:
+```bash
+# Choose one of the following:
+invoke-finetune-lora-sd --cfg-file configs/finetune_lora_sd_pokemon_1x8gb_example.yaml
+invoke-finetune-lora-sdxl --cfg-file configs/finetune_lora_sdxl_pokemon_1x24gb_example.yaml
+invoke-finetune-lora-sdxl --cfg-file configs/finetune_lora_sdxl_pokemon_1x8gb_example.yaml
+```
+3. Monitor the training process with Tensorboard by running `tensorboard --logdir output/` and visiting [localhost:6006](http://localhost:6006) in your browser. Here you can see generated images for fixed validation prompts throughout the training process.
+
+![Screenshot of the Tensorboard UI showing validation images.](images/tensorboard_val_images_screenshot.png)
+*Validation images in the Tensorboard UI.*
+
+4. Select a checkpoint based on the quality of the generated images. In this short training run, there are only 3 checkpoints to choose from. As an example, we'll use the **Epoch 2** checkpoint.
 5. If you haven't already, setup [InvokeAI](https://github.com/invoke-ai/InvokeAI) by following its documentation.
 6. Copy your selected LoRA checkpoint into your `${INVOKEAI_ROOT}/autoimport/lora` directory. For example:
 ```bash
-cp output/1691088769.5694647/checkpoint_epoch-00000019.safetensors ${INVOKEAI_ROOT}/autoimport/lora/pokemon_epoch-00000019.safetensors
+# Note: You will have to replace the timestamp in the checkpoint path.
+cp output/1691088769.5694647/checkpoint_epoch-00000002.safetensors ${INVOKEAI_ROOT}/autoimport/lora/pokemon_epoch-00000002.safetensors
 ```
 7. You can now use your trained Pokemon LoRA in the InvokeAI UI! 🎉
 
-![Screenshot of the InvokeAI UI with an example of a Yoda pokemon generated using a Pokemon LoRA.](images/invokeai_yoda_pokemon_lora.png)
-*Example image generated with the prompt "yoda" and Pokemon LoRA.*
+![Screenshot of the InvokeAI UI with an example of a Yoda pokemon generated using a Pokemon LoRA model.](images/invokeai_yoda_pokemon_lora.png)
+*Example image generated with the prompt "A cute yoda pokemon creature." and Pokemon LoRA.*
+
+### Custom Datasets
+
+See the [dataset formats](/docs/dataset_formats.md) for a description of the supported dataset formats and instructions for preparing your own custom dataset.

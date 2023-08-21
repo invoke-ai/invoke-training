@@ -1,0 +1,38 @@
+# Training mode: Finetuning with LoRA
+# Base model:    SD 1.5
+# Dataset:       Pokemon
+# GPU:           1 x 8GB
+
+# Notes:
+# This config file has been optimized for the primary goal of achieving reasonable results *quickly* (<15mins) for demo
+# purposes.
+
+output:
+  base_output_dir: output/
+
+optimizer:
+  learning_rate: 1.0e-3
+
+dataset:
+  dataset_name: lambdalabs/pokemon-blip-captions
+  resolution: 512
+
+# General
+model: runwayml/stable-diffusion-v1-5
+seed: 1
+gradient_accumulation_steps: 1
+mixed_precision: fp16
+xformers: True
+gradient_checkpointing: True
+# Dataset size is 833. Set max_train_steps to train for 2 epochs.
+# ceil(833 / 4) * 3
+max_train_steps: 627
+save_every_n_epochs: 1
+save_every_n_steps: null
+max_checkpoints: 100
+validation_prompts:
+  - A cute yoda pokemon creature.
+  - A cute astronaut pokemon creature.
+validate_every_n_epochs: 1
+train_batch_size: 4
+num_validation_images_per_prompt: 3
