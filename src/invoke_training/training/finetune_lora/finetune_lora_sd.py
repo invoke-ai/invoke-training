@@ -384,9 +384,13 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
 
     lora_layers = torch.nn.ModuleDict()
     if config.train_unet:
-        lora_layers["unet"] = inject_lora_into_unet(unet, config.train_unet_non_attention_blocks)
+        lora_layers["unet"] = inject_lora_into_unet(
+            unet, config.train_unet_non_attention_blocks, lora_rank_dim=config.lora_rank_dim
+        )
     if config.train_text_encoder:
-        lora_layers["text_encoder"] = inject_lora_into_clip_text_encoder(text_encoder)
+        lora_layers["text_encoder"] = inject_lora_into_clip_text_encoder(
+            text_encoder, lora_rank_dim=config.lora_rank_dim
+        )
 
     if config.xformers:
         import xformers  # noqa: F401
