@@ -42,6 +42,7 @@ from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataload
 from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
     TensorDiskCache,
 )
+from invoke_training.training.shared.optimizer_utils import initialize_optimizer
 from invoke_training.training.shared.serialization import save_state_dict
 
 
@@ -81,17 +82,6 @@ def _load_models(
     unet.eval()
 
     return tokenizer, noise_scheduler, text_encoder, vae, unet
-
-
-def _initialize_optimizer(config: FinetuneLoRAConfig, trainable_params: list) -> torch.optim.Optimizer:
-    """Initialize an optimizer based on the config."""
-    return torch.optim.AdamW(
-        trainable_params,
-        lr=config.optimizer.learning_rate,
-        betas=(config.optimizer.adam_beta1, config.optimizer.adam_beta2),
-        weight_decay=config.optimizer.adam_weight_decay,
-        eps=config.optimizer.adam_epsilon,
-    )
 
 
 def _cache_text_encoder_outputs(
@@ -396,7 +386,7 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
         unet.enable_xformers_memory_efficient_attention()
         vae.enable_xformers_memory_efficient_attention()
 
-    optimizer = _initialize_optimizer(config, lora_layers.parameters())
+    optimizer = initialize_optimizer(config.optimizer, lora_layers.parameters())
 
     data_loader = build_image_caption_sd_dataloader(
         config.dataset, tokenizer, config.train_batch_size, text_encoder_output_cache_dir_name

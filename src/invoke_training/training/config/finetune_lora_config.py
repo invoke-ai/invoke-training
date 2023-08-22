@@ -2,6 +2,8 @@ import typing
 
 from pydantic import BaseModel
 
+from invoke_training.training.config.optimizer_config import OptimizerConfig
+
 
 class TrainingOutputConfig(BaseModel):
     """Configuration for a training run's output."""
@@ -20,33 +22,6 @@ class TrainingOutputConfig(BaseModel):
     # Note that "ckpt" and "pt" are alternative file extensions for the same
     # file format.
     save_model_as: typing.Literal["ckpt", "pt", "safetensors"] = "safetensors"
-
-
-class TrainingOptimizerConfig(BaseModel):
-    """Configuration for the training optimizer. (Currently, only torch.optim.AdamW is supported.)"""
-
-    # Initial learning rate to use (after the potential warmup period).
-    learning_rate: float = 1e-4
-
-    # Adam optimizer params.
-    adam_beta1: float = 0.9
-    adam_beta2: float = 0.999
-    adam_weight_decay: float = 1e-2
-    adam_epsilon: float = 1e-8
-
-    # The number of warmup steps in the learning rate scheduler. Only applied to
-    # schedulers that support warmup. See lr_scheduler.
-    lr_warmup_steps: int = 0
-
-    # The learning rate scheduler to use.
-    lr_scheduler: typing.Literal[
-        "linear",
-        "cosine",
-        "cosine_with_restarts",
-        "polynomial",
-        "constant",
-        "constant_with_warmup",
-    ] = "constant"
 
 
 class DatasetConfig(BaseModel):
@@ -93,7 +68,7 @@ class FinetuneLoRAConfig(BaseModel):
 
     output: TrainingOutputConfig
 
-    optimizer: TrainingOptimizerConfig
+    optimizer: OptimizerConfig
 
     dataset: DatasetConfig
 
