@@ -12,7 +12,13 @@ output:
   base_output_dir: output/
 
 optimizer:
-  learning_rate: 1.0e-3
+  learning_rate: 1.0
+
+  optimizer:
+    optimizer_type: Prodigy
+    weight_decay: 0.01
+    use_bias_correction: True
+    safeguard_warmup: True
 
 dataset:
   dataset_name: lambdalabs/pokemon-blip-captions
