@@ -30,9 +30,7 @@ from invoke_training.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet,
 )
-from invoke_training.training.finetune_lora.finetune_lora_config import (
-    FinetuneLoRASDXLConfig,
-)
+from invoke_training.training.config.finetune_lora_config import FinetuneLoRASDXLConfig
 from invoke_training.training.shared.accelerator_utils import (
     get_mixed_precision_dtype,
     initialize_accelerator,

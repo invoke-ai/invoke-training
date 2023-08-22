@@ -4,7 +4,7 @@ import pytest
 import torch
 from transformers import CLIPTokenizer
 
-from invoke_training.training.finetune_lora.finetune_lora_config import DatasetConfig
+from invoke_training.training.config.finetune_lora_config import DatasetConfig
 from invoke_training.training.shared.data.data_loaders.image_caption_sdxl_dataloader import (
     build_image_caption_sdxl_dataloader,
 )

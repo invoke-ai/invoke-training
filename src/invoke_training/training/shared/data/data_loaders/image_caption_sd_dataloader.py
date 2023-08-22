@@ -3,7 +3,7 @@ import typing
 from torch.utils.data import DataLoader
 from transformers import CLIPTokenizer
 
-from invoke_training.training.finetune_lora.finetune_lora_config import DatasetConfig
+from invoke_training.training.config.finetune_lora_config import DatasetConfig
 from invoke_training.training.shared.data.datasets.hf_dir_image_caption_dataset import (
     HFDirImageCaptionDataset,
 )
