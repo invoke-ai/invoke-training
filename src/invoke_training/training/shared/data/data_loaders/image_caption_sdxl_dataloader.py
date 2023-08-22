@@ -49,6 +49,9 @@ def _collate_fn(examples):
             ),
         }
 
+    if "vae_output" in examples[0]:
+        out_examples["vae_output"] = torch.stack([example["vae_output"] for example in examples])
+
     return out_examples
 
 
@@ -58,6 +61,7 @@ def build_image_caption_sdxl_dataloader(
     tokenizer_2: PreTrainedTokenizer,
     batch_size: int,
     text_encoder_output_cache_dir: typing.Optional[str] = None,
+    vae_output_cache_dir: typing.Optional[str] = None,
     shuffle: bool = True,
 ) -> DataLoader:
     """Construct a DataLoader for an image-caption dataset for Stable Diffusion XL.
@@ -69,6 +73,7 @@ def build_image_caption_sdxl_dataloader(
         batch_size (int): The DataLoader batch size.
         text_encoder_output_cache_dir (str, optional): The directory where text encoder outputs are cached and should be
             loaded from. If set, then the TokenizeTransform will not be applied.
+        vae_output_cache_dir (str, optional): The directory where VAE outputs are cached and should be loaded from.
         shuffle (bool, optional): Whether to shuffle the dataset order.
     Returns:
         DataLoader
@@ -106,8 +111,14 @@ def build_image_caption_sdxl_dataloader(
             SDTokenizeTransform(tokenizer_2, src_caption_key="caption", dst_token_key="caption_token_ids_2")
         )
     else:
-        cache = TensorDiskCache(text_encoder_output_cache_dir)
-        all_transforms.append(LoadCacheTransform(cache=cache, cache_key_field="id", output_field="text_encoder_output"))
+        text_encoder_cache = TensorDiskCache(text_encoder_output_cache_dir)
+        all_transforms.append(
+            LoadCacheTransform(cache=text_encoder_cache, cache_key_field="id", output_field="text_encoder_output")
+        )
+
+    if vae_output_cache_dir is not None:
+        vae_cache = TensorDiskCache(vae_output_cache_dir)
+        all_transforms.append(LoadCacheTransform(cache=vae_cache, cache_key_field="id", output_field="vae_output"))
 
     dataset = TransformDataset(base_dataset, all_transforms)
 

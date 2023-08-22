@@ -258,6 +258,35 @@ def _cache_text_encoder_outputs(
             cache.save(data_batch["id"][i], embeds)
 
 
+def _cache_vae_outputs(
+    cache_dir: str,
+    config: FinetuneLoRASDXLConfig,
+    tokenizer_1: PreTrainedTokenizer,
+    tokenizer_2: PreTrainedTokenizer,
+    vae: AutoencoderKL,
+):
+    """Run the VAE on all images in the dataset and cache the results to disk.
+
+    Args:
+        cache_dir (str): The directory where the results will be cached.
+        config (FinetuneLoRAConfig): Training config.
+        tokenizer (CLIPTokenizer): The tokenizer.
+        vae (AutoencoderKL): The VAE.
+    """
+    data_loader = build_image_caption_sdxl_dataloader(
+        config.dataset, tokenizer_1, tokenizer_2, config.train_batch_size, shuffle=False
+    )
+
+    cache = TensorDiskCache(cache_dir)
+
+    for data_batch in tqdm(data_loader):
+        latents = vae.encode(data_batch["image"].to(device=vae.device, dtype=vae.dtype)).latent_dist.sample()
+        latents = latents * vae.config.scaling_factor
+        # Split batch before caching.
+        for i in range(len(data_batch["id"])):
+            cache.save(data_batch["id"][i], latents[i])
+
+
 def _generate_validation_images(
     epoch: int,
     out_dir: str,
@@ -375,8 +404,11 @@ def _train_forward(
         torch.Tensor: Loss
     """
     # Convert images to latent space.
-    latents = vae.encode(data_batch["image"].to(dtype=weight_dtype)).latent_dist.sample()
-    latents = latents * vae.config.scaling_factor
+    # The VAE output may have been cached and included in the data_batch. If not, we calculate it here.
+    latents = data_batch.get("vae_output", None)
+    if latents is None:
+        latents = vae.encode(data_batch["image"].to(dtype=weight_dtype)).latent_dist.sample()
+        latents = latents * vae.config.scaling_factor
 
     # Sample noise that we'll add to the latents.
     noise = torch.randn_like(latents)
@@ -480,6 +512,12 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     logger.info("Loading models.")
     tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = _load_models(config)
 
+    if config.xformers:
+        import xformers  # noqa: F401
+
+        unet.enable_xformers_memory_efficient_attention()
+        vae.enable_xformers_memory_efficient_attention()
+
     # Prepare text encoder output cache.
     text_encoder_output_cache_dir_name = None
     if config.cache_text_encoder_outputs:
@@ -491,7 +529,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         tmp_text_encoder_output_cache_dir = tempfile.TemporaryDirectory()
         text_encoder_output_cache_dir_name = tmp_text_encoder_output_cache_dir.name
         if accelerator.is_local_main_process:
-            # Only the main process should to populate the cache.
+            # Only the main process should populate the cache.
             logger.info(f"Generating text encoder output cache ('{text_encoder_output_cache_dir_name}').")
             text_encoder_1.to(accelerator.device, dtype=weight_dtype)
             text_encoder_2.to(accelerator.device, dtype=weight_dtype)
@@ -506,7 +544,29 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         text_encoder_1.to(accelerator.device, dtype=weight_dtype)
         text_encoder_2.to(accelerator.device, dtype=weight_dtype)
 
-    vae.to(accelerator.device, dtype=weight_dtype)
+    # Prepare VAE output cache.
+    vae_output_cache_dir_name = None
+    if config.cache_vae_outputs:
+        if config.dataset.random_flip:
+            raise ValueError("'cache_vae_outputs' cannot be True if 'random_flip' is True.")
+        if not config.dataset.center_crop:
+            raise ValueError("'cache_vae_outputs' cannot be True if 'center_crop' is False.")
+
+        # We use a temporary directory for the cache. The directory will automatically be cleaned up when
+        # tmp_vae_output_cache_dir is destroyed.
+        tmp_vae_output_cache_dir = tempfile.TemporaryDirectory()
+        vae_output_cache_dir_name = tmp_vae_output_cache_dir.name
+        if accelerator.is_local_main_process:
+            # Only the main process should to populate the cache.
+            logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
+            vae.to(accelerator.device, dtype=weight_dtype)
+            _cache_vae_outputs(vae_output_cache_dir_name, config, tokenizer_1, tokenizer_2, vae)
+        # Move the VAE back to the CPU, because it is not needed for training.
+        vae.to("cpu")
+        accelerator.wait_for_everyone()
+    else:
+        vae.to(accelerator.device, dtype=weight_dtype)
+
     unet.to(accelerator.device, dtype=weight_dtype)
 
     lora_layers = torch.nn.ModuleDict()
@@ -522,16 +582,15 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
             text_encoder_2, "lora_te2", lora_rank_dim=config.lora_rank_dim
         )
 
-    if config.xformers:
-        import xformers  # noqa: F401
-
-        unet.enable_xformers_memory_efficient_attention()
-        vae.enable_xformers_memory_efficient_attention()
-
     optimizer = _initialize_optimizer(config, lora_layers.parameters())
 
     data_loader = build_image_caption_sdxl_dataloader(
-        config.dataset, tokenizer_1, tokenizer_2, config.train_batch_size, text_encoder_output_cache_dir_name
+        config.dataset,
+        tokenizer_1,
+        tokenizer_2,
+        config.train_batch_size,
+        text_encoder_output_cache_dir_name,
+        vae_output_cache_dir_name,
     )
 
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
