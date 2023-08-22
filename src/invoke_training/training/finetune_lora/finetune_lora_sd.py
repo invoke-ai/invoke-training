@@ -503,7 +503,10 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1
-                accelerator.log({"train_loss": train_loss}, step=global_step)
+                log = {"train_loss": train_loss, "lr": lr_scheduler.get_last_lr()[0]}
+                if config.optimizer.optimizer.optimizer_type == "Prodigy":
+                    log["lr/d*lr"] = optimizer.param_groups[0]["d"] * optimizer.param_groups[0]["lr"]
+                accelerator.log(log, step=global_step)
                 train_loss = 0.0
 
                 if config.save_every_n_steps is not None and (global_step + 1) % config.save_every_n_steps == 0:
