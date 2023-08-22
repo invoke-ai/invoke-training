@@ -13,6 +13,9 @@ from invoke_training.training.shared.data.datasets.hf_hub_image_caption_dataset 
 from invoke_training.training.shared.data.datasets.transform_dataset import (
     TransformDataset,
 )
+from invoke_training.training.shared.data.transforms.drop_field_transform import (
+    DropFieldTransform,
+)
 from invoke_training.training.shared.data.transforms.load_cache_transform import (
     LoadCacheTransform,
 )
@@ -44,7 +47,8 @@ def build_image_caption_sd_dataloader(
         batch_size (int): The DataLoader batch size.
         text_encoder_output_cache_dir (str, optional): The directory where text encoder outputs are cached and should be
             loaded from. If set, then the TokenizeTransform will not be applied.
-        vae_output_cache_dir (str, optional): The directory where VAE outputs are cached and should be loaded from.
+        vae_output_cache_dir (str, optional): The directory where VAE outputs are cached and should be loaded from. If
+            set, then the image augmentation transforms will be skipped, and the image will not be copied to VRAM.
         shuffle (bool, optional): Whether to shuffle the dataset order.
     Returns:
         DataLoader
@@ -71,9 +75,17 @@ def build_image_caption_sd_dataloader(
         raise ValueError("One of 'dataset_name' or 'dataset_dir' must be set.")
 
     all_transforms = []
-    all_transforms.append(
-        SDImageTransform(resolution=config.resolution, center_crop=config.center_crop, random_flip=config.random_flip)
-    )
+    if vae_output_cache_dir is None:
+        all_transforms.append(
+            SDImageTransform(
+                resolution=config.resolution, center_crop=config.center_crop, random_flip=config.random_flip
+            )
+        )
+    else:
+        vae_cache = TensorDiskCache(vae_output_cache_dir)
+        all_transforms.append(LoadCacheTransform(cache=vae_cache, cache_key_field="id", output_field="vae_output"))
+        # We drop the image to avoid having to either convert from PIL, or handle PIL batch collation.
+        all_transforms.append(DropFieldTransform("image"))
 
     if text_encoder_output_cache_dir is None:
         all_transforms.append(SDTokenizeTransform(tokenizer))
@@ -82,10 +94,6 @@ def build_image_caption_sd_dataloader(
         all_transforms.append(
             LoadCacheTransform(cache=text_encoder_cache, cache_key_field="id", output_field="text_encoder_output")
         )
-
-    if vae_output_cache_dir is not None:
-        vae_cache = TensorDiskCache(vae_output_cache_dir)
-        all_transforms.append(LoadCacheTransform(cache=vae_cache, cache_key_field="id", output_field="vae_output"))
 
     dataset = TransformDataset(base_dataset, all_transforms)
 
