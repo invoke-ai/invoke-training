@@ -582,6 +582,25 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
             text_encoder_2, "lora_te2", lora_rank_dim=config.lora_rank_dim
         )
 
+    if config.gradient_checkpointing:
+        unet.enable_gradient_checkpointing()
+        # unet must be in train() mode for gradient checkpointing to take effect.
+        # At the time of writing, the unet dropout probabilities default to 0, so putting the unet in train mode does
+        # not change its forward behavior.
+        unet.train()
+        if config.train_text_encoder:
+            for te in [text_encoder_1, text_encoder_2]:
+                te.gradient_checkpointing_enable()
+
+                # The text encoders must be in train() mode for gradient checkpointing to take effect.
+                # At the time of writing, the text encoder dropout probabilities default to 0, so putting the text
+                # encoders in train mode does not change their forward behavior.
+                te.train()
+
+                # Set requires_grad = True on the first parameters of the text encoders. Without this, the text encoder
+                # LoRA weights would have 0 gradients, and so would not get trained.
+                te.text_model.embeddings.requires_grad_(True)
+
     optimizer = _initialize_optimizer(config, lora_layers.parameters())
 
     data_loader = build_image_caption_sdxl_dataloader(

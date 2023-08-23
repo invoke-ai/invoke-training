@@ -150,7 +150,8 @@ class FinetuneLoRAConfig(BaseModel):
     # If true, use xformers for more efficient attention blocks.
     xformers: bool = False
 
-    # Whether or not to use gradient checkpointing to save memory at the expense of a slower backward pass.
+    # Whether or not to use gradient checkpointing to save memory at the expense of a slower backward pass. Enabling
+    # gradient checkpointing slows down training by ~20%.
     gradient_checkpointing: bool = False
 
     # Total number of training steps to perform. (One training step is one gradient update.)
