@@ -232,8 +232,8 @@ def _generate_validation_images(
                             prompt,
                             num_inference_steps=30,
                             generator=generator,
-                            height=config.dataset.resolution,
-                            width=config.dataset.resolution,
+                            height=config.dataset.image_transforms.resolution,
+                            width=config.dataset.image_transforms.resolution,
                         ).images[0]
                     )
 
@@ -402,9 +402,9 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
     # Prepare VAE output cache.
     vae_output_cache_dir_name = None
     if config.cache_vae_outputs:
-        if config.dataset.random_flip:
+        if config.dataset.image_transforms.random_flip:
             raise ValueError("'cache_vae_outputs' cannot be True if 'random_flip' is True.")
-        if not config.dataset.center_crop:
+        if not config.dataset.image_transforms.center_crop:
             raise ValueError("'cache_vae_outputs' cannot be True if 'center_crop' is False.")
 
         # We use a temporary directory for the cache. The directory will automatically be cleaned up when

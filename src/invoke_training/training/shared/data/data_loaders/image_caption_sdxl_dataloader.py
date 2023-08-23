@@ -110,7 +110,9 @@ def build_image_caption_sdxl_dataloader(
     if vae_output_cache_dir is None:
         all_transforms.append(
             SDXLImageTransform(
-                resolution=config.resolution, center_crop=config.center_crop, random_flip=config.random_flip
+                resolution=config.image_transforms.resolution,
+                center_crop=config.image_transforms.center_crop,
+                random_flip=config.image_transforms.random_flip,
             )
         )
     else:
