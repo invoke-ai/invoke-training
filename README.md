@@ -6,10 +6,12 @@ A library for training custom Stable Diffusion models (fine-tuning, LoRA trainin
 
 ## Training Modes
 
-There are currently 2 supported training scripts:
 - Finetune with LoRA
     - Stable Diffusion v1/v2: `invoke-finetune-lora-sd`
     - Stable Diffusion XL: `invoke-finetune-lora-sdxl`
+- DreamBooth with LoRA
+    - Stable Diffusion v1/v2: `invoke-dreambooth-lora-sd`
+    - Stable Diffusion XL:  `invoke-dreambooth-lora-sdxl`
 
 More training modes will be added soon.
 
