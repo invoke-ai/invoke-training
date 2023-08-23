@@ -20,6 +20,7 @@ dependencies = [
     "diffusers~=0.19.3",
     "numpy",
     "Pillow",
+    "prodigyopt",
     "pydantic",
     "pyyaml",
     "safetensors",

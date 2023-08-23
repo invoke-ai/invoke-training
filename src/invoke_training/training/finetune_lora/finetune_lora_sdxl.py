@@ -30,9 +30,7 @@ from invoke_training.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet,
 )
-from invoke_training.training.finetune_lora.finetune_lora_config import (
-    FinetuneLoRASDXLConfig,
-)
+from invoke_training.training.config.finetune_lora_config import FinetuneLoRASDXLConfig
 from invoke_training.training.shared.accelerator_utils import (
     get_mixed_precision_dtype,
     initialize_accelerator,
@@ -49,6 +47,7 @@ from invoke_training.training.shared.data.data_loaders.image_caption_sdxl_datalo
 from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
     TensorDiskCache,
 )
+from invoke_training.training.shared.optimizer_utils import initialize_optimizer
 from invoke_training.training.shared.serialization import save_state_dict
 
 
@@ -149,18 +148,6 @@ def _load_models(
     unet.eval()
 
     return tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet
-
-
-# TODO(ryand): Split this function out to avoid duplication between sd and sdxl configs.
-def _initialize_optimizer(config: FinetuneLoRASDXLConfig, trainable_params: list) -> torch.optim.Optimizer:
-    """Initialize an optimizer based on the config."""
-    return torch.optim.AdamW(
-        trainable_params,
-        lr=config.optimizer.learning_rate,
-        betas=(config.optimizer.adam_beta1, config.optimizer.adam_beta2),
-        weight_decay=config.optimizer.adam_weight_decay,
-        eps=config.optimizer.adam_epsilon,
-    )
 
 
 def _save_checkpoint(
@@ -601,7 +588,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
                 # LoRA weights would have 0 gradients, and so would not get trained.
                 te.text_model.embeddings.requires_grad_(True)
 
-    optimizer = _initialize_optimizer(config, lora_layers.parameters())
+    optimizer = initialize_optimizer(config.optimizer, lora_layers.parameters())
 
     data_loader = build_image_caption_sdxl_dataloader(
         config.dataset,
@@ -735,7 +722,10 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1
-                accelerator.log({"train_loss": train_loss}, step=global_step)
+                log = {"train_loss": train_loss, "lr": lr_scheduler.get_last_lr()[0]}
+                if config.optimizer.optimizer.optimizer_type == "Prodigy":
+                    log["lr/d*lr"] = optimizer.param_groups[0]["d"] * optimizer.param_groups[0]["lr"]
+                accelerator.log(log, step=global_step)
                 train_loss = 0.0
 
                 if config.save_every_n_steps is not None and (global_step + 1) % config.save_every_n_steps == 0:

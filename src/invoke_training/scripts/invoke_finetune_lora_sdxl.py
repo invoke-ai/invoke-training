@@ -3,9 +3,7 @@ from pathlib import Path
 
 import yaml
 
-from invoke_training.training.finetune_lora.finetune_lora_config import (
-    FinetuneLoRASDXLConfig,
-)
+from invoke_training.training.config.finetune_lora_config import FinetuneLoRASDXLConfig
 from invoke_training.training.finetune_lora.finetune_lora_sdxl import run_training
 
 
