@@ -25,18 +25,8 @@ class TrainingOutputConfig(BaseModel):
     save_model_as: typing.Literal["ckpt", "pt", "safetensors"] = "safetensors"
 
 
-class FinetuneLoRAConfig(BaseModel):
-    """The configuration for a LoRA training run."""
-
-    output: TrainingOutputConfig
-
-    optimizer: OptimizerConfig
-
-    dataset: ImageCaptionDatasetConfig
-
-    ##################
-    # General Configs
-    ##################
+class LoRATrainingConfig(BaseModel):
+    """The base configuration for any LoRA training run."""
 
     # The name of the Hugging Face Hub model to train against.
     model: str = "runwayml/stable-diffusion-v1-5"
@@ -128,7 +118,42 @@ class FinetuneLoRAConfig(BaseModel):
     train_batch_size: int = 4
 
 
+class FinetuneLoRAConfig(LoRATrainingConfig):
+    output: TrainingOutputConfig
+    optimizer: OptimizerConfig
+    dataset: ImageCaptionDatasetConfig
+
+
 class FinetuneLoRASDXLConfig(FinetuneLoRAConfig):
+    # The name of the Hugging Face Hub VAE model to train against. This will override the VAE bundled with the base
+    # model (specified by the `model` parameter). This config option is provided for SDXL models, because SDXL shipped
+    # with a VAE that produces NaNs in fp16 mode, so it is common to replace this VAE with a fixed version.
+    vae_model: typing.Optional[str] = None
+
+
+class DreamBoothLoRAConfig(LoRATrainingConfig):
+    output: TrainingOutputConfig
+    optimizer: OptimizerConfig
+
+    # The instance dataset to train on.
+    instance_dataset: ImageCaptionDatasetConfig
+
+    # The caption to use for all examples in the instance_dataset. Typically has the following form:
+    # "a [instance identifier] [class noun]".
+    instance_prompt: str
+
+    # If true, a regularization dataset of prior presevation images will be generated.
+    use_prior_preservation: bool = False
+
+    # The prompt to use to generate the class regularization dataset. This same prompt will also be used for
+    # conditioning during training. Typically has the following form: "a [class noun]".
+    class_prompt: str
+
+    # The number of class regularization images to generate.
+    num_class_images: int = 0
+
+
+class DreamBoothLoRASDXLConfig(DreamBoothLoRAConfig):
     # The name of the Hugging Face Hub VAE model to train against. This will override the VAE bundled with the base
     # model (specified by the `model` parameter). This config option is provided for SDXL models, because SDXL shipped
     # with a VAE that produces NaNs in fp16 mode, so it is common to replace this VAE with a fixed version.
