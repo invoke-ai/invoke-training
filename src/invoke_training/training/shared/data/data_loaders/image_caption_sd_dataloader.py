@@ -3,7 +3,9 @@ import typing
 from torch.utils.data import DataLoader
 from transformers import CLIPTokenizer
 
-from invoke_training.training.config.finetune_lora_config import DatasetConfig
+from invoke_training.training.config.finetune_lora_config import (
+    ImageCaptionDatasetConfig,
+)
 from invoke_training.training.shared.data.datasets.hf_dir_image_caption_dataset import (
     HFDirImageCaptionDataset,
 )
@@ -31,7 +33,7 @@ from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
 
 
 def build_image_caption_sd_dataloader(
-    config: DatasetConfig,
+    config: ImageCaptionDatasetConfig,
     tokenizer: typing.Optional[CLIPTokenizer],
     batch_size: int,
     text_encoder_output_cache_dir: typing.Optional[str] = None,
@@ -41,7 +43,7 @@ def build_image_caption_sd_dataloader(
     """Construct a DataLoader for an image-caption dataset for Stable Diffusion v1/v2..
 
     Args:
-        config (DatasetConfig): The dataset config.
+        config (ImageCaptionDatasetConfig): The dataset config.
         tokenizer (CLIPTokenizer, option): The tokenizer to apply to the captions. Can be None if
             `text_encoder_output_cache_dir` is set.
         batch_size (int): The DataLoader batch size.
