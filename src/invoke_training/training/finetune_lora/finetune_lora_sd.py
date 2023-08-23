@@ -398,6 +398,23 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
         unet.enable_xformers_memory_efficient_attention()
         vae.enable_xformers_memory_efficient_attention()
 
+    if config.gradient_checkpointing:
+        unet.enable_gradient_checkpointing()
+        # unet must be in train() mode for gradient checkpointing to take effect.
+        # At the time of writing, the unet dropout probabilities default to 0, so putting the unet in train mode does
+        # not change its forward behavior.
+        unet.train()
+        if config.train_text_encoder:
+            text_encoder.gradient_checkpointing_enable()
+            # text_encoder must be in train() mode for gradient checkpointing to take effect.
+            # At the time of writing, the text_encoder dropout probabilities default to 0, so putting the text_encoder
+            # in train mode does not change its forward behavior.
+            text_encoder.train()
+
+            # Set requires_grad = True on the first parameters of the text encoder. Without this, the text encoder LoRA
+            # would have 0 gradients, and so would not get trained.
+            text_encoder.text_model.embeddings.requires_grad_(True)
+
     optimizer = _initialize_optimizer(config, lora_layers.parameters())
 
     data_loader = build_image_caption_sd_dataloader(
