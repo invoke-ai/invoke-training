@@ -83,7 +83,11 @@ def build_image_caption_sd_dataloader(
         )
     else:
         vae_cache = TensorDiskCache(vae_output_cache_dir)
-        all_transforms.append(LoadCacheTransform(cache=vae_cache, cache_key_field="id", output_field="vae_output"))
+        all_transforms.append(
+            LoadCacheTransform(
+                cache=vae_cache, cache_key_field="id", cache_field_to_output_field={"vae_output": "vae_output"}
+            )
+        )
         # We drop the image to avoid having to either convert from PIL, or handle PIL batch collation.
         all_transforms.append(DropFieldTransform("image"))
 
@@ -92,7 +96,11 @@ def build_image_caption_sd_dataloader(
     else:
         text_encoder_cache = TensorDiskCache(text_encoder_output_cache_dir)
         all_transforms.append(
-            LoadCacheTransform(cache=text_encoder_cache, cache_key_field="id", output_field="text_encoder_output")
+            LoadCacheTransform(
+                cache=text_encoder_cache,
+                cache_key_field="id",
+                cache_field_to_output_field={"text_encoder_output": "text_encoder_output"},
+            )
         )
 
     dataset = TransformDataset(base_dataset, all_transforms)

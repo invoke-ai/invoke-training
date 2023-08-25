@@ -30,6 +30,10 @@ class TensorDiskCache:
             key (int): The cache key.
             data (typing.Dict[str, torch.Tensor]): The data to save.
         """
+        # torch.save() supports a range of different data types, but it is cleaner if we force everyone to use a dict.
+        # This allows for more reusable cache loading code.
+        assert isinstance(data, dict)
+
         save_path = self._get_path(key)
         assert not os.path.exists(save_path)
         torch.save(data, save_path)

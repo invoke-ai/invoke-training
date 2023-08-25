@@ -39,20 +39,20 @@ def _collate_fn(examples):
 
     if "image" in examples[0]:
         out_examples["image"] = torch.stack([example["image"] for example in examples])
+
+    if "original_size_hw" in examples[0]:
         out_examples["original_size_hw"] = [example["original_size_hw"] for example in examples]
+
+    if "crop_top_left_yx" in examples[0]:
         out_examples["crop_top_left_yx"] = [example["crop_top_left_yx"] for example in examples]
 
     if "caption_token_ids_1" in examples[0]:
         out_examples["caption_token_ids_1"] = torch.stack([example["caption_token_ids_1"] for example in examples])
         out_examples["caption_token_ids_2"] = torch.stack([example["caption_token_ids_2"] for example in examples])
 
-    if "text_encoder_output" in examples[0]:
-        out_examples["text_encoder_output"] = {
-            "prompt_embeds": torch.stack([example["text_encoder_output"]["prompt_embeds"] for example in examples]),
-            "pooled_prompt_embeds": torch.stack(
-                [example["text_encoder_output"]["pooled_prompt_embeds"] for example in examples]
-            ),
-        }
+    if "prompt_embeds" in examples[0]:
+        out_examples["prompt_embeds"] = torch.stack([example["prompt_embeds"] for example in examples])
+        out_examples["pooled_prompt_embeds"] = torch.stack([example["pooled_prompt_embeds"] for example in examples])
 
     if "vae_output" in examples[0]:
         out_examples["vae_output"] = torch.stack([example["vae_output"] for example in examples])
@@ -113,7 +113,17 @@ def build_image_caption_sdxl_dataloader(
         )
     else:
         vae_cache = TensorDiskCache(vae_output_cache_dir)
-        all_transforms.append(LoadCacheTransform(cache=vae_cache, cache_key_field="id", output_field="vae_output"))
+        all_transforms.append(
+            LoadCacheTransform(
+                cache=vae_cache,
+                cache_key_field="id",
+                cache_field_to_output_field={
+                    "vae_output": "vae_output",
+                    "original_size_hw": "original_size_hw",
+                    "crop_top_left_yx": "crop_top_left_yx",
+                },
+            )
+        )
         # We drop the image to avoid having to either convert from PIL, or handle PIL batch collation.
         all_transforms.append(DropFieldTransform("image"))
 
@@ -127,7 +137,14 @@ def build_image_caption_sdxl_dataloader(
     else:
         text_encoder_cache = TensorDiskCache(text_encoder_output_cache_dir)
         all_transforms.append(
-            LoadCacheTransform(cache=text_encoder_cache, cache_key_field="id", output_field="text_encoder_output")
+            LoadCacheTransform(
+                cache=text_encoder_cache,
+                cache_key_field="id",
+                cache_field_to_output_field={
+                    "prompt_embeds": "prompt_embeds",
+                    "pooled_prompt_embeds": "pooled_prompt_embeds",
+                },
+            )
         )
 
     dataset = TransformDataset(base_dataset, all_transforms)

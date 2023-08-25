@@ -106,7 +106,7 @@ def _cache_text_encoder_outputs(
         text_encoder_output_batch = text_encoder(caption_token_ids)[0]
         # Split batch before caching.
         for i in range(len(data_batch["id"])):
-            cache.save(data_batch["id"][i], text_encoder_output_batch[i])
+            cache.save(data_batch["id"][i], {"text_encoder_output": text_encoder_output_batch[i]})
 
 
 def _cache_vae_outputs(cache_dir: str, config: FinetuneLoRAConfig, tokenizer: CLIPTokenizer, vae: AutoencoderKL):
@@ -129,7 +129,7 @@ def _cache_vae_outputs(cache_dir: str, config: FinetuneLoRAConfig, tokenizer: CL
         latents = latents * vae.config.scaling_factor
         # Split batch before caching.
         for i in range(len(data_batch["id"])):
-            cache.save(data_batch["id"][i], latents[i])
+            cache.save(data_batch["id"][i], {"vae_output": latents[i]})
 
 
 def _save_checkpoint(
