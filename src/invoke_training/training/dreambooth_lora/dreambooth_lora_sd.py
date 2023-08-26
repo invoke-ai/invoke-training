@@ -1,7 +1,6 @@
 import json
 import math
 import os
-import tempfile
 import time
 
 import torch
@@ -17,8 +16,6 @@ from invoke_training.lora.injection.stable_diffusion import (
 )
 from invoke_training.training.config.finetune_lora_config import DreamBoothLoRAConfig
 from invoke_training.training.finetune_lora.finetune_lora_sd import (
-    cache_text_encoder_outputs,
-    cache_vae_outputs,
     generate_validation_images,
     load_models,
 )
@@ -32,11 +29,15 @@ from invoke_training.training.shared.base_model_version import (
     check_base_model_version,
 )
 from invoke_training.training.shared.checkpoint_tracker import CheckpointTracker
-from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
-    build_image_caption_sd_dataloader,
+from invoke_training.training.shared.data.data_loaders.dreambooth_sd_dataloader import (
+    build_dreambooth_sd_dataloader,
 )
 from invoke_training.training.shared.lora_checkpoint_utils import save_lora_checkpoint
 from invoke_training.training.shared.optimizer_utils import initialize_optimizer
+
+
+def _generate_class_images(config: DreamBoothLoRAConfig):
+    raise NotImplementedError
 
 
 def _train_forward(
@@ -97,7 +98,13 @@ def _train_forward(
     # Predict the noise residual.
     model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
-    return torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="mean")
+    loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="none")
+    # Mean-reduce the loss along all dimensions except for the batch dimension.
+    loss = loss.mean([1, 2, 3])
+    # Apply per-example weights.
+    loss = loss * data_batch["loss_weight"]
+    loss = loss.mean()
+    return loss
 
 
 def run_training(config: DreamBoothLoRAConfig):  # noqa: C901
@@ -143,47 +150,30 @@ def run_training(config: DreamBoothLoRAConfig):  # noqa: C901
         unet.enable_xformers_memory_efficient_attention()
         vae.enable_xformers_memory_efficient_attention()
 
+    # Generate class images if prior preservation is enabled.
+    if config.use_prior_preservation and accelerator.is_main_process:
+        _generate_class_images(config)
+    accelerator.wait_for_everyone()
+
     # Prepare text encoder output cache.
-    text_encoder_output_cache_dir_name = None
+    # text_encoder_output_cache_dir_name = None
     if config.cache_text_encoder_outputs:
         if config.train_text_encoder:
             raise ValueError("'cache_text_encoder_outputs' and 'train_text_encoder' cannot both be True.")
 
-        # We use a temporary directory for the cache. The directory will automatically be cleaned up when
-        # tmp_text_encoder_output_cache_dir is destroyed.
-        tmp_text_encoder_output_cache_dir = tempfile.TemporaryDirectory()
-        text_encoder_output_cache_dir_name = tmp_text_encoder_output_cache_dir.name
-        if accelerator.is_local_main_process:
-            # Only the main process should populate the cache.
-            logger.info(f"Generating text encoder output cache ('{text_encoder_output_cache_dir_name}').")
-            text_encoder.to(accelerator.device, dtype=weight_dtype)
-            cache_text_encoder_outputs(text_encoder_output_cache_dir_name, config, tokenizer, text_encoder)
-        # Move the text_encoder back to the CPU, because it is not needed for training.
-        text_encoder.to("cpu")
-        accelerator.wait_for_everyone()
+        raise NotImplementedError("'cache_text_encoder_outputs' is not yet supported in DreamBooth training.")
     else:
         text_encoder.to(accelerator.device, dtype=weight_dtype)
 
     # Prepare VAE output cache.
-    vae_output_cache_dir_name = None
+    # vae_output_cache_dir_name = None
     if config.cache_vae_outputs:
-        if config.dataset.image_transforms.random_flip:
+        if config.instance_dataset.image_transforms.random_flip:
             raise ValueError("'cache_vae_outputs' cannot be True if 'random_flip' is True.")
-        if not config.dataset.image_transforms.center_crop:
+        if not config.instance_dataset.image_transforms.center_crop:
             raise ValueError("'cache_vae_outputs' cannot be True if 'center_crop' is False.")
 
-        # We use a temporary directory for the cache. The directory will automatically be cleaned up when
-        # tmp_vae_output_cache_dir is destroyed.
-        tmp_vae_output_cache_dir = tempfile.TemporaryDirectory()
-        vae_output_cache_dir_name = tmp_vae_output_cache_dir.name
-        if accelerator.is_local_main_process:
-            # Only the main process should to populate the cache.
-            logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
-            vae.to(accelerator.device, dtype=weight_dtype)
-            cache_vae_outputs(vae_output_cache_dir_name, config, tokenizer, vae)
-        # Move the VAE back to the CPU, because it is not needed for training.
-        vae.to("cpu")
-        accelerator.wait_for_everyone()
+        raise NotImplementedError("'cache_vae_outputs' is not yet supported in DreamBooth training.")
     else:
         vae.to(accelerator.device, dtype=weight_dtype)
 
@@ -218,12 +208,13 @@ def run_training(config: DreamBoothLoRAConfig):  # noqa: C901
 
     optimizer = initialize_optimizer(config.optimizer, lora_layers.parameters())
 
-    data_loader = build_image_caption_sd_dataloader(
-        config.dataset,
-        tokenizer,
-        config.train_batch_size,
-        text_encoder_output_cache_dir_name,
-        vae_output_cache_dir_name,
+    data_loader = build_dreambooth_sd_dataloader(
+        instance_prompt=config.instance_prompt,
+        instance_dataset_config=config.instance_dataset,
+        class_prompt=config.class_prompt,
+        class_data_dir=None,
+        tokenizer=tokenizer,
+        batch_size=config.train_batch_size,
     )
 
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
