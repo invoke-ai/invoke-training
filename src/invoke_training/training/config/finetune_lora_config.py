@@ -2,7 +2,10 @@ import typing
 
 from pydantic import BaseModel
 
-from invoke_training.training.config.data_config import ImageCaptionDatasetConfig
+from invoke_training.training.config.data_config import (
+    ImageCaptionDatasetConfig,
+    ImageDirDatasetConfig,
+)
 from invoke_training.training.config.optimizer_config import OptimizerConfig
 
 
@@ -136,7 +139,7 @@ class DreamBoothLoRAConfig(LoRATrainingConfig):
     optimizer: OptimizerConfig
 
     # The instance dataset to train on.
-    instance_dataset: ImageCaptionDatasetConfig
+    instance_dataset: ImageDirDatasetConfig
 
     # The caption to use for all examples in the instance_dataset. Typically has the following form:
     # "a [instance identifier] [class noun]".
