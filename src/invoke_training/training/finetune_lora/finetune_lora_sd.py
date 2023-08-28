@@ -4,6 +4,7 @@ import math
 import os
 import tempfile
 import time
+from contextlib import contextmanager
 
 import numpy as np
 import torch
@@ -131,6 +132,73 @@ def cache_vae_outputs(cache_dir: str, config: FinetuneLoRAConfig, tokenizer: CLI
             cache.save(data_batch["id"][i], {"vae_output": latents[i]})
 
 
+@contextmanager
+def inference_pipeline(
+    accelerator: Accelerator,
+    vae: AutoencoderKL,
+    text_encoder: CLIPTextModel,
+    tokenizer: CLIPTokenizer,
+    noise_scheduler: DDPMScheduler,
+    unet: UNet2DConditionModel,
+    enable_cpu_offload: bool,
+):
+    """A context manager that combines all of the provided models into an inference pipeline. Handles moving models
+    between devices as needed for the configuration.
+
+    Args:
+        accelerator (Accelerator):
+        vae (AutoencoderKL):
+        text_encoder (CLIPTextModel):
+        tokenizer (CLIPTokenizer):
+        noise_scheduler (DDPMScheduler):
+        unet (UNet2DConditionModel):
+        enable_cpu_offload (bool): If True, each model will be moved to the GPU for inference and then moved back to the
+            CPU to convserve VRAM.
+
+    Yields:
+        StableDiffusionPipeline: The SD inference pipeline.
+    """
+    # Record original model devices so that we can restore this state after running the pipeline with CPU model
+    # offloading.
+    unet_device = unet.device
+    vae_device = vae.device
+    text_encoder_device = text_encoder.device
+
+    # Create pipeline.
+    pipeline = StableDiffusionPipeline(
+        vae=vae,
+        text_encoder=text_encoder,
+        tokenizer=tokenizer,
+        unet=unet,
+        scheduler=noise_scheduler,
+        safety_checker=None,
+        feature_extractor=None,
+        requires_safety_checker=False,
+    )
+    if enable_cpu_offload:
+        pipeline.enable_model_cpu_offload(accelerator.device.index or 0)
+    else:
+        pipeline = pipeline.to(accelerator.device)
+    pipeline.set_progress_bar_config(disable=True)
+
+    try:
+        yield pipeline
+    finally:
+        del pipeline
+        torch.cuda.empty_cache()
+
+        # Remove hooks from models.
+        # HACK(ryand): Hooks get added when calling `pipeline.enable_model_cpu_offload(...)`, but
+        # `StableDiffusionPipeline` does not offer a way to clean them up so we have to do this manually.
+        for model in [unet, vae, text_encoder]:
+            remove_hook_from_module(model)
+
+        # Restore models to original devices.
+        unet.to(unet_device)
+        vae.to(vae_device)
+        text_encoder.to(text_encoder_device)
+
+
 def generate_validation_images(
     epoch: int,
     out_dir: str,
@@ -160,85 +228,50 @@ def generate_validation_images(
     """
     logger.info("Generating validation images.")
 
-    # Record original model devices so that we can restore this state after running the pipeline with CPU model
-    # offloading.
-    unet_device = unet.device
-    vae_device = vae.device
-    text_encoder_device = text_encoder.device
-
-    # Create pipeline.
-    pipeline = StableDiffusionPipeline(
-        vae=vae,
-        text_encoder=text_encoder,
-        tokenizer=tokenizer,
-        unet=unet,
-        scheduler=noise_scheduler,
-        safety_checker=None,
-        feature_extractor=None,
-        # TODO(ryand): Add safety checker support.
-        requires_safety_checker=False,
-    )
-    if config.enable_cpu_offload_during_validation:
-        pipeline.enable_model_cpu_offload(accelerator.device.index or 0)
-    else:
-        pipeline = pipeline.to(accelerator.device)
-    pipeline.set_progress_bar_config(disable=True)
-
     # Run inference.
-    with torch.no_grad():
-        for prompt_idx, prompt in enumerate(config.validation_prompts):
-            generator = torch.Generator(device=accelerator.device)
-            if config.seed is not None:
-                generator = generator.manual_seed(config.seed)
+    with inference_pipeline(
+        accelerator, vae, text_encoder, tokenizer, noise_scheduler, unet, config.enable_cpu_offload_during_validation
+    ) as pipeline:
+        with torch.no_grad():
+            for prompt_idx, prompt in enumerate(config.validation_prompts):
+                generator = torch.Generator(device=accelerator.device)
+                if config.seed is not None:
+                    generator = generator.manual_seed(config.seed)
 
-            images = []
-            for _ in range(config.num_validation_images_per_prompt):
-                with accelerator.autocast():
-                    images.append(
-                        pipeline(
-                            prompt,
-                            num_inference_steps=30,
-                            generator=generator,
-                            height=config.dataset.image_transforms.resolution,
-                            width=config.dataset.image_transforms.resolution,
-                        ).images[0]
-                    )
+                images = []
+                for _ in range(config.num_validation_images_per_prompt):
+                    with accelerator.autocast():
+                        images.append(
+                            pipeline(
+                                prompt,
+                                num_inference_steps=30,
+                                generator=generator,
+                                height=config.dataset.image_transforms.resolution,
+                                width=config.dataset.image_transforms.resolution,
+                            ).images[0]
+                        )
 
-            # Save images to disk.
-            validation_dir = os.path.join(
-                out_dir,
-                "validation",
-                f"epoch_{epoch:0>8}",
-                f"prompt_{prompt_idx:0>4}",
-            )
-            os.makedirs(validation_dir)
-            for image_idx, image in enumerate(images):
-                image.save(os.path.join(validation_dir, f"{image_idx:0>4}.jpg"))
+                # Save images to disk.
+                validation_dir = os.path.join(
+                    out_dir,
+                    "validation",
+                    f"epoch_{epoch:0>8}",
+                    f"prompt_{prompt_idx:0>4}",
+                )
+                os.makedirs(validation_dir)
+                for image_idx, image in enumerate(images):
+                    image.save(os.path.join(validation_dir, f"{image_idx:0>4}.jpg"))
 
-            # Log images to trackers. Currently, only tensorboard is supported.
-            for tracker in accelerator.trackers:
-                if tracker.name == "tensorboard":
-                    np_images = np.stack([np.asarray(img) for img in images])
-                    tracker.writer.add_images(
-                        f"validation (prompt {prompt_idx})",
-                        np_images,
-                        epoch,
-                        dataformats="NHWC",
-                    )
-
-    del pipeline
-    torch.cuda.empty_cache()
-
-    # Remove hooks from models.
-    # HACK(ryand): Hooks get added when calling `pipeline.enable_model_cpu_offload(...)`, but `StableDiffusionPipeline`
-    # does not offer a way to clean them up so we have to do this manually.
-    for model in [unet, vae, text_encoder]:
-        remove_hook_from_module(model)
-
-    # Restore models to original devices.
-    unet.to(unet_device)
-    vae.to(vae_device)
-    text_encoder.to(text_encoder_device)
+                # Log images to trackers. Currently, only tensorboard is supported.
+                for tracker in accelerator.trackers:
+                    if tracker.name == "tensorboard":
+                        np_images = np.stack([np.asarray(img) for img in images])
+                        tracker.writer.add_images(
+                            f"validation (prompt {prompt_idx})",
+                            np_images,
+                            epoch,
+                            dataformats="NHWC",
+                        )
 
 
 def _train_forward(
