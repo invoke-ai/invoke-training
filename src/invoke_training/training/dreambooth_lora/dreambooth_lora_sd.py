@@ -1,14 +1,16 @@
 import json
 import math
 import os
+import tempfile
 import time
 
 import torch
+from accelerate import Accelerator
 from accelerate.utils import set_seed
 from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel
 from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
-from transformers import CLIPTextModel
+from transformers import CLIPTextModel, CLIPTokenizer
 
 from invoke_training.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
@@ -17,6 +19,7 @@ from invoke_training.lora.injection.stable_diffusion import (
 from invoke_training.training.config.finetune_lora_config import DreamBoothLoRAConfig
 from invoke_training.training.finetune_lora.finetune_lora_sd import (
     generate_validation_images,
+    inference_pipeline,
     load_models,
 )
 from invoke_training.training.shared.accelerator_utils import (
@@ -36,8 +39,35 @@ from invoke_training.training.shared.lora_checkpoint_utils import save_lora_chec
 from invoke_training.training.shared.optimizer_utils import initialize_optimizer
 
 
-def _generate_class_images(config: DreamBoothLoRAConfig):
-    raise NotImplementedError
+def _generate_class_images(
+    config: DreamBoothLoRAConfig,
+    image_dir: str,
+    accelerator: Accelerator,
+    vae: AutoencoderKL,
+    text_encoder: CLIPTextModel,
+    tokenizer: CLIPTokenizer,
+    noise_scheduler: DDPMScheduler,
+    unet: UNet2DConditionModel,
+):
+    with inference_pipeline(
+        accelerator, vae, text_encoder, tokenizer, noise_scheduler, unet, config.enable_cpu_offload_during_validation
+    ) as pipeline:
+        with torch.no_grad():
+            generator = torch.Generator(device=accelerator.device)
+            if config.seed is not None:
+                generator = generator.manual_seed(config.seed)
+            for image_idx in tqdm(range(config.num_class_images), disable=not accelerator.is_local_main_process):
+                for _ in range(config.num_validation_images_per_prompt):
+                    with accelerator.autocast():
+                        image = pipeline(
+                            config.class_prompt,
+                            num_inference_steps=30,
+                            generator=generator,
+                            height=config.instance_dataset.image_transforms.resolution,
+                            width=config.instance_dataset.image_transforms.resolution,
+                        ).images[0]
+
+                        image.save(os.path.join(image_dir, f"{image_idx:0>4}.png"))
 
 
 def _train_forward(
@@ -152,7 +182,23 @@ def run_training(config: DreamBoothLoRAConfig):  # noqa: C901
 
     # Generate class images if prior preservation is enabled.
     if config.use_prior_preservation and accelerator.is_main_process:
-        _generate_class_images(config)
+        # We use a temporary directory for the prior preservation class images. The directory will automatically be
+        # cleaned up when class_images_dir is destroyed.
+        class_images_dir = tempfile.TemporaryDirectory()
+        logger.info(
+            f"Generating {config.num_class_images} prior-preservation class images ('{class_images_dir.name}')."
+        )
+        _generate_class_images(
+            config,
+            class_images_dir.name,
+            accelerator,
+            vae,
+            text_encoder,
+            tokenizer,
+            noise_scheduler,
+            unet,
+        )
+
     accelerator.wait_for_everyone()
 
     # Prepare text encoder output cache.
@@ -212,7 +258,7 @@ def run_training(config: DreamBoothLoRAConfig):  # noqa: C901
         instance_prompt=config.instance_prompt,
         instance_dataset_config=config.instance_dataset,
         class_prompt=config.class_prompt,
-        class_data_dir=None,
+        class_data_dir=class_images_dir.name,
         tokenizer=tokenizer,
         batch_size=config.train_batch_size,
     )
