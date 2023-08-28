@@ -148,6 +148,13 @@ class DreamBoothLoRAConfig(LoRATrainingConfig):
     # If true, a regularization dataset of prior presevation images will be generated.
     use_prior_preservation: bool = False
 
+    # The directory for the prior-preservation class images.
+    # Must be set if use_prior_preservation == True.
+    # If the directory already exists and is non-empty, then the existing images will be used for the class image
+    # dataset.
+    # If the directory does not exist, it will be populated with `num_class_images` images at the start of training.
+    class_image_dir: typing.Optional[str] = None
+
     # The prompt to use to generate the class regularization dataset. This same prompt will also be used for
     # conditioning during training. Typically has the following form: "a [class noun]".
     class_prompt: str

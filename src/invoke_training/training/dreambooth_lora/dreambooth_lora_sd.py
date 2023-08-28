@@ -1,7 +1,6 @@
 import json
 import math
 import os
-import tempfile
 import time
 
 import torch
@@ -35,13 +34,15 @@ from invoke_training.training.shared.checkpoint_tracker import CheckpointTracker
 from invoke_training.training.shared.data.data_loaders.dreambooth_sd_dataloader import (
     build_dreambooth_sd_dataloader,
 )
+from invoke_training.training.shared.data.datasets.image_dir_dataset import (
+    ImageDirDataset,
+)
 from invoke_training.training.shared.lora_checkpoint_utils import save_lora_checkpoint
 from invoke_training.training.shared.optimizer_utils import initialize_optimizer
 
 
 def _generate_class_images(
     config: DreamBoothLoRAConfig,
-    image_dir: str,
     accelerator: Accelerator,
     vae: AutoencoderKL,
     text_encoder: CLIPTextModel,
@@ -49,6 +50,8 @@ def _generate_class_images(
     noise_scheduler: DDPMScheduler,
     unet: UNet2DConditionModel,
 ):
+    """Generate a prior-preservation class image dataset based on config."""
+    os.makedirs(config.class_image_dir, exist_ok=True)
     with inference_pipeline(
         accelerator, vae, text_encoder, tokenizer, noise_scheduler, unet, config.enable_cpu_offload_during_validation
     ) as pipeline:
@@ -67,7 +70,7 @@ def _generate_class_images(
                             width=config.instance_dataset.image_transforms.resolution,
                         ).images[0]
 
-                        image.save(os.path.join(image_dir, f"{image_idx:0>4}.png"))
+                        image.save(os.path.join(config.class_image_dir, f"{image_idx:0>4}.png"))
 
 
 def _train_forward(
@@ -182,22 +185,26 @@ def run_training(config: DreamBoothLoRAConfig):  # noqa: C901
 
     # Generate class images if prior preservation is enabled.
     if config.use_prior_preservation and accelerator.is_main_process:
-        # We use a temporary directory for the prior preservation class images. The directory will automatically be
-        # cleaned up when class_images_dir is destroyed.
-        class_images_dir = tempfile.TemporaryDirectory()
-        logger.info(
-            f"Generating {config.num_class_images} prior-preservation class images ('{class_images_dir.name}')."
-        )
-        _generate_class_images(
-            config,
-            class_images_dir.name,
-            accelerator,
-            vae,
-            text_encoder,
-            tokenizer,
-            noise_scheduler,
-            unet,
-        )
+        class_image_dataset = ImageDirDataset(config.class_image_dir)
+        if len(class_image_dataset) > 0:
+            logger.info(
+                f"Detected an existing dataset at '{config.class_image_dir}' with {len(class_image_dataset)} images. "
+                "Using this class image dataset for prior-preservation."
+            )
+        else:
+            logger.info(
+                f"No existing dataset found at '{config.class_image_dir}'. "
+                f"Generating {config.num_class_images} prior-preservation class images."
+            )
+            _generate_class_images(
+                config,
+                accelerator,
+                vae,
+                text_encoder,
+                tokenizer,
+                noise_scheduler,
+                unet,
+            )
 
     accelerator.wait_for_everyone()
 
@@ -258,7 +265,7 @@ def run_training(config: DreamBoothLoRAConfig):  # noqa: C901
         instance_prompt=config.instance_prompt,
         instance_dataset_config=config.instance_dataset,
         class_prompt=config.class_prompt,
-        class_data_dir=class_images_dir.name,
+        class_data_dir=config.class_image_dir if config.use_prior_preservation else None,
         tokenizer=tokenizer,
         batch_size=config.train_batch_size,
     )
