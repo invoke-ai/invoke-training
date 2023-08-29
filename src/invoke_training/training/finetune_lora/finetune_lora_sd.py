@@ -153,7 +153,7 @@ def inference_pipeline(
         noise_scheduler (DDPMScheduler):
         unet (UNet2DConditionModel):
         enable_cpu_offload (bool): If True, each model will be moved to the GPU for inference and then moved back to the
-            CPU to convserve VRAM.
+            CPU to conserve VRAM.
 
     Yields:
         StableDiffusionPipeline: The SD inference pipeline.

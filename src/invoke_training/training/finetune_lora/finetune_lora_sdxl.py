@@ -4,6 +4,7 @@ import math
 import os
 import tempfile
 import time
+from contextlib import contextmanager
 
 import numpy as np
 import torch
@@ -248,6 +249,78 @@ def _cache_vae_outputs(
             )
 
 
+@contextmanager
+def inference_pipeline(
+    accelerator: Accelerator,
+    vae: AutoencoderKL,
+    text_encoder_1: CLIPPreTrainedModel,
+    text_encoder_2: CLIPPreTrainedModel,
+    tokenizer_1: PreTrainedTokenizer,
+    tokenizer_2: PreTrainedTokenizer,
+    noise_scheduler: DDPMScheduler,
+    unet: UNet2DConditionModel,
+    enable_cpu_offload: bool,
+):
+    """A context manager that combines all of the provided models into an inference pipeline. Handles moving models
+    between devices as needed for the configuration.
+
+    Args:
+        accelerator (Accelerator):
+        vae (AutoencoderKL):
+        text_encoder_1 (CLIPPreTrainedModel):
+        text_encoder_2 (CLIPPreTrainedModel):
+        tokenizer_1 (PreTrainedTokenizer):
+        tokenizer_2 (PreTrainedTokenizer):
+        noise_scheduler (DDPMScheduler):
+        unet (UNet2DConditionModel):
+        enable_cpu_offload (bool): If True, each model will be moved to the GPU for inference and then moved back to the
+            CPU to conserve VRAM.
+
+    Yields:
+        StableDiffusionXLPipeline: The SDXL inference pipeline.
+    """
+    # Record original model devices so that we can restore this state after running the pipeline with CPU model
+    # offloading.
+    unet_device = unet.device
+    vae_device = vae.device
+    text_encoder_1_device = text_encoder_1.device
+    text_encoder_2_device = text_encoder_2.device
+
+    # Create pipeline.
+    pipeline = StableDiffusionXLPipeline(
+        vae=vae,
+        text_encoder=text_encoder_1,
+        text_encoder_2=text_encoder_2,
+        tokenizer=tokenizer_1,
+        tokenizer_2=tokenizer_2,
+        unet=unet,
+        scheduler=noise_scheduler,
+    )
+    if enable_cpu_offload:
+        pipeline.enable_model_cpu_offload(accelerator.device.index or 0)
+    else:
+        pipeline = pipeline.to(accelerator.device)
+    pipeline.set_progress_bar_config(disable=True)
+
+    try:
+        yield pipeline
+    finally:
+        del pipeline
+        torch.cuda.empty_cache()
+
+        # Remove hooks from models.
+        # HACK(ryand): Hooks get added when calling `pipeline.enable_model_cpu_offload(...)`, but
+        # `StableDiffusionXLPipeline` does not offer a way to clean them up so we have to do this manually.
+        for model in [unet, vae, text_encoder_1, text_encoder_2]:
+            remove_hook_from_module(model)
+
+        # Restore models to original devices.
+        unet.to(unet_device)
+        vae.to(vae_device)
+        text_encoder_1.to(text_encoder_1_device)
+        text_encoder_2.to(text_encoder_2_device)
+
+
 def generate_validation_images(
     epoch: int,
     out_dir: str,
@@ -267,31 +340,17 @@ def generate_validation_images(
     """
     logger.info("Generating validation images.")
 
-    # Record original model devices so that we can restore this state after running the pipeline with CPU model
-    # offloading.
-    unet_device = unet.device
-    vae_device = vae.device
-    text_encoder_1_device = text_encoder_1.device
-    text_encoder_2_device = text_encoder_2.device
-
-    # Create pipeline.
-    pipeline = StableDiffusionXLPipeline(
-        vae=vae,
-        text_encoder=text_encoder_1,
-        text_encoder_2=text_encoder_2,
-        tokenizer=tokenizer_1,
-        tokenizer_2=tokenizer_2,
-        unet=unet,
-        scheduler=noise_scheduler,
-    )
-    if config.enable_cpu_offload_during_validation:
-        pipeline.enable_model_cpu_offload(accelerator.device.index or 0)
-    else:
-        pipeline = pipeline.to(accelerator.device)
-    pipeline.set_progress_bar_config(disable=True)
-
-    # Run inference.
-    with torch.no_grad():
+    with inference_pipeline(
+        accelerator,
+        vae,
+        text_encoder_1,
+        text_encoder_2,
+        tokenizer_1,
+        tokenizer_2,
+        noise_scheduler,
+        unet,
+        config.enable_cpu_offload_during_validation,
+    ) as pipeline, torch.no_grad():
         for prompt_idx, prompt in enumerate(config.validation_prompts):
             generator = torch.Generator(device=accelerator.device)
             if config.seed is not None:
@@ -331,21 +390,6 @@ def generate_validation_images(
                         epoch,
                         dataformats="NHWC",
                     )
-
-    del pipeline
-    torch.cuda.empty_cache()
-
-    # Remove hooks from models.
-    # HACK(ryand): Hooks get added when calling `pipeline.enable_model_cpu_offload(...)`, but
-    # `StableDiffusionXLPipeline` does not offer a way to clean them up so we have to do this manually.
-    for model in [unet, vae, text_encoder_1, text_encoder_2]:
-        remove_hook_from_module(model)
-
-    # Restore models to original devices.
-    unet.to(unet_device)
-    vae.to(vae_device)
-    text_encoder_1.to(text_encoder_1_device)
-    text_encoder_2.to(text_encoder_2_device)
 
 
 def _train_forward(
