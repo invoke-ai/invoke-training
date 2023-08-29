@@ -9,6 +9,8 @@ from invoke_training.training.shared.data.datasets.image_dir_dataset import (
 
 
 class DreamBoothDataset(torch.utils.data.Dataset):
+    """A dataset for DreamBooth training that merges an 'instance' dataset with a 'class' dataset."""
+
     def __init__(
         self,
         instance_dataset: ImageDirDataset,
@@ -19,6 +21,21 @@ class DreamBoothDataset(torch.utils.data.Dataset):
         balance_datasets: bool = True,
         shuffle: bool = True,
     ):
+        """Initialize a DreamBoothDataset.
+
+        Args:
+            instance_dataset (ImageDirDataset): A dataset of 'instance' images.
+            instance_prompt (str): The prompt to use for all instance examples. Typically has the form:
+                "a [instance identifier] [class noun]".
+            class_dataset (typing.Optional[ImageDirDataset], optional): The 'class' dataset.
+            class_prompt (typing.Optional[str], optional): The prompt to use for all 'class' examples. Typically has the
+                form: "a [class noun]".
+            prior_preservation_loss_weight (int, optional): The loss weight to use for 'class' examples. Defaults to
+                1.0.
+            balance_datasets (bool, optional): If True, the smaller dataset will be repeated to match the size of the
+                larger dataset.
+            shuffle (bool, optional): If True instance and class examples will be shuffled together. Defaults to True.
+        """
         super().__init__()
 
         self._instance_dataset = instance_dataset
@@ -40,6 +57,16 @@ class DreamBoothDataset(torch.utils.data.Dataset):
             random.shuffle(self._shuffle_map)
 
     def _get_unshuffled_example(self, idx: int):
+        """Get the idx'th dataset example (without shuffling).
+
+        The dataset examples are ordered so that the instance examples come first, followed by the class examples.
+
+        Args:
+            idx (int)
+
+        Raises:
+            IndexError: If `idx` is out of range.
+        """
         if idx < self._balanced_instance_dataset_size:
             example = self._instance_dataset[idx % len(self._instance_dataset)]
             example["caption"] = self._instance_prompt
