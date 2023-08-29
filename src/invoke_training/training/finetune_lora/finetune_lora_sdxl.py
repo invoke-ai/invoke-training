@@ -83,7 +83,7 @@ def _import_model_class_for_model(pretrained_model_name_or_path: str, subfolder:
         raise ValueError(f"{model_class} is not supported.")
 
 
-def _load_models(
+def load_models(
     config: FinetuneLoRASDXLConfig,
 ) -> tuple[
     PreTrainedTokenizer,
@@ -151,7 +151,7 @@ def _load_models(
 
 # encode_prompt was adapted from:
 # https://github.com/huggingface/diffusers/blob/7b07f9812a58bfa96c06ed8ffe9e6b584286e2fd/examples/text_to_image/train_text_to_image_lora_sdxl.py#L470-L496
-def _encode_prompt(text_encoders: list[CLIPPreTrainedModel], prompt_token_ids_list: list[torch.Tensor]):
+def encode_prompt(text_encoders: list[CLIPPreTrainedModel], prompt_token_ids_list: list[torch.Tensor]):
     prompt_embeds_list = []
 
     for i, text_encoder in enumerate(text_encoders):
@@ -199,7 +199,7 @@ def _cache_text_encoder_outputs(
     cache = TensorDiskCache(cache_dir)
 
     for data_batch in tqdm(data_loader):
-        prompt_embeds, pooled_prompt_embeds = _encode_prompt(
+        prompt_embeds, pooled_prompt_embeds = encode_prompt(
             [text_encoder_1, text_encoder_2], [data_batch["caption_token_ids_1"], data_batch["caption_token_ids_2"]]
         )
 
@@ -248,7 +248,7 @@ def _cache_vae_outputs(
             )
 
 
-def _generate_validation_images(
+def generate_validation_images(
     epoch: int,
     out_dir: str,
     accelerator: Accelerator,
@@ -411,7 +411,7 @@ def _train_forward(
         prompt_embeds = data_batch["prompt_embeds"]
         pooled_prompt_embeds = data_batch["pooled_prompt_embeds"]
     else:
-        prompt_embeds, pooled_prompt_embeds = _encode_prompt(
+        prompt_embeds, pooled_prompt_embeds = encode_prompt(
             text_encoders=[text_encoder_1, text_encoder_2],
             prompt_token_ids_list=[data_batch["caption_token_ids_1"], data_batch["caption_token_ids_2"]],
         )
@@ -470,7 +470,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     weight_dtype = get_mixed_precision_dtype(accelerator)
 
     logger.info("Loading models.")
-    tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = _load_models(config)
+    tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = load_models(config)
 
     if config.xformers:
         import xformers  # noqa: F401
@@ -724,7 +724,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         # Generate validation images every n epochs.
         if len(config.validation_prompts) > 0 and (epoch + 1) % config.validate_every_n_epochs == 0:
             if accelerator.is_main_process:
-                _generate_validation_images(
+                generate_validation_images(
                     epoch=epoch + 1,
                     out_dir=out_dir,
                     accelerator=accelerator,

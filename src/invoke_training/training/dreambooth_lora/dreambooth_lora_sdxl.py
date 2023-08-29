@@ -1,35 +1,26 @@
 import json
-import logging
 import math
 import os
-import tempfile
 import time
 
-import numpy as np
 import torch
 from accelerate import Accelerator
-from accelerate.hooks import remove_hook_from_module
 from accelerate.utils import set_seed
-from diffusers import (
-    AutoencoderKL,
-    DDPMScheduler,
-    StableDiffusionXLPipeline,
-    UNet2DConditionModel,
-)
+from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel
 from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
-from transformers import (
-    AutoTokenizer,
-    CLIPPreTrainedModel,
-    PretrainedConfig,
-    PreTrainedTokenizer,
-)
+from transformers import CLIPPreTrainedModel
 
 from invoke_training.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet,
 )
 from invoke_training.training.config.finetune_lora_config import FinetuneLoRASDXLConfig
+from invoke_training.training.finetune_lora.finetune_lora_sdxl import (
+    encode_prompt,
+    generate_validation_images,
+    load_models,
+)
 from invoke_training.training.shared.accelerator_utils import (
     get_mixed_precision_dtype,
     initialize_accelerator,
@@ -43,302 +34,8 @@ from invoke_training.training.shared.checkpoint_tracker import CheckpointTracker
 from invoke_training.training.shared.data.data_loaders.image_caption_sdxl_dataloader import (
     build_image_caption_sdxl_dataloader,
 )
-from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
-    TensorDiskCache,
-)
 from invoke_training.training.shared.lora_checkpoint_utils import save_lora_checkpoint
 from invoke_training.training.shared.optimizer_utils import initialize_optimizer
-
-
-def _import_model_class_for_model(pretrained_model_name_or_path: str, subfolder: str = "", revision: str = "main"):
-    """Lookup the model class in a diffusers model config, import the class, and return it. This function is useful when
-    loading models that could be one of many possible classes.
-
-    Args:
-        pretrained_model_name_or_path (str): The diffusers model name/path.
-        subfolder (str, optional): The model subfolder.
-        revision (str, optional): The diffusers model revision.
-
-
-    Raises:
-        ValueError: If the detected model class is not recognize.
-
-    Returns:
-        type: The model class.
-    """
-    text_encoder_config = PretrainedConfig.from_pretrained(
-        pretrained_model_name_or_path, subfolder=subfolder, revision=revision
-    )
-    model_class = text_encoder_config.architectures[0]
-
-    if model_class == "CLIPTextModel":
-        from transformers import CLIPTextModel
-
-        return CLIPTextModel
-    elif model_class == "CLIPTextModelWithProjection":
-        from transformers import CLIPTextModelWithProjection
-
-        return CLIPTextModelWithProjection
-    else:
-        raise ValueError(f"{model_class} is not supported.")
-
-
-def _load_models(
-    config: FinetuneLoRASDXLConfig,
-) -> tuple[
-    PreTrainedTokenizer,
-    PreTrainedTokenizer,
-    DDPMScheduler,
-    CLIPPreTrainedModel,
-    CLIPPreTrainedModel,
-    AutoencoderKL,
-    UNet2DConditionModel,
-]:
-    """Load all models required for training, transfer them to the target training device and cast their weight dtypes.
-
-    Args:
-        config (FinetuneLoRASDXLConfig): Training config.
-
-    Returns:
-        tuple[
-            PreTrainedTokenizer,
-            PreTrainedTokenizer,
-            DDPMScheduler,
-            CLIPPreTrainedModel,
-            CLIPPreTrainedModel,
-            AutoencoderKL,
-            UNet2DConditionModel,
-        ]: A tuple of loaded models.
-    """
-    # Load tokenizers.
-    tokenizer_1: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
-        config.model, subfolder="tokenizer", use_fast=False
-    )
-    tokenizer_2: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
-        config.model, subfolder="tokenizer_2", use_fast=False
-    )
-
-    # Load noise scheduler.
-    noise_scheduler: DDPMScheduler = DDPMScheduler.from_pretrained(config.model, subfolder="scheduler")
-
-    # Load text encoders.
-    text_encoder_cls_1 = _import_model_class_for_model(config.model, subfolder="text_encoder")
-    text_encoder_1 = text_encoder_cls_1.from_pretrained(config.model, subfolder="text_encoder")
-    text_encoder_cls_2 = _import_model_class_for_model(config.model, subfolder="text_encoder_2")
-    text_encoder_2 = text_encoder_cls_2.from_pretrained(config.model, subfolder="text_encoder_2")
-
-    # Load VAE.
-    vae_model = config.vae_model if config.vae_model is not None else config.model
-    vae: AutoencoderKL = AutoencoderKL.from_pretrained(vae_model, subfolder="vae" if config.vae_model is None else None)
-
-    # Load UNet.
-    unet: UNet2DConditionModel = UNet2DConditionModel.from_pretrained(config.model, subfolder="unet")
-
-    # Disable gradient calculation for model weights to save memory.
-    text_encoder_1.requires_grad_(False)
-    text_encoder_2.requires_grad_(False)
-    vae.requires_grad_(False)
-    unet.requires_grad_(False)
-
-    # Put models in 'eval' mode.
-    text_encoder_1.eval()
-    text_encoder_2.eval()
-    vae.eval()
-    unet.eval()
-
-    return tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet
-
-
-# encode_prompt was adapted from:
-# https://github.com/huggingface/diffusers/blob/7b07f9812a58bfa96c06ed8ffe9e6b584286e2fd/examples/text_to_image/train_text_to_image_lora_sdxl.py#L470-L496
-def _encode_prompt(text_encoders: list[CLIPPreTrainedModel], prompt_token_ids_list: list[torch.Tensor]):
-    prompt_embeds_list = []
-
-    for i, text_encoder in enumerate(text_encoders):
-        text_input_ids = prompt_token_ids_list[i]
-
-        prompt_embeds = text_encoder(
-            text_input_ids.to(text_encoder.device),
-            output_hidden_states=True,
-        )
-
-        # We are only ALWAYS interested in the pooled output of the final text encoder.
-        # TODO(ryand): Document this logic more clearly.
-        pooled_prompt_embeds = prompt_embeds[0]
-        prompt_embeds = prompt_embeds.hidden_states[-2]
-        bs_embed, seq_len, _ = prompt_embeds.shape
-        prompt_embeds = prompt_embeds.view(bs_embed, seq_len, -1)
-        prompt_embeds_list.append(prompt_embeds)
-
-    prompt_embeds = torch.concat(prompt_embeds_list, dim=-1)
-    pooled_prompt_embeds = pooled_prompt_embeds.view(bs_embed, -1)
-    return prompt_embeds, pooled_prompt_embeds
-
-
-def _cache_text_encoder_outputs(
-    cache_dir: str,
-    config: FinetuneLoRASDXLConfig,
-    tokenizer_1: PreTrainedTokenizer,
-    tokenizer_2: PreTrainedTokenizer,
-    text_encoder_1: CLIPPreTrainedModel,
-    text_encoder_2: CLIPPreTrainedModel,
-):
-    """Run the text encoder on all captions in the dataset and cache the results to disk.
-    Args:
-        cache_dir (str): The directory where the results will be cached.
-        config (FinetuneLoRAConfig): Training config.
-        tokenizer_1 (PreTrainedTokenizer):
-        tokenizer_2 (PreTrainedTokenizer):
-        text_encoder_1 (CLIPPreTrainedModel):
-        text_encoder_2 (CLIPPreTrainedModel):
-    """
-    data_loader = build_image_caption_sdxl_dataloader(
-        config.dataset, tokenizer_1, tokenizer_2, config.train_batch_size, shuffle=False
-    )
-
-    cache = TensorDiskCache(cache_dir)
-
-    for data_batch in tqdm(data_loader):
-        prompt_embeds, pooled_prompt_embeds = _encode_prompt(
-            [text_encoder_1, text_encoder_2], [data_batch["caption_token_ids_1"], data_batch["caption_token_ids_2"]]
-        )
-
-        # Split batch before caching.
-        for i in range(len(data_batch["id"])):
-            embeds = {
-                "prompt_embeds": prompt_embeds[i],
-                "pooled_prompt_embeds": pooled_prompt_embeds[i],
-            }
-            cache.save(data_batch["id"][i], embeds)
-
-
-def _cache_vae_outputs(
-    cache_dir: str,
-    config: FinetuneLoRASDXLConfig,
-    tokenizer_1: PreTrainedTokenizer,
-    tokenizer_2: PreTrainedTokenizer,
-    vae: AutoencoderKL,
-):
-    """Run the VAE on all images in the dataset and cache the results to disk.
-
-    Args:
-        cache_dir (str): The directory where the results will be cached.
-        config (FinetuneLoRAConfig): Training config.
-        tokenizer (CLIPTokenizer): The tokenizer.
-        vae (AutoencoderKL): The VAE.
-    """
-    data_loader = build_image_caption_sdxl_dataloader(
-        config.dataset, tokenizer_1, tokenizer_2, config.train_batch_size, shuffle=False
-    )
-
-    cache = TensorDiskCache(cache_dir)
-
-    for data_batch in tqdm(data_loader):
-        latents = vae.encode(data_batch["image"].to(device=vae.device, dtype=vae.dtype)).latent_dist.sample()
-        latents = latents * vae.config.scaling_factor
-        # Split batch before caching.
-        for i in range(len(data_batch["id"])):
-            cache.save(data_batch["id"][i], latents[i])
-
-
-def _generate_validation_images(
-    epoch: int,
-    out_dir: str,
-    accelerator: Accelerator,
-    vae: AutoencoderKL,
-    text_encoder_1: CLIPPreTrainedModel,
-    text_encoder_2: CLIPPreTrainedModel,
-    tokenizer_1: PreTrainedTokenizer,
-    tokenizer_2: PreTrainedTokenizer,
-    noise_scheduler: DDPMScheduler,
-    unet: UNet2DConditionModel,
-    config: FinetuneLoRASDXLConfig,
-    logger: logging.Logger,
-):
-    """Generate validation images for the purpose of tracking image generation behaviour on fixed prompts throughout
-    training.
-    """
-    logger.info("Generating validation images.")
-
-    # Record original model devices so that we can restore this state after running the pipeline with CPU model
-    # offloading.
-    unet_device = unet.device
-    vae_device = vae.device
-    text_encoder_1_device = text_encoder_1.device
-    text_encoder_2_device = text_encoder_2.device
-
-    # Create pipeline.
-    pipeline = StableDiffusionXLPipeline(
-        vae=vae,
-        text_encoder=text_encoder_1,
-        text_encoder_2=text_encoder_2,
-        tokenizer=tokenizer_1,
-        tokenizer_2=tokenizer_2,
-        unet=unet,
-        scheduler=noise_scheduler,
-    )
-    if config.enable_cpu_offload_during_validation:
-        pipeline.enable_model_cpu_offload(accelerator.device.index or 0)
-    else:
-        pipeline = pipeline.to(accelerator.device)
-    pipeline.set_progress_bar_config(disable=True)
-
-    # Run inference.
-    with torch.no_grad():
-        for prompt_idx, prompt in enumerate(config.validation_prompts):
-            generator = torch.Generator(device=accelerator.device)
-            if config.seed is not None:
-                generator = generator.manual_seed(config.seed)
-
-            images = []
-            for _ in range(config.num_validation_images_per_prompt):
-                with accelerator.autocast():
-                    images.append(
-                        pipeline(
-                            prompt,
-                            num_inference_steps=30,
-                            generator=generator,
-                            height=config.validation_resolution,
-                            width=config.validation_resolution,
-                        ).images[0]
-                    )
-
-            # Save images to disk.
-            validation_dir = os.path.join(
-                out_dir,
-                "validation",
-                f"epoch_{epoch:0>8}",
-                f"prompt_{prompt_idx:0>4}",
-            )
-            os.makedirs(validation_dir)
-            for image_idx, image in enumerate(images):
-                image.save(os.path.join(validation_dir, f"{image_idx:0>4}.jpg"))
-
-            # Log images to trackers. Currently, only tensorboard is supported.
-            for tracker in accelerator.trackers:
-                if tracker.name == "tensorboard":
-                    np_images = np.stack([np.asarray(img) for img in images])
-                    tracker.writer.add_images(
-                        f"validation (prompt {prompt_idx})",
-                        np_images,
-                        epoch,
-                        dataformats="NHWC",
-                    )
-
-    del pipeline
-    torch.cuda.empty_cache()
-
-    # Remove hooks from models.
-    # HACK(ryand): Hooks get added when calling `pipeline.enable_model_cpu_offload(...)`, but
-    # `StableDiffusionXLPipeline` does not offer a way to clean them up so we have to do this manually.
-    for model in [unet, vae, text_encoder_1, text_encoder_2]:
-        remove_hook_from_module(model)
-
-    # Restore models to original devices.
-    unet.to(unet_device)
-    vae.to(vae_device)
-    text_encoder_1.to(text_encoder_1_device)
-    text_encoder_2.to(text_encoder_2_device)
 
 
 def _train_forward(
@@ -402,7 +99,7 @@ def _train_forward(
     # The text_encoder_output may have been cached and included in the data_batch. If not, we calculate it here.
     all_prompt_embeds = data_batch.get("text_encoder_output", None)
     if all_prompt_embeds is None:
-        prompt_embeds, pooled_prompt_embeds = _encode_prompt(
+        prompt_embeds, pooled_prompt_embeds = encode_prompt(
             text_encoders=[text_encoder_1, text_encoder_2],
             prompt_token_ids_list=[data_batch["caption_token_ids_1"], data_batch["caption_token_ids_2"]],
         )
@@ -464,7 +161,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     weight_dtype = get_mixed_precision_dtype(accelerator)
 
     logger.info("Loading models.")
-    tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = _load_models(config)
+    tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = load_models(config)
 
     if config.xformers:
         import xformers  # noqa: F401
@@ -477,23 +174,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     if config.cache_text_encoder_outputs:
         if config.train_text_encoder:
             raise ValueError("'cache_text_encoder_outputs' and 'train_text_encoder' cannot both be True.")
-
-        # We use a temporary directory for the cache. The directory will automatically be cleaned up when
-        # tmp_text_encoder_output_cache_dir is destroyed.
-        tmp_text_encoder_output_cache_dir = tempfile.TemporaryDirectory()
-        text_encoder_output_cache_dir_name = tmp_text_encoder_output_cache_dir.name
-        if accelerator.is_local_main_process:
-            # Only the main process should populate the cache.
-            logger.info(f"Generating text encoder output cache ('{text_encoder_output_cache_dir_name}').")
-            text_encoder_1.to(accelerator.device, dtype=weight_dtype)
-            text_encoder_2.to(accelerator.device, dtype=weight_dtype)
-            _cache_text_encoder_outputs(
-                text_encoder_output_cache_dir_name, config, tokenizer_1, tokenizer_2, text_encoder_1, text_encoder_2
-            )
-        # Move the text_encoders back to the CPU, because they are not needed for training.
-        text_encoder_1.to("cpu")
-        text_encoder_2.to("cpu")
-        accelerator.wait_for_everyone()
+        raise NotImplementedError("'cache_text_encoder_outputs' is not yet supported in DreamBooth training.")
     else:
         text_encoder_1.to(accelerator.device, dtype=weight_dtype)
         text_encoder_2.to(accelerator.device, dtype=weight_dtype)
@@ -506,18 +187,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         if not config.dataset.image_transforms.center_crop:
             raise ValueError("'cache_vae_outputs' cannot be True if 'center_crop' is False.")
 
-        # We use a temporary directory for the cache. The directory will automatically be cleaned up when
-        # tmp_vae_output_cache_dir is destroyed.
-        tmp_vae_output_cache_dir = tempfile.TemporaryDirectory()
-        vae_output_cache_dir_name = tmp_vae_output_cache_dir.name
-        if accelerator.is_local_main_process:
-            # Only the main process should to populate the cache.
-            logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
-            vae.to(accelerator.device, dtype=weight_dtype)
-            _cache_vae_outputs(vae_output_cache_dir_name, config, tokenizer_1, tokenizer_2, vae)
-        # Move the VAE back to the CPU, because it is not needed for training.
-        vae.to("cpu")
-        accelerator.wait_for_everyone()
+        raise NotImplementedError("'cache_vae_outputs' is not yet supported in DreamBooth training.")
     else:
         vae.to(accelerator.device, dtype=weight_dtype)
 
@@ -718,7 +388,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         # Generate validation images every n epochs.
         if len(config.validation_prompts) > 0 and (epoch + 1) % config.validate_every_n_epochs == 0:
             if accelerator.is_main_process:
-                _generate_validation_images(
+                generate_validation_images(
                     epoch=epoch + 1,
                     out_dir=out_dir,
                     accelerator=accelerator,
