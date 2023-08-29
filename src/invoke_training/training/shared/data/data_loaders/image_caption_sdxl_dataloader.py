@@ -52,6 +52,9 @@ def sdxl_image_caption_collate_fn(examples):
         out_examples["caption_token_ids_1"] = torch.stack([example["caption_token_ids_1"] for example in examples])
         out_examples["caption_token_ids_2"] = torch.stack([example["caption_token_ids_2"] for example in examples])
 
+    if "loss_weight" in examples[0]:
+        out_examples["loss_weight"] = torch.tensor([example["loss_weight"] for example in examples])
+
     if "prompt_embeds" in examples[0]:
         out_examples["prompt_embeds"] = torch.stack([example["prompt_embeds"] for example in examples])
         out_examples["pooled_prompt_embeds"] = torch.stack([example["pooled_prompt_embeds"] for example in examples])
