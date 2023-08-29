@@ -43,7 +43,6 @@ def build_dreambooth_sd_dataloader(
         instance_prompt=instance_prompt,
         class_dataset=class_dataset,
         class_prompt=class_prompt,
-        balance_datasets=True,
         shuffle=True,
     )
 

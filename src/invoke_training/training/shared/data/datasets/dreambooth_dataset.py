@@ -18,7 +18,7 @@ class DreamBoothDataset(torch.utils.data.Dataset):
         class_dataset: typing.Optional[ImageDirDataset] = None,
         class_prompt: typing.Optional[str] = None,
         prior_preservation_loss_weight: int = 1.0,
-        balance_datasets: bool = True,
+        balance_datasets: bool = False,
         shuffle: bool = True,
     ):
         """Initialize a DreamBoothDataset.

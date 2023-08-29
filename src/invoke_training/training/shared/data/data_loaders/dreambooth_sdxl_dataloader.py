@@ -47,7 +47,6 @@ def build_dreambooth_sdxl_dataloader(
         instance_prompt=instance_prompt,
         class_dataset=class_dataset,
         class_prompt=class_prompt,
-        balance_datasets=True,
         shuffle=True,
     )
 
