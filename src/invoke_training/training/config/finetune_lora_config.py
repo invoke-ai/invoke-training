@@ -106,6 +106,9 @@ class LoRATrainingConfig(BaseModel):
     # Max gradient norm for clipping. Set to None for no clipping.
     max_grad_norm: typing.Optional[float] = 1.0
 
+    # The image resolution to use for validation images.
+    validation_resolution: int = 512
+
     # A list of prompts that will be used to generate images throughout training for the purpose of tracking progress.
     # See also 'validate_every_n_epochs'.
     validation_prompts: list[str] = []

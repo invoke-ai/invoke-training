@@ -37,6 +37,7 @@ max_train_steps: 627
 save_every_n_epochs: 1
 save_every_n_steps: null
 max_checkpoints: 100
+validation_resolution: 512
 validation_prompts:
   - A cute yoda pokemon creature.
   - A cute astronaut pokemon creature.
