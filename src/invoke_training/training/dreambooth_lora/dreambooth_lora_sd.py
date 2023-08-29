@@ -185,8 +185,11 @@ def run_training(config: DreamBoothLoRAConfig):  # noqa: C901
 
     # Generate class images if prior preservation is enabled.
     if config.use_prior_preservation and accelerator.is_main_process:
-        class_image_dataset = ImageDirDataset(config.class_image_dir)
-        if len(class_image_dataset) > 0:
+        class_image_dataset = None
+        if os.path.exists(config.class_image_dir):
+            class_image_dataset = ImageDirDataset(config.class_image_dir)
+
+        if class_image_dataset is not None and len(class_image_dataset) > 0:
             logger.info(
                 f"Detected an existing dataset at '{config.class_image_dir}' with {len(class_image_dataset)} images. "
                 "Using this class image dataset for prior-preservation."
