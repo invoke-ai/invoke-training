@@ -4,6 +4,7 @@ import math
 import os
 import tempfile
 import time
+import typing
 from contextlib import contextmanager
 
 import numpy as np
@@ -25,7 +26,10 @@ from invoke_training.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet,
 )
-from invoke_training.training.config.finetune_lora_config import FinetuneLoRAConfig
+from invoke_training.training.config.finetune_lora_config import (
+    DreamBoothLoRAConfig,
+    FinetuneLoRAConfig,
+)
 from invoke_training.training.shared.accelerator_utils import (
     get_mixed_precision_dtype,
     initialize_accelerator,
@@ -274,8 +278,8 @@ def generate_validation_images(
                         )
 
 
-def _train_forward(
-    config: FinetuneLoRAConfig,
+def train_forward(
+    config: typing.Union[DreamBoothLoRAConfig, FinetuneLoRAConfig],
     data_batch: dict,
     vae: AutoencoderKL,
     noise_scheduler: DDPMScheduler,
@@ -332,7 +336,13 @@ def _train_forward(
     # Predict the noise residual.
     model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
-    return torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="mean")
+    loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="none")
+    if "loss_weight" in data_batch:
+        # Mean-reduce the loss along all dimensions except for the batch dimension.
+        loss = loss.mean([1, 2, 3])
+        # Apply per-example weights.
+        loss = loss * data_batch["loss_weight"]
+    return loss.mean()
 
 
 def run_training(config: FinetuneLoRAConfig):  # noqa: C901
@@ -544,7 +554,7 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
         train_loss = 0.0
         for data_batch in data_loader:
             with accelerator.accumulate(lora_layers):
-                loss = _train_forward(
+                loss = train_forward(
                     config,
                     data_batch,
                     vae,

@@ -19,10 +19,10 @@ from invoke_training.training.config.finetune_lora_config import (
     DreamBoothLoRASDXLConfig,
 )
 from invoke_training.training.finetune_lora.finetune_lora_sdxl import (
-    encode_prompt,
     generate_validation_images,
     inference_pipeline,
     load_models,
+    train_forward,
 )
 from invoke_training.training.shared.accelerator_utils import (
     get_mixed_precision_dtype,
@@ -83,103 +83,6 @@ def _generate_class_images(
                     ).images[0]
 
                     image.save(os.path.join(config.class_image_dir, f"{image_idx:0>4}.png"))
-
-
-def _train_forward(
-    accelerator: Accelerator,
-    config: DreamBoothLoRASDXLConfig,
-    data_batch: dict,
-    vae: AutoencoderKL,
-    noise_scheduler: DDPMScheduler,
-    text_encoder_1: CLIPPreTrainedModel,
-    text_encoder_2: CLIPPreTrainedModel,
-    unet: UNet2DConditionModel,
-    weight_dtype: torch.dtype,
-):
-    """Run the forward training pass for a single data_batch.
-
-    Returns:
-        torch.Tensor: Loss
-    """
-    # Convert images to latent space.
-    # The VAE output may have been cached and included in the data_batch. If not, we calculate it here.
-    latents = data_batch.get("vae_output", None)
-    if latents is None:
-        latents = vae.encode(data_batch["image"].to(dtype=weight_dtype)).latent_dist.sample()
-        latents = latents * vae.config.scaling_factor
-
-    # Sample noise that we'll add to the latents.
-    noise = torch.randn_like(latents)
-
-    batch_size = latents.shape[0]
-    # Sample a random timestep for each image.
-    timesteps = torch.randint(
-        0,
-        noise_scheduler.config.num_train_timesteps,
-        (batch_size,),
-        device=latents.device,
-    )
-    timesteps = timesteps.long()
-
-    # Add noise to the latents according to the noise magnitude at each timestep (this is the forward diffusion
-    # process).
-    noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
-
-    # compute_time_ids was copied from:
-    # https://github.com/huggingface/diffusers/blob/7b07f9812a58bfa96c06ed8ffe9e6b584286e2fd/examples/text_to_image/train_text_to_image_lora_sdxl.py#L1033-L1039
-    # "time_ids" may seem like a weird naming choice. The name comes from the diffusers SDXL implementation. Presumably,
-    # it is a result of the fact that the original size and crop values get concatenated with the time embeddings.
-    def compute_time_ids(original_size, crops_coords_top_left):
-        # Adapted from pipeline.StableDiffusionXLPipeline._get_add_time_ids
-        target_size = (
-            config.instance_dataset.image_transforms.resolution,
-            config.instance_dataset.image_transforms.resolution,
-        )
-        add_time_ids = list(original_size + crops_coords_top_left + target_size)
-        add_time_ids = torch.tensor([add_time_ids])
-        add_time_ids = add_time_ids.to(accelerator.device, dtype=weight_dtype)
-        return add_time_ids
-
-    add_time_ids = torch.cat(
-        [compute_time_ids(s, c) for s, c in zip(data_batch["original_size_hw"], data_batch["crop_top_left_yx"])]
-    )
-    unet_conditions = {"time_ids": add_time_ids}
-
-    # Get the text embedding for conditioning.
-    # The text_encoder_output may have been cached and included in the data_batch. If not, we calculate it here.
-    all_prompt_embeds = data_batch.get("text_encoder_output", None)
-    if all_prompt_embeds is None:
-        prompt_embeds, pooled_prompt_embeds = encode_prompt(
-            text_encoders=[text_encoder_1, text_encoder_2],
-            prompt_token_ids_list=[data_batch["caption_token_ids_1"], data_batch["caption_token_ids_2"]],
-        )
-    else:
-        prompt_embeds = all_prompt_embeds["prompt_embeds"]
-        pooled_prompt_embeds = all_prompt_embeds["pooled_prompt_embeds"]
-
-    unet_conditions["text_embeds"] = pooled_prompt_embeds
-
-    # Get the target for loss depending on the prediction type.
-    if config.prediction_type is not None:
-        # Set the prediction_type of scheduler if it's defined in config.
-        noise_scheduler.register_to_config(prediction_type=config.prediction_type)
-    if noise_scheduler.config.prediction_type == "epsilon":
-        target = noise
-    elif noise_scheduler.config.prediction_type == "v_prediction":
-        target = noise_scheduler.get_velocity(latents, noise, timesteps)
-    else:
-        raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
-
-    # Predict the noise residual.
-    model_pred = unet(noisy_latents, timesteps, prompt_embeds, added_cond_kwargs=unet_conditions).sample
-
-    loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="none")
-    # Mean-reduce the loss along all dimensions except for the batch dimension.
-    loss = loss.mean([1, 2, 3])
-    # Apply per-example weights.
-    loss = loss * data_batch["loss_weight"]
-    loss = loss.mean()
-    return loss
 
 
 def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
@@ -415,9 +318,8 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
         train_loss = 0.0
         for data_batch in data_loader:
             with accelerator.accumulate(lora_layers):
-                loss = _train_forward(
+                loss = train_forward(
                     accelerator,
-                    config,
                     data_batch,
                     vae,
                     noise_scheduler,
@@ -425,6 +327,8 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
                     text_encoder_2,
                     unet,
                     weight_dtype,
+                    config.instance_dataset.image_transforms.resolution,
+                    config.prediction_type,
                 )
 
                 # Gather the losses across all processes for logging (if we use distributed training).
