@@ -32,4 +32,6 @@ class ImageDirDataset(torch.utils.data.Dataset):
         return len(self._image_paths)
 
     def __getitem__(self, idx: int) -> typing.Dict[str, typing.Any]:
-        return {"id": idx, "image": Image.open(self._image_paths[idx])}
+        # We call `convert("RGB")` to drop the alpha channel from RGBA images, or to repeat channels for greyscale
+        # images.
+        return {"id": idx, "image": Image.open(self._image_paths[idx]).convert("RGB")}
