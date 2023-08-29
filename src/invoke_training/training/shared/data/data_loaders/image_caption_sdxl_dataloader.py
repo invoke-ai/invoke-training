@@ -33,7 +33,7 @@ from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
 )
 
 
-def _collate_fn(examples):
+def sdxl_image_caption_collate_fn(examples):
     """A batch collation function for the image-caption SDXL data loader."""
     out_examples = {
         "id": [example["id"] for example in examples],
@@ -156,7 +156,7 @@ def build_image_caption_sdxl_dataloader(
     return DataLoader(
         dataset,
         shuffle=shuffle,
-        collate_fn=_collate_fn,
+        collate_fn=sdxl_image_caption_collate_fn,
         batch_size=batch_size,
         num_workers=config.dataloader_num_workers,
     )

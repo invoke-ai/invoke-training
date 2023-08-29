@@ -9,16 +9,19 @@ from accelerate.utils import set_seed
 from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel
 from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
-from transformers import CLIPPreTrainedModel
+from transformers import CLIPPreTrainedModel, PreTrainedTokenizer
 
 from invoke_training.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet,
 )
-from invoke_training.training.config.finetune_lora_config import FinetuneLoRASDXLConfig
+from invoke_training.training.config.finetune_lora_config import (
+    DreamBoothLoRASDXLConfig,
+)
 from invoke_training.training.finetune_lora.finetune_lora_sdxl import (
     encode_prompt,
     generate_validation_images,
+    inference_pipeline,
     load_models,
 )
 from invoke_training.training.shared.accelerator_utils import (
@@ -31,16 +34,60 @@ from invoke_training.training.shared.base_model_version import (
     check_base_model_version,
 )
 from invoke_training.training.shared.checkpoint_tracker import CheckpointTracker
-from invoke_training.training.shared.data.data_loaders.image_caption_sdxl_dataloader import (
-    build_image_caption_sdxl_dataloader,
+from invoke_training.training.shared.data.data_loaders.dreambooth_sdxl_dataloader import (
+    build_dreambooth_sdxl_dataloader,
+)
+from invoke_training.training.shared.data.datasets.image_dir_dataset import (
+    ImageDirDataset,
 )
 from invoke_training.training.shared.lora_checkpoint_utils import save_lora_checkpoint
 from invoke_training.training.shared.optimizer_utils import initialize_optimizer
 
 
+def _generate_class_images(
+    config: DreamBoothLoRASDXLConfig,
+    accelerator: Accelerator,
+    vae: AutoencoderKL,
+    text_encoder_1: CLIPPreTrainedModel,
+    text_encoder_2: CLIPPreTrainedModel,
+    tokenizer_1: PreTrainedTokenizer,
+    tokenizer_2: PreTrainedTokenizer,
+    noise_scheduler: DDPMScheduler,
+    unet: UNet2DConditionModel,
+):
+    """Generate a prior-preservation class image dataset based on config."""
+    os.makedirs(config.class_image_dir, exist_ok=True)
+    with inference_pipeline(
+        accelerator,
+        vae,
+        text_encoder_1,
+        text_encoder_2,
+        tokenizer_1,
+        tokenizer_2,
+        noise_scheduler,
+        unet,
+        config.enable_cpu_offload_during_validation,
+    ) as pipeline, torch.no_grad():
+        generator = torch.Generator(device=accelerator.device)
+        if config.seed is not None:
+            generator = generator.manual_seed(config.seed)
+        for image_idx in tqdm(range(config.num_class_images), disable=not accelerator.is_local_main_process):
+            for _ in range(config.num_validation_images_per_prompt):
+                with accelerator.autocast():
+                    image = pipeline(
+                        config.class_prompt,
+                        num_inference_steps=30,
+                        generator=generator,
+                        height=config.instance_dataset.image_transforms.resolution,
+                        width=config.instance_dataset.image_transforms.resolution,
+                    ).images[0]
+
+                    image.save(os.path.join(config.class_image_dir, f"{image_idx:0>4}.png"))
+
+
 def _train_forward(
     accelerator: Accelerator,
-    config: FinetuneLoRASDXLConfig,
+    config: DreamBoothLoRASDXLConfig,
     data_batch: dict,
     vae: AutoencoderKL,
     noise_scheduler: DDPMScheduler,
@@ -123,10 +170,16 @@ def _train_forward(
     # Predict the noise residual.
     model_pred = unet(noisy_latents, timesteps, prompt_embeds, added_cond_kwargs=unet_conditions).sample
 
-    return torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="mean")
+    loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="none")
+    # Mean-reduce the loss along all dimensions except for the batch dimension.
+    loss = loss.mean([1, 2, 3])
+    # Apply per-example weights.
+    loss = loss * data_batch["loss_weight"]
+    loss = loss.mean()
+    return loss
 
 
-def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
+def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     check_base_model_version(
         {BaseModelVersionEnum.STABLE_DIFFUSION_SDXL_BASE},
@@ -169,8 +222,37 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         unet.enable_xformers_memory_efficient_attention()
         vae.enable_xformers_memory_efficient_attention()
 
+    # Generate class images if prior preservation is enabled.
+    if config.use_prior_preservation and accelerator.is_main_process:
+        class_image_dataset = None
+        if os.path.exists(config.class_image_dir):
+            class_image_dataset = ImageDirDataset(config.class_image_dir)
+
+        if class_image_dataset is not None and len(class_image_dataset) > 0:
+            logger.info(
+                f"Detected an existing dataset at '{config.class_image_dir}' with {len(class_image_dataset)} images. "
+                "Using this class image dataset for prior-preservation."
+            )
+        else:
+            logger.info(
+                f"No existing dataset found at '{config.class_image_dir}'. "
+                f"Generating {config.num_class_images} prior-preservation class images."
+            )
+            _generate_class_images(
+                config,
+                accelerator,
+                vae,
+                text_encoder_1,
+                text_encoder_2,
+                tokenizer_1,
+                tokenizer_2,
+                noise_scheduler,
+                unet,
+            )
+    accelerator.wait_for_everyone()
+
     # Prepare text encoder output cache.
-    text_encoder_output_cache_dir_name = None
+    # text_encoder_output_cache_dir_name = None
     if config.cache_text_encoder_outputs:
         if config.train_text_encoder:
             raise ValueError("'cache_text_encoder_outputs' and 'train_text_encoder' cannot both be True.")
@@ -180,7 +262,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         text_encoder_2.to(accelerator.device, dtype=weight_dtype)
 
     # Prepare VAE output cache.
-    vae_output_cache_dir_name = None
+    # vae_output_cache_dir_name = None
     if config.cache_vae_outputs:
         if config.dataset.image_transforms.random_flip:
             raise ValueError("'cache_vae_outputs' cannot be True if 'random_flip' is True.")
@@ -227,13 +309,14 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
 
     optimizer = initialize_optimizer(config.optimizer, lora_layers.parameters())
 
-    data_loader = build_image_caption_sdxl_dataloader(
-        config.dataset,
-        tokenizer_1,
-        tokenizer_2,
-        config.train_batch_size,
-        text_encoder_output_cache_dir_name,
-        vae_output_cache_dir_name,
+    data_loader = build_dreambooth_sdxl_dataloader(
+        instance_prompt=config.instance_prompt,
+        instance_dataset_config=config.instance_dataset,
+        class_prompt=config.class_prompt,
+        class_data_dir=config.class_image_dir if config.use_prior_preservation else None,
+        tokenizer_1=tokenizer_1,
+        tokenizer_2=tokenizer_2,
+        batch_size=config.train_batch_size,
     )
 
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
