@@ -10,9 +10,11 @@ from invoke_training.training.shared.data.transforms.load_cache_transform import
 def test_load_cache_transform():
     cached_tensor = torch.Tensor([1.0, 2.0, 3.0])
     mock_cache = unittest.mock.MagicMock()
-    mock_cache.load.return_value = cached_tensor
+    mock_cache.load.return_value = {"cached_tensor": cached_tensor}
 
-    tf = LoadCacheTransform(cache=mock_cache, cache_key_field="cache_key", output_field="output")
+    tf = LoadCacheTransform(
+        cache=mock_cache, cache_key_field="cache_key", cache_field_to_output_field={"cached_tensor": "output"}
+    )
 
     in_example = {"cache_key": 1}
 

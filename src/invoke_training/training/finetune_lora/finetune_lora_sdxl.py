@@ -271,7 +271,14 @@ def _cache_vae_outputs(
         latents = latents * vae.config.scaling_factor
         # Split batch before caching.
         for i in range(len(data_batch["id"])):
-            cache.save(data_batch["id"][i], latents[i])
+            cache.save(
+                data_batch["id"][i],
+                {
+                    "vae_output": latents[i],
+                    "original_size_hw": data_batch["original_size_hw"][i],
+                    "crop_top_left_yx": data_batch["crop_top_left_yx"][i],
+                },
+            )
 
 
 def _generate_validation_images(
@@ -432,16 +439,15 @@ def _train_forward(
     unet_conditions = {"time_ids": add_time_ids}
 
     # Get the text embedding for conditioning.
-    # The text_encoder_output may have been cached and included in the data_batch. If not, we calculate it here.
-    all_prompt_embeds = data_batch.get("text_encoder_output", None)
-    if all_prompt_embeds is None:
+    # The text encoder output may have been cached and included in the data_batch. If not, we calculate it here.
+    if "prompt_embeds" in data_batch:
+        prompt_embeds = data_batch["prompt_embeds"]
+        pooled_prompt_embeds = data_batch["pooled_prompt_embeds"]
+    else:
         prompt_embeds, pooled_prompt_embeds = _encode_prompt(
             text_encoders=[text_encoder_1, text_encoder_2],
             prompt_token_ids_list=[data_batch["caption_token_ids_1"], data_batch["caption_token_ids_2"]],
         )
-    else:
-        prompt_embeds = all_prompt_embeds["prompt_embeds"]
-        pooled_prompt_embeds = all_prompt_embeds["pooled_prompt_embeds"]
 
     unet_conditions["text_embeds"] = pooled_prompt_embeds
 
