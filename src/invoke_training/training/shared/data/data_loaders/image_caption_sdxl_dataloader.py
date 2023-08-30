@@ -4,7 +4,9 @@ import torch
 from torch.utils.data import DataLoader
 from transformers import PreTrainedTokenizer
 
-from invoke_training.training.config.finetune_lora_config import DatasetConfig
+from invoke_training.training.config.finetune_lora_config import (
+    ImageCaptionDatasetConfig,
+)
 from invoke_training.training.shared.data.datasets.hf_dir_image_caption_dataset import (
     HFDirImageCaptionDataset,
 )
@@ -61,7 +63,7 @@ def _collate_fn(examples):
 
 
 def build_image_caption_sdxl_dataloader(
-    config: DatasetConfig,
+    config: ImageCaptionDatasetConfig,
     tokenizer_1: PreTrainedTokenizer,
     tokenizer_2: PreTrainedTokenizer,
     batch_size: int,
@@ -72,7 +74,7 @@ def build_image_caption_sdxl_dataloader(
     """Construct a DataLoader for an image-caption dataset for Stable Diffusion XL.
 
     Args:
-        config (DatasetConfig): The dataset config.
+        config (ImageCaptionDatasetConfig): The dataset config.
         tokenizer (CLIPTokenizer): The tokenizer to apply to the captions. Can be None if
             `text_encoder_output_cache_dir` is set.
         batch_size (int): The DataLoader batch size.
@@ -108,7 +110,9 @@ def build_image_caption_sdxl_dataloader(
     if vae_output_cache_dir is None:
         all_transforms.append(
             SDXLImageTransform(
-                resolution=config.resolution, center_crop=config.center_crop, random_flip=config.random_flip
+                resolution=config.image_transforms.resolution,
+                center_crop=config.image_transforms.center_crop,
+                random_flip=config.image_transforms.random_flip,
             )
         )
     else:

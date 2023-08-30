@@ -21,7 +21,8 @@ optimizer:
 
 dataset:
   dataset_name: lambdalabs/pokemon-blip-captions
-  resolution: 512
+  image_transforms:
+    resolution: 512
 
 # General
 model: runwayml/stable-diffusion-v1-5

@@ -2,6 +2,10 @@ import typing
 
 from pydantic import BaseModel
 
+from invoke_training.training.config.data_config import (
+    ImageCaptionDatasetConfig,
+    ImageDirDatasetConfig,
+)
 from invoke_training.training.config.optimizer_config import OptimizerConfig
 
 
@@ -24,57 +28,8 @@ class TrainingOutputConfig(BaseModel):
     save_model_as: typing.Literal["ckpt", "pt", "safetensors"] = "safetensors"
 
 
-class DatasetConfig(BaseModel):
-    # The name of a Hugging Face dataset.
-    # One of dataset_name and dataset_dir should be set (dataset_name takes precedence).
-    # See also: dataset_config_name.
-    dataset_name: typing.Optional[str] = None
-
-    # The directory to load a dataset from. The dataset is expected to be in
-    # Hugging Face imagefolder format (https://huggingface.co/docs/datasets/v2.4.0/en/image_load#imagefolder).
-    # One of 'dataset_name' and 'dataset_dir' should be set ('dataset_name' takes precedence).
-    dataset_dir: typing.Optional[str] = None
-
-    # The Hugging Face dataset config name. Leave as None if there's only one config.
-    # This parameter is only used if dataset_name is set.
-    dataset_config_name: typing.Optional[str] = None
-
-    # The Hugging Face cache directory to use for dataset downloads.
-    # If None, the default value will be used (usually '~/.cache/huggingface/datasets').
-    hf_cache_dir: typing.Optional[str] = None
-
-    # The name of the dataset column that contains image paths.
-    image_column: str = "image"
-
-    # The name of the dataset column that contains captions.
-    caption_column: str = "text"
-
-    # The resolution for input images. All of the images in the dataset will be resized to this (square) resolution.
-    resolution: int = 512
-
-    # If True, input images will be center-cropped to resolution.
-    # If False, input images will be randomly cropped to resolution.
-    center_crop: bool = False
-
-    # Whether random flip augmentations should be applied to input images.
-    random_flip: bool = False
-
-    # Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
-    dataloader_num_workers: int = 0
-
-
-class FinetuneLoRAConfig(BaseModel):
-    """The configuration for a LoRA training run."""
-
-    output: TrainingOutputConfig
-
-    optimizer: OptimizerConfig
-
-    dataset: DatasetConfig
-
-    ##################
-    # General Configs
-    ##################
+class LoRATrainingConfig(BaseModel):
+    """The base configuration for any LoRA training run."""
 
     # The name of the Hugging Face Hub model to train against.
     model: str = "runwayml/stable-diffusion-v1-5"
@@ -166,7 +121,42 @@ class FinetuneLoRAConfig(BaseModel):
     train_batch_size: int = 4
 
 
+class FinetuneLoRAConfig(LoRATrainingConfig):
+    output: TrainingOutputConfig
+    optimizer: OptimizerConfig
+    dataset: ImageCaptionDatasetConfig
+
+
 class FinetuneLoRASDXLConfig(FinetuneLoRAConfig):
+    # The name of the Hugging Face Hub VAE model to train against. This will override the VAE bundled with the base
+    # model (specified by the `model` parameter). This config option is provided for SDXL models, because SDXL shipped
+    # with a VAE that produces NaNs in fp16 mode, so it is common to replace this VAE with a fixed version.
+    vae_model: typing.Optional[str] = None
+
+
+class DreamBoothLoRAConfig(LoRATrainingConfig):
+    output: TrainingOutputConfig
+    optimizer: OptimizerConfig
+
+    # The instance dataset to train on.
+    instance_dataset: ImageDirDatasetConfig
+
+    # The caption to use for all examples in the instance_dataset. Typically has the following form:
+    # "a [instance identifier] [class noun]".
+    instance_prompt: str
+
+    # If true, a regularization dataset of prior presevation images will be generated.
+    use_prior_preservation: bool = False
+
+    # The prompt to use to generate the class regularization dataset. This same prompt will also be used for
+    # conditioning during training. Typically has the following form: "a [class noun]".
+    class_prompt: str
+
+    # The number of class regularization images to generate.
+    num_class_images: int = 0
+
+
+class DreamBoothLoRASDXLConfig(DreamBoothLoRAConfig):
     # The name of the Hugging Face Hub VAE model to train against. This will override the VAE bundled with the base
     # model (specified by the `model` parameter). This config option is provided for SDXL models, because SDXL shipped
     # with a VAE that produces NaNs in fp16 mode, so it is common to replace this VAE with a fixed version.

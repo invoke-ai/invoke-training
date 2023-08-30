@@ -26,7 +26,6 @@ from transformers import (
 )
 
 from invoke_training.lora.injection.stable_diffusion import (
-    convert_lora_state_dict_to_kohya_format,
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet,
 )
@@ -47,8 +46,8 @@ from invoke_training.training.shared.data.data_loaders.image_caption_sdxl_datalo
 from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
     TensorDiskCache,
 )
+from invoke_training.training.shared.lora_checkpoint_utils import save_lora_checkpoint
 from invoke_training.training.shared.optimizer_utils import initialize_optimizer
-from invoke_training.training.shared.serialization import save_state_dict
 
 
 def _import_model_class_for_model(pretrained_model_name_or_path: str, subfolder: str = "", revision: str = "main"):
@@ -148,38 +147,6 @@ def _load_models(
     unet.eval()
 
     return tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet
-
-
-def _save_checkpoint(
-    idx: int,
-    lora_layers: torch.nn.ModuleDict,
-    logger: logging.Logger,
-    checkpoint_tracker: CheckpointTracker,
-):
-    """Save a checkpoint. Old checkpoints are deleted if necessary to respect the config.max_checkpoints config.
-
-    Args:
-        idx (int): The checkpoint index (typically step count or epoch).
-        lora_layers (torch.nn.ModuleDict): The LoRA layers to save in a ModuleDict mapping keys to
-            `LoRALayerCollection`s.
-        logger (logging.Logger): Logger.
-        checkpoint_tracker (CheckpointTracker): The checkpoint tracker.
-    """
-    # Prune checkpoints and get new checkpoint path.
-    num_pruned = checkpoint_tracker.prune(1)
-    if num_pruned > 0:
-        logger.info(f"Pruned {num_pruned} checkpoint(s).")
-    save_path = checkpoint_tracker.get_path(idx)
-
-    state_dict = {}
-    for model_lora_layers in lora_layers.values():
-        model_state_dict = model_lora_layers.get_lora_state_dict()
-        model_kohya_state_dict = convert_lora_state_dict_to_kohya_format(model_state_dict)
-        state_dict.update(model_kohya_state_dict)
-
-    save_state_dict(state_dict, save_path)
-    # accelerator.save_state(save_path)
-    logger.info(f"Saved state to '{save_path}'.")
 
 
 # encode_prompt was adapted from:
@@ -338,8 +305,8 @@ def _generate_validation_images(
                             prompt,
                             num_inference_steps=30,
                             generator=generator,
-                            height=config.dataset.resolution,
-                            width=config.dataset.resolution,
+                            height=config.dataset.image_transforms.resolution,
+                            width=config.dataset.image_transforms.resolution,
                         ).images[0]
                     )
 
@@ -427,7 +394,7 @@ def _train_forward(
     # it is a result of the fact that the original size and crop values get concatenated with the time embeddings.
     def compute_time_ids(original_size, crops_coords_top_left):
         # Adapted from pipeline.StableDiffusionXLPipeline._get_add_time_ids
-        target_size = (config.dataset.resolution, config.dataset.resolution)
+        target_size = (config.dataset.image_transforms.resolution, config.dataset.image_transforms.resolution)
         add_time_ids = list(original_size + crops_coords_top_left + target_size)
         add_time_ids = torch.tensor([add_time_ids])
         add_time_ids = add_time_ids.to(accelerator.device, dtype=weight_dtype)
@@ -540,9 +507,9 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     # Prepare VAE output cache.
     vae_output_cache_dir_name = None
     if config.cache_vae_outputs:
-        if config.dataset.random_flip:
+        if config.dataset.image_transforms.random_flip:
             raise ValueError("'cache_vae_outputs' cannot be True if 'random_flip' is True.")
-        if not config.dataset.center_crop:
+        if not config.dataset.image_transforms.center_crop:
             raise ValueError("'cache_vae_outputs' cannot be True if 'center_crop' is False.")
 
         # We use a temporary directory for the cache. The directory will automatically be cleaned up when
@@ -737,7 +704,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
                 if config.save_every_n_steps is not None and (global_step + 1) % config.save_every_n_steps == 0:
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
-                        _save_checkpoint(global_step + 1, lora_layers, logger, step_checkpoint_tracker)
+                        save_lora_checkpoint(global_step + 1, lora_layers, logger, step_checkpoint_tracker)
 
             logs = {
                 "step_loss": loss.detach().item(),
@@ -751,7 +718,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         # Save a checkpoint every n epochs.
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
             if accelerator.is_main_process:
-                _save_checkpoint(epoch + 1, lora_layers, logger, epoch_checkpoint_tracker)
+                save_lora_checkpoint(epoch + 1, lora_layers, logger, epoch_checkpoint_tracker)
                 accelerator.wait_for_everyone()
 
         # Generate validation images every n epochs.

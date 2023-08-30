@@ -4,7 +4,9 @@ import pytest
 import torch
 from transformers import CLIPTokenizer
 
-from invoke_training.training.config.finetune_lora_config import DatasetConfig
+from invoke_training.training.config.finetune_lora_config import (
+    ImageCaptionDatasetConfig,
+)
 from invoke_training.training.shared.data.data_loaders.image_caption_sdxl_dataloader import (
     build_image_caption_sdxl_dataloader,
 )
@@ -25,7 +27,7 @@ def test_build_image_caption_sdxl_dataloader():
         local_files_only=True,
     )
 
-    config = DatasetConfig(dataset_name="lambdalabs/pokemon-blip-captions", resolution=512)
+    config = ImageCaptionDatasetConfig(dataset_name="lambdalabs/pokemon-blip-captions", resolution=512)
     data_loader = build_image_caption_sdxl_dataloader(config, tokenizer_1, tokenizer_2, 4)
 
     # 833 is the length of the dataset determined manually here:
