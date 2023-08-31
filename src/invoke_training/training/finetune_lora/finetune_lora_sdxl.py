@@ -83,7 +83,7 @@ def _import_model_class_for_model(pretrained_model_name_or_path: str, subfolder:
         raise ValueError(f"{model_class} is not supported.")
 
 
-def _load_models(
+def load_models(
     config: FinetuneLoRASDXLConfig,
 ) -> tuple[
     PreTrainedTokenizer,
@@ -175,7 +175,7 @@ def _encode_prompt(text_encoders: list[CLIPPreTrainedModel], prompt_token_ids_li
     return prompt_embeds, pooled_prompt_embeds
 
 
-def _cache_text_encoder_outputs(
+def cache_text_encoder_outputs(
     cache_dir: str,
     config: FinetuneLoRASDXLConfig,
     tokenizer_1: PreTrainedTokenizer,
@@ -212,7 +212,7 @@ def _cache_text_encoder_outputs(
             cache.save(data_batch["id"][i], embeds)
 
 
-def _cache_vae_outputs(
+def cache_vae_outputs(
     cache_dir: str,
     config: FinetuneLoRASDXLConfig,
     tokenizer_1: PreTrainedTokenizer,
@@ -248,7 +248,7 @@ def _cache_vae_outputs(
             )
 
 
-def _generate_validation_images(
+def generate_validation_images(
     epoch: int,
     out_dir: str,
     accelerator: Accelerator,
@@ -348,9 +348,8 @@ def _generate_validation_images(
     text_encoder_2.to(text_encoder_2_device)
 
 
-def _train_forward(
+def train_forward(
     accelerator: Accelerator,
-    config: FinetuneLoRASDXLConfig,
     data_batch: dict,
     vae: AutoencoderKL,
     noise_scheduler: DDPMScheduler,
@@ -358,6 +357,8 @@ def _train_forward(
     text_encoder_2: CLIPPreTrainedModel,
     unet: UNet2DConditionModel,
     weight_dtype: torch.dtype,
+    resolution: int,
+    prediction_type=None,
 ):
     """Run the forward training pass for a single data_batch.
 
@@ -394,7 +395,7 @@ def _train_forward(
     # it is a result of the fact that the original size and crop values get concatenated with the time embeddings.
     def compute_time_ids(original_size, crops_coords_top_left):
         # Adapted from pipeline.StableDiffusionXLPipeline._get_add_time_ids
-        target_size = (config.dataset.image_transforms.resolution, config.dataset.image_transforms.resolution)
+        target_size = (resolution, resolution)
         add_time_ids = list(original_size + crops_coords_top_left + target_size)
         add_time_ids = torch.tensor([add_time_ids])
         add_time_ids = add_time_ids.to(accelerator.device, dtype=weight_dtype)
@@ -419,9 +420,9 @@ def _train_forward(
     unet_conditions["text_embeds"] = pooled_prompt_embeds
 
     # Get the target for loss depending on the prediction type.
-    if config.prediction_type is not None:
+    if prediction_type is not None:
         # Set the prediction_type of scheduler if it's defined in config.
-        noise_scheduler.register_to_config(prediction_type=config.prediction_type)
+        noise_scheduler.register_to_config(prediction_type=prediction_type)
     if noise_scheduler.config.prediction_type == "epsilon":
         target = noise
     elif noise_scheduler.config.prediction_type == "v_prediction":
@@ -432,7 +433,13 @@ def _train_forward(
     # Predict the noise residual.
     model_pred = unet(noisy_latents, timesteps, prompt_embeds, added_cond_kwargs=unet_conditions).sample
 
-    return torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="mean")
+    loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="none")
+    if "loss_weight" in data_batch:
+        # Mean-reduce the loss along all dimensions except for the batch dimension.
+        loss = loss.mean([1, 2, 3])
+        # Apply per-example weights.
+        loss = loss * data_batch["loss_weight"]
+    return loss.mean()
 
 
 def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
@@ -470,7 +477,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     weight_dtype = get_mixed_precision_dtype(accelerator)
 
     logger.info("Loading models.")
-    tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = _load_models(config)
+    tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = load_models(config)
 
     if config.xformers:
         import xformers  # noqa: F401
@@ -493,7 +500,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
             logger.info(f"Generating text encoder output cache ('{text_encoder_output_cache_dir_name}').")
             text_encoder_1.to(accelerator.device, dtype=weight_dtype)
             text_encoder_2.to(accelerator.device, dtype=weight_dtype)
-            _cache_text_encoder_outputs(
+            cache_text_encoder_outputs(
                 text_encoder_output_cache_dir_name, config, tokenizer_1, tokenizer_2, text_encoder_1, text_encoder_2
             )
         # Move the text_encoders back to the CPU, because they are not needed for training.
@@ -520,7 +527,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
             # Only the main process should to populate the cache.
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
-            _cache_vae_outputs(vae_output_cache_dir_name, config, tokenizer_1, tokenizer_2, vae)
+            cache_vae_outputs(vae_output_cache_dir_name, config, tokenizer_1, tokenizer_2, vae)
         # Move the VAE back to the CPU, because it is not needed for training.
         vae.to("cpu")
         accelerator.wait_for_everyone()
@@ -665,7 +672,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         train_loss = 0.0
         for data_batch in data_loader:
             with accelerator.accumulate(lora_layers):
-                loss = _train_forward(
+                loss = train_forward(
                     accelerator,
                     config,
                     data_batch,
@@ -724,7 +731,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         # Generate validation images every n epochs.
         if len(config.validation_prompts) > 0 and (epoch + 1) % config.validate_every_n_epochs == 0:
             if accelerator.is_main_process:
-                _generate_validation_images(
+                generate_validation_images(
                     epoch=epoch + 1,
                     out_dir=out_dir,
                     accelerator=accelerator,

@@ -45,7 +45,7 @@ from invoke_training.training.shared.lora_checkpoint_utils import save_lora_chec
 from invoke_training.training.shared.optimizer_utils import initialize_optimizer
 
 
-def _load_models(
+def load_models(
     config: FinetuneLoRAConfig,
 ) -> tuple[CLIPTokenizer, DDPMScheduler, CLIPTextModel, AutoencoderKL, UNet2DConditionModel]:
     """Load all models required for training from disk, transfer them to the
@@ -83,7 +83,7 @@ def _load_models(
     return tokenizer, noise_scheduler, text_encoder, vae, unet
 
 
-def _cache_text_encoder_outputs(
+def cache_text_encoder_outputs(
     cache_dir: str, config: FinetuneLoRAConfig, tokenizer: CLIPTokenizer, text_encoder: CLIPTextModel
 ):
     """Run the text encoder on all captions in the dataset and cache the results to disk.
@@ -108,7 +108,7 @@ def _cache_text_encoder_outputs(
             cache.save(data_batch["id"][i], {"text_encoder_output": text_encoder_output_batch[i]})
 
 
-def _cache_vae_outputs(cache_dir: str, config: FinetuneLoRAConfig, tokenizer: CLIPTokenizer, vae: AutoencoderKL):
+def cache_vae_outputs(cache_dir: str, config: FinetuneLoRAConfig, tokenizer: CLIPTokenizer, vae: AutoencoderKL):
     """Run the VAE on all images in the dataset and cache the results to disk.
 
     Args:
@@ -131,7 +131,7 @@ def _cache_vae_outputs(cache_dir: str, config: FinetuneLoRAConfig, tokenizer: CL
             cache.save(data_batch["id"][i], {"vae_output": latents[i]})
 
 
-def _generate_validation_images(
+def generate_validation_images(
     epoch: int,
     out_dir: str,
     accelerator: Accelerator,
@@ -241,7 +241,7 @@ def _generate_validation_images(
     text_encoder.to(text_encoder_device)
 
 
-def _train_forward(
+def train_forward(
     config: FinetuneLoRAConfig,
     data_batch: dict,
     vae: AutoencoderKL,
@@ -299,7 +299,13 @@ def _train_forward(
     # Predict the noise residual.
     model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
-    return torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="mean")
+    loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="none")
+    if "loss_weight" in data_batch:
+        # Mean-reduce the loss along all dimensions except for the batch dimension.
+        loss = loss.mean([1, 2, 3])
+        # Apply per-example weights.
+        loss = loss * data_batch["loss_weight"]
+    return loss.mean()
 
 
 def run_training(config: FinetuneLoRAConfig):  # noqa: C901
@@ -337,7 +343,7 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
     weight_dtype = get_mixed_precision_dtype(accelerator)
 
     logger.info("Loading models.")
-    tokenizer, noise_scheduler, text_encoder, vae, unet = _load_models(config)
+    tokenizer, noise_scheduler, text_encoder, vae, unet = load_models(config)
 
     if config.xformers:
         import xformers  # noqa: F401
@@ -359,7 +365,7 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
             # Only the main process should populate the cache.
             logger.info(f"Generating text encoder output cache ('{text_encoder_output_cache_dir_name}').")
             text_encoder.to(accelerator.device, dtype=weight_dtype)
-            _cache_text_encoder_outputs(text_encoder_output_cache_dir_name, config, tokenizer, text_encoder)
+            cache_text_encoder_outputs(text_encoder_output_cache_dir_name, config, tokenizer, text_encoder)
         # Move the text_encoder back to the CPU, because it is not needed for training.
         text_encoder.to("cpu")
         accelerator.wait_for_everyone()
@@ -382,7 +388,7 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
             # Only the main process should to populate the cache.
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
-            _cache_vae_outputs(vae_output_cache_dir_name, config, tokenizer, vae)
+            cache_vae_outputs(vae_output_cache_dir_name, config, tokenizer, vae)
         # Move the VAE back to the CPU, because it is not needed for training.
         vae.to("cpu")
         accelerator.wait_for_everyone()
@@ -511,7 +517,7 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
         train_loss = 0.0
         for data_batch in data_loader:
             with accelerator.accumulate(lora_layers):
-                loss = _train_forward(
+                loss = train_forward(
                     config,
                     data_batch,
                     vae,
@@ -568,7 +574,7 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
         # Generate validation images every n epochs.
         if len(config.validation_prompts) > 0 and (epoch + 1) % config.validate_every_n_epochs == 0:
             if accelerator.is_main_process:
-                _generate_validation_images(
+                generate_validation_images(
                     epoch=epoch + 1,
                     out_dir=out_dir,
                     accelerator=accelerator,
