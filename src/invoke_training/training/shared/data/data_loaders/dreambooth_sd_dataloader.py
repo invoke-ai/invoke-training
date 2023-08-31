@@ -43,6 +43,7 @@ def build_dreambooth_sd_dataloader(
         instance_dataset,
         [ConstantFieldTransform("caption", instance_prompt), ConstantFieldTransform("loss_weight", 1.0)],
     )
+    datasets = [instance_dataset]
 
     # 2. Prepare class dataset.
     class_dataset = None
@@ -52,9 +53,10 @@ def build_dreambooth_sd_dataloader(
             class_dataset,
             [ConstantFieldTransform("caption", class_prompt), ConstantFieldTransform("loss_weight", 1.0)],
         )
+        datasets.append(class_dataset)
 
     # 3. Merge instance dataset and class dataset.
-    merged_dataset = ConcatDataset([instance_dataset, class_dataset])
+    merged_dataset = ConcatDataset(datasets)
     all_transforms = [
         SDImageTransform(
             resolution=instance_dataset_config.image_transforms.resolution,
