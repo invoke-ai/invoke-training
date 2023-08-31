@@ -21,7 +21,7 @@ dataset:
 # ...
 ```
 
-See [data_config.py](/src/invoke_training/training/config/data_config.py) for full documentation of the `ImageCaptionDatasetConfig`.
+See [data_config.py](/src/invoke_training/training/config/data_config.py) for full documentation of the `ImageCaptionDataLoaderConfig`.
 
 ### ImageFolder Datasets
 If you want to create custom datasets, then you will most likely want to use the [ImageFolder](https://huggingface.co/docs/datasets/v2.4.0/en/image_load#imagefolder) dataset format.
@@ -57,4 +57,4 @@ dataset:
 # ...
 ```
 
-See [data_config.py](/src/invoke_training/training/config/data_config.py) for full documentation of the `ImageCaptionDatasetConfig`.
+See [data_config.py](/src/invoke_training/training/config/data_config.py) for full documentation of the `ImageCaptionDataLoaderConfig`.

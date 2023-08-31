@@ -15,7 +15,7 @@ class ImageTransformConfig(BaseModel):
     random_flip: bool = False
 
 
-class ImageCaptionDatasetConfig(BaseModel):
+class ImageCaptionDataLoaderConfig(BaseModel):
     # The name of a Hugging Face dataset.
     # One of dataset_name and dataset_dir should be set (dataset_name takes precedence).
     # See also: dataset_config_name.
@@ -43,17 +43,31 @@ class ImageCaptionDatasetConfig(BaseModel):
     # Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
     dataloader_num_workers: int = 0
 
-    image_transforms: ImageTransformConfig
+    image_transforms: ImageTransformConfig = ImageTransformConfig()
 
 
-class ImageDirDatasetConfig(BaseModel):
-    # The directory to load images from.
-    dataset_dir: str
+class DreamBoothDataLoaderConfig(BaseModel):
+    # The caption to use for all examples in the instance_dataset. Typically has the following form:
+    # "a [instance identifier] [class noun]".
+    instance_prompt: str
+
+    # The directory to load instance images from.
+    instance_data_dir: str
+
+    # The caption to use for all examples in the class_dataset. Typically has the following form: "a [class noun]".
+    class_prompt: typing.Optional[str] = None
+
+    # The directory to load class images from.
+    class_data_dir: typing.Optional[str] = None
+
+    # The loss weight applied to class dataset examples. Instance dataset examples have an implicit loss weight of 1.0.
+    class_data_loss_weight: float = 1.0
 
     # The image file extensions to include in the dataset.
     # If None, then the following file extensions will be loaded: [".png", ".jpg", ".jpeg"].
     image_file_extensions: typing.Optional[list[str]] = None
 
+    # The image transforms to apply to all instance and class dataset images.
     image_transforms: ImageTransformConfig = ImageTransformConfig()
 
     # Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.

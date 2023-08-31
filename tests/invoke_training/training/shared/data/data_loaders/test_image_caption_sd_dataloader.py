@@ -5,7 +5,7 @@ import torch
 from transformers import CLIPTokenizer
 
 from invoke_training.training.config.finetune_lora_config import (
-    ImageCaptionDatasetConfig,
+    ImageCaptionDataLoaderConfig,
 )
 from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
     build_image_caption_sd_dataloader,
@@ -23,7 +23,7 @@ def test_build_image_caption_sd_dataloader():
         revision="c9ab35ff5f2c362e9e22fbafe278077e196057f0",
     )
 
-    config = ImageCaptionDatasetConfig(dataset_name="lambdalabs/pokemon-blip-captions", resolution=512)
+    config = ImageCaptionDataLoaderConfig(dataset_name="lambdalabs/pokemon-blip-captions", resolution=512)
     data_loader = build_image_caption_sd_dataloader(config, tokenizer, 4)
 
     # 833 is the length of the dataset determined manually here:

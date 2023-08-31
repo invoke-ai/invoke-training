@@ -2,7 +2,7 @@ import pytest
 import torch
 from transformers import CLIPTokenizer
 
-from invoke_training.training.config.data_config import ImageDirDatasetConfig
+from invoke_training.training.config.data_config import DreamBoothDataLoaderConfig
 from invoke_training.training.shared.data.data_loaders.dreambooth_sdxl_dataloader import (
     build_dreambooth_sdxl_dataloader,
 )
@@ -25,12 +25,15 @@ def test_build_image_caption_sdxl_dataloader(image_dir):  # noqa: F811
         local_files_only=True,
     )
 
-    config = ImageDirDatasetConfig(dataset_dir=str(image_dir))
-    data_loader = build_dreambooth_sdxl_dataloader(
+    config = DreamBoothDataLoaderConfig(
         instance_prompt="test instance prompt",
-        instance_dataset_config=config,
-        class_prompt="test dataset prompt",
+        instance_data_dir=str(image_dir),
+        class_prompt="test class prompt",
+        # For testing, we just use the same directory for the instance and class datasets.
         class_data_dir=str(image_dir),
+    )
+    data_loader = build_dreambooth_sdxl_dataloader(
+        data_loader_config=config,
         tokenizer_1=tokenizer_1,
         tokenizer_2=tokenizer_2,
         batch_size=2,
@@ -89,12 +92,12 @@ def test_build_image_caption_sdxl_dataloader_no_class_dataset(image_dir):  # noq
         local_files_only=True,
     )
 
-    config = ImageDirDatasetConfig(dataset_dir=str(image_dir))
-    data_loader = build_dreambooth_sdxl_dataloader(
+    config = DreamBoothDataLoaderConfig(
         instance_prompt="test instance prompt",
-        instance_dataset_config=config,
-        class_prompt=None,
-        class_data_dir=None,
+        instance_data_dir=str(image_dir),
+    )
+    data_loader = build_dreambooth_sdxl_dataloader(
+        data_loader_config=config,
         tokenizer_1=tokenizer_1,
         tokenizer_2=tokenizer_2,
         batch_size=2,

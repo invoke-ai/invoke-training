@@ -3,8 +3,8 @@ import typing
 from pydantic import BaseModel
 
 from invoke_training.training.config.data_config import (
-    ImageCaptionDatasetConfig,
-    ImageDirDatasetConfig,
+    DreamBoothDataLoaderConfig,
+    ImageCaptionDataLoaderConfig,
 )
 from invoke_training.training.config.optimizer_config import OptimizerConfig
 
@@ -124,7 +124,7 @@ class LoRATrainingConfig(BaseModel):
 class FinetuneLoRAConfig(LoRATrainingConfig):
     output: TrainingOutputConfig
     optimizer: OptimizerConfig
-    dataset: ImageCaptionDatasetConfig
+    dataset: ImageCaptionDataLoaderConfig
 
 
 class FinetuneLoRASDXLConfig(FinetuneLoRAConfig):
@@ -137,23 +137,7 @@ class FinetuneLoRASDXLConfig(FinetuneLoRAConfig):
 class DreamBoothLoRAConfig(LoRATrainingConfig):
     output: TrainingOutputConfig
     optimizer: OptimizerConfig
-
-    # The instance dataset to train on.
-    instance_dataset: ImageDirDatasetConfig
-
-    # The caption to use for all examples in the instance_dataset. Typically has the following form:
-    # "a [instance identifier] [class noun]".
-    instance_prompt: str
-
-    # If true, a regularization dataset of prior presevation images will be generated.
-    use_prior_preservation: bool = False
-
-    # The prompt to use to generate the class regularization dataset. This same prompt will also be used for
-    # conditioning during training. Typically has the following form: "a [class noun]".
-    class_prompt: str
-
-    # The number of class regularization images to generate.
-    num_class_images: int = 0
+    dataset: DreamBoothDataLoaderConfig
 
 
 class DreamBoothLoRASDXLConfig(DreamBoothLoRAConfig):
