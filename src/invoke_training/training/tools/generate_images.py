@@ -35,7 +35,11 @@ def generate_images(
         enable_cpu_offload (bool, optional): If True, models will be loaded onto the GPU one by one to conserve VRAM.
             Defaults to False.
     """
-    pipeline = DiffusionPipeline.from_pretrained(model)
+    pipeline = DiffusionPipeline.from_pretrained(
+        model,
+        safety_checker=None,
+        requires_safety_checker=False,
+    )
 
     pipeline.to(torch_dtype=torch_dtype)
     if enable_cpu_offload:
