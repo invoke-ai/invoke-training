@@ -1,5 +1,6 @@
 import argparse
 
+from invoke_training.training.shared.model_loading_utils import PipelineVersionEnum
 from invoke_training.training.tools.generate_images import generate_images
 
 
@@ -26,7 +27,7 @@ def parse_args():
         "--sd-version",
         type=str,
         required=True,
-        help="The Stable Diffusion version. One of: ['sd', 'sdxl'].",
+        help="The Stable Diffusion version. One of: ['SD', 'SDXL'].",
     )
     parser.add_argument("--prompt", type=str, required=True, help="The prompt to use for image generation.")
     parser.add_argument(
@@ -69,7 +70,7 @@ def main():
     generate_images(
         out_dir=args.out_dir,
         model=args.model,
-        sd_version=args.sd_version,
+        pipeline_version=PipelineVersionEnum(args.sd_version),
         prompt=args.prompt,
         num_images=args.num_images,
         height=args.height,
