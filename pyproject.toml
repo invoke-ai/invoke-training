@@ -19,6 +19,7 @@ dependencies = [
     "datasets~=2.14.3",
     "diffusers~=0.19.3",
     "numpy",
+    "omegaconf",
     "Pillow",
     "prodigyopt",
     "pydantic",

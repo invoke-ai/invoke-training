@@ -1,13 +1,19 @@
 import os
+import typing
 
 import torch
-from diffusers import DiffusionPipeline
+from diffusers import (
+    DiffusionPipeline,
+    StableDiffusionPipeline,
+    StableDiffusionXLPipeline,
+)
 from tqdm import tqdm
 
 
 def generate_images(
     out_dir: str,
     model: str,
+    sd_version: typing.Literal["sd", "sdxl"],
     prompt: str,
     num_images: int,
     height: int,
@@ -23,6 +29,7 @@ def generate_images(
     Args:
         out_dir (str): The output directory to create.
         model (str): The name or path of the diffusers pipeline to generate with.
+        sd_version (str): The model version. One of: ["sd", "sdxl"].
         prompt (str): The prompt to generate images with.
         num_images (int): The number of images to generate.
         height (int): The output image height in pixels (recommended to match the resolution that the model was trained
@@ -35,11 +42,22 @@ def generate_images(
         enable_cpu_offload (bool, optional): If True, models will be loaded onto the GPU one by one to conserve VRAM.
             Defaults to False.
     """
-    pipeline = DiffusionPipeline.from_pretrained(
-        model,
-        safety_checker=None,
-        requires_safety_checker=False,
-    )
+
+    if sd_version == "sd":
+        pipeline_class = StableDiffusionPipeline
+    elif sd_version == "sdxl":
+        pipeline_class = StableDiffusionXLPipeline
+    else:
+        raise ValueError(f"Unsupported sd_version: '{sd_version}'.")
+
+    if os.path.isfile(model):
+        pipeline = pipeline_class.from_single_file(model, load_safety_checker=False)
+    else:
+        pipeline = DiffusionPipeline.from_pretrained(
+            model,
+            safety_checker=None,
+            requires_safety_checker=False,
+        )
 
     pipeline.to(torch_dtype=torch_dtype)
     if enable_cpu_offload:
