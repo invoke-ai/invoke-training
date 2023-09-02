@@ -674,7 +674,6 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
             with accelerator.accumulate(lora_layers):
                 loss = train_forward(
                     accelerator,
-                    config,
                     data_batch,
                     vae,
                     noise_scheduler,
@@ -682,6 +681,8 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
                     text_encoder_2,
                     unet,
                     weight_dtype,
+                    config.dataset.image_transforms.resolution,
+                    config.prediction_type,
                 )
 
                 # Gather the losses across all processes for logging (if we use distributed training).

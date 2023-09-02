@@ -249,7 +249,7 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
                     text_encoder_2,
                     unet,
                     weight_dtype,
-                    config.instance_dataset.image_transforms.resolution,
+                    config.dataset.image_transforms.resolution,
                     config.prediction_type,
                 )
 
