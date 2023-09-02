@@ -30,10 +30,6 @@ from invoke_training.training.shared.accelerator_utils import (
     initialize_accelerator,
     initialize_logging,
 )
-from invoke_training.training.shared.base_model_version import (
-    BaseModelVersionEnum,
-    check_base_model_version,
-)
 from invoke_training.training.shared.checkpoint_tracker import CheckpointTracker
 from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
     build_image_caption_sd_dataloader,
@@ -42,6 +38,10 @@ from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
     TensorDiskCache,
 )
 from invoke_training.training.shared.lora_checkpoint_utils import save_lora_checkpoint
+from invoke_training.training.shared.model_loading_utils import (
+    PipelineVersionEnum,
+    load_pipeline,
+)
 from invoke_training.training.shared.optimizer_utils import initialize_optimizer
 
 
@@ -64,11 +64,21 @@ def load_models(
             UNet2DConditionModel,
         ]: A tuple of loaded models.
     """
-    tokenizer: CLIPTokenizer = CLIPTokenizer.from_pretrained(config.model, subfolder="tokenizer")
-    noise_scheduler: DDPMScheduler = DDPMScheduler.from_pretrained(config.model, subfolder="scheduler")
-    text_encoder: CLIPTextModel = CLIPTextModel.from_pretrained(config.model, subfolder="text_encoder")
-    vae: AutoencoderKL = AutoencoderKL.from_pretrained(config.model, subfolder="vae")
-    unet: UNet2DConditionModel = UNet2DConditionModel.from_pretrained(config.model, subfolder="unet")
+    pipeline: StableDiffusionPipeline = load_pipeline(config.model, PipelineVersionEnum.SD)
+
+    # Extract sub-models from the pipeline.
+    tokenizer: CLIPTokenizer = pipeline.tokenizer
+    text_encoder: CLIPTextModel = pipeline.text_encoder
+    vae: AutoencoderKL = pipeline.vae
+    unet: UNet2DConditionModel = pipeline.unet
+    noise_scheduler = DDPMScheduler(
+        beta_start=0.00085,
+        beta_end=0.012,
+        beta_schedule="scaled_linear",
+        num_train_timesteps=1000,
+        clip_sample=False,
+        steps_offset=1,
+    )
 
     # Disable gradient calculation for model weights to save memory.
     text_encoder.requires_grad_(False)
@@ -310,11 +320,12 @@ def train_forward(
 
 def run_training(config: FinetuneLoRAConfig):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
-    check_base_model_version(
-        {BaseModelVersionEnum.STABLE_DIFFUSION_V1, BaseModelVersionEnum.STABLE_DIFFUSION_V2},
-        config.model,
-        local_files_only=False,
-    )
+    # TODO(ryan): Update this check to work with single-file SD checkpoints.
+    # check_base_model_version(
+    #     {BaseModelVersionEnum.STABLE_DIFFUSION_V1, BaseModelVersionEnum.STABLE_DIFFUSION_V2},
+    #     config.model,
+    #     local_files_only=False,
+    # )
 
     # Create a timestamped directory for all outputs.
     out_dir = os.path.join(config.output.base_output_dir, f"{time.time()}")

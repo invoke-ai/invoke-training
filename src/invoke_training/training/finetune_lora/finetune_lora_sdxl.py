@@ -18,12 +18,7 @@ from diffusers import (
 )
 from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
-from transformers import (
-    AutoTokenizer,
-    CLIPPreTrainedModel,
-    PretrainedConfig,
-    PreTrainedTokenizer,
-)
+from transformers import CLIPPreTrainedModel, PretrainedConfig, PreTrainedTokenizer
 
 from invoke_training.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
@@ -35,10 +30,6 @@ from invoke_training.training.shared.accelerator_utils import (
     initialize_accelerator,
     initialize_logging,
 )
-from invoke_training.training.shared.base_model_version import (
-    BaseModelVersionEnum,
-    check_base_model_version,
-)
 from invoke_training.training.shared.checkpoint_tracker import CheckpointTracker
 from invoke_training.training.shared.data.data_loaders.image_caption_sdxl_dataloader import (
     build_image_caption_sdxl_dataloader,
@@ -47,6 +38,10 @@ from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
     TensorDiskCache,
 )
 from invoke_training.training.shared.lora_checkpoint_utils import save_lora_checkpoint
+from invoke_training.training.shared.model_loading_utils import (
+    PipelineVersionEnum,
+    load_pipeline,
+)
 from invoke_training.training.shared.optimizer_utils import initialize_optimizer
 
 
@@ -110,29 +105,27 @@ def load_models(
             UNet2DConditionModel,
         ]: A tuple of loaded models.
     """
-    # Load tokenizers.
-    tokenizer_1: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
-        config.model, subfolder="tokenizer", use_fast=False
+
+    pipeline: StableDiffusionXLPipeline = load_pipeline(config.model, PipelineVersionEnum.SDXL)
+
+    # Extract sub-models from the pipeline.
+    tokenizer_1: PreTrainedTokenizer = pipeline.tokenizer
+    tokenizer_2: PreTrainedTokenizer = pipeline.tokenizer_2
+    text_encoder_1: CLIPPreTrainedModel = pipeline.text_encoder
+    text_encoder_2: CLIPPreTrainedModel = pipeline.text_encoder_2
+    vae: AutoencoderKL = pipeline.vae
+    unet: UNet2DConditionModel = pipeline.unet
+    noise_scheduler = DDPMScheduler(
+        beta_start=0.00085,
+        beta_end=0.012,
+        beta_schedule="scaled_linear",
+        num_train_timesteps=1000,
+        clip_sample=False,
+        steps_offset=1,
     )
-    tokenizer_2: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
-        config.model, subfolder="tokenizer_2", use_fast=False
-    )
 
-    # Load noise scheduler.
-    noise_scheduler: DDPMScheduler = DDPMScheduler.from_pretrained(config.model, subfolder="scheduler")
-
-    # Load text encoders.
-    text_encoder_cls_1 = _import_model_class_for_model(config.model, subfolder="text_encoder")
-    text_encoder_1 = text_encoder_cls_1.from_pretrained(config.model, subfolder="text_encoder")
-    text_encoder_cls_2 = _import_model_class_for_model(config.model, subfolder="text_encoder_2")
-    text_encoder_2 = text_encoder_cls_2.from_pretrained(config.model, subfolder="text_encoder_2")
-
-    # Load VAE.
-    vae_model = config.vae_model if config.vae_model is not None else config.model
-    vae: AutoencoderKL = AutoencoderKL.from_pretrained(vae_model, subfolder="vae" if config.vae_model is None else None)
-
-    # Load UNet.
-    unet: UNet2DConditionModel = UNet2DConditionModel.from_pretrained(config.model, subfolder="unet")
+    if config.vae_model is not None:
+        vae: AutoencoderKL = AutoencoderKL.from_pretrained(config.vae_model)
 
     # Disable gradient calculation for model weights to save memory.
     text_encoder_1.requires_grad_(False)
@@ -444,11 +437,12 @@ def train_forward(
 
 def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
-    check_base_model_version(
-        {BaseModelVersionEnum.STABLE_DIFFUSION_SDXL_BASE},
-        config.model,
-        local_files_only=False,
-    )
+    # TODO(ryan): Update this check to work with single-file SD checkpoints.
+    # check_base_model_version(
+    #     {BaseModelVersionEnum.STABLE_DIFFUSION_SDXL_BASE},
+    #     config.model,
+    #     local_files_only=False,
+    # )
 
     # Create a timestamped directory for all outputs.
     out_dir = os.path.join(config.output.base_output_dir, f"{time.time()}")
