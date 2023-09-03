@@ -145,7 +145,7 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
                 # LoRA weights would have 0 gradients, and so would not get trained.
                 te.text_model.embeddings.requires_grad_(True)
 
-    optimizer = initialize_optimizer(config.optimizer, lora_layers.parameters())
+    optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
 
     data_loader = build_dreambooth_sdxl_dataloader(
         data_loader_config=config.dataset,
