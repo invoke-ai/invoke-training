@@ -531,17 +531,27 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     unet.to(accelerator.device, dtype=weight_dtype)
 
     lora_layers = torch.nn.ModuleDict()
+    trainable_param_groups = []
     if config.train_unet:
         lora_layers["unet"] = inject_lora_into_unet(
             unet, config.train_unet_non_attention_blocks, lora_rank_dim=config.lora_rank_dim
         )
+        unet_param_group = {"params": lora_layers["unet"].parameters()}
+        if config.unet_learning_rate is not None:
+            unet_param_group["lr"] = config.unet_learning_rate
+        trainable_param_groups.append(unet_param_group)
     if config.train_text_encoder:
-        lora_layers["text_encoder_1"] = inject_lora_into_clip_text_encoder(
-            text_encoder_1, "lora_te1", lora_rank_dim=config.lora_rank_dim
-        )
-        lora_layers["text_encoder_2"] = inject_lora_into_clip_text_encoder(
-            text_encoder_2, "lora_te2", lora_rank_dim=config.lora_rank_dim
-        )
+        for te_model, key, lora_prefix in [
+            (text_encoder_1, "text_encoder_1", "lora_te1"),
+            (text_encoder_2, "text_encoder_2", "lora_te2"),
+        ]:
+            lora_layers[key] = inject_lora_into_clip_text_encoder(
+                te_model, lora_prefix, lora_rank_dim=config.lora_rank_dim
+            )
+            text_encoder_param_group = {"params": lora_layers[key].parameters()}
+            if config.text_encoder_learning_rate is not None:
+                text_encoder_param_group["lr"] = config.text_encoder_learning_rate
+            trainable_param_groups.append(text_encoder_param_group)
 
     if config.gradient_checkpointing:
         unet.enable_gradient_checkpointing()
@@ -562,7 +572,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
                 # LoRA weights would have 0 gradients, and so would not get trained.
                 te.text_model.embeddings.requires_grad_(True)
 
-    optimizer = initialize_optimizer(config.optimizer, lora_layers.parameters())
+    optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
 
     data_loader = build_image_caption_sdxl_dataloader(
         config.dataset,
