@@ -26,7 +26,7 @@ class LoadCacheTransform:
     def __call__(self, data: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:
         key = data[self._cache_key_field]
 
-        cache_data = self._cache.load(hash(key))
+        cache_data = self._cache.load(key)
 
         for src, dst in self._cache_field_to_output_field.items():
             data[dst] = cache_data[src]
