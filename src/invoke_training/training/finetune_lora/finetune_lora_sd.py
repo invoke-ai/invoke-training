@@ -7,6 +7,7 @@ import time
 
 import numpy as np
 import torch
+import torch.utils.data
 from accelerate import Accelerator
 from accelerate.hooks import remove_hook_from_module
 from accelerate.utils import set_seed
@@ -118,19 +119,14 @@ def cache_text_encoder_outputs(
             cache.save(data_batch["id"][i], {"text_encoder_output": text_encoder_output_batch[i]})
 
 
-def cache_vae_outputs(cache_dir: str, config: FinetuneLoRAConfig, tokenizer: CLIPTokenizer, vae: AutoencoderKL):
+def cache_vae_outputs(cache_dir: str, data_loader: torch.utils.data.DataLoader, vae: AutoencoderKL):
     """Run the VAE on all images in the dataset and cache the results to disk.
 
     Args:
         cache_dir (str): The directory where the results will be cached.
-        config (FinetuneLoRAConfig): Training config.
-        tokenizer (CLIPTokenizer): The tokenizer.
+        data_loader (DataLoader): The data loader.
         vae (AutoencoderKL): The VAE.
     """
-    data_loader = build_image_caption_sd_dataloader(
-        config.dataset, tokenizer, batch_size=config.train_batch_size, shuffle=False
-    )
-
     cache = TensorDiskCache(cache_dir)
 
     for data_batch in tqdm(data_loader):
@@ -396,10 +392,13 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
         tmp_vae_output_cache_dir = tempfile.TemporaryDirectory()
         vae_output_cache_dir_name = tmp_vae_output_cache_dir.name
         if accelerator.is_local_main_process:
-            # Only the main process should to populate the cache.
+            # Only the main process should populate the cache.
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
-            cache_vae_outputs(vae_output_cache_dir_name, config, tokenizer, vae)
+            data_loader = build_image_caption_sd_dataloader(
+                config.dataset, tokenizer, batch_size=config.train_batch_size, shuffle=False
+            )
+            cache_vae_outputs(vae_output_cache_dir_name, data_loader, vae)
         # Move the VAE back to the CPU, because it is not needed for training.
         vae.to("cpu")
         accelerator.wait_for_everyone()
