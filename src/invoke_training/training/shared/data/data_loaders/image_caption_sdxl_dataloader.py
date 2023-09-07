@@ -33,7 +33,7 @@ from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
 )
 
 
-def _collate_fn(examples):
+def sdxl_image_caption_collate_fn(examples):
     """A batch collation function for the image-caption SDXL data loader."""
     out_examples = {
         "id": [example["id"] for example in examples],
@@ -51,6 +51,9 @@ def _collate_fn(examples):
     if "caption_token_ids_1" in examples[0]:
         out_examples["caption_token_ids_1"] = torch.stack([example["caption_token_ids_1"] for example in examples])
         out_examples["caption_token_ids_2"] = torch.stack([example["caption_token_ids_2"] for example in examples])
+
+    if "loss_weight" in examples[0]:
+        out_examples["loss_weight"] = torch.tensor([example["loss_weight"] for example in examples])
 
     if "prompt_embeds" in examples[0]:
         out_examples["prompt_embeds"] = torch.stack([example["prompt_embeds"] for example in examples])
@@ -156,7 +159,7 @@ def build_image_caption_sdxl_dataloader(
     return DataLoader(
         dataset,
         shuffle=shuffle,
-        collate_fn=_collate_fn,
+        collate_fn=sdxl_image_caption_collate_fn,
         batch_size=batch_size,
         num_workers=config.dataloader_num_workers,
     )

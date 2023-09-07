@@ -54,4 +54,7 @@ class ImageDirDatasetConfig(BaseModel):
     # If None, then the following file extensions will be loaded: [".png", ".jpg", ".jpeg"].
     image_file_extensions: typing.Optional[list[str]] = None
 
-    image_transforms: ImageTransformConfig
+    image_transforms: ImageTransformConfig = ImageTransformConfig()
+
+    # Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
+    dataloader_num_workers: int = 0
