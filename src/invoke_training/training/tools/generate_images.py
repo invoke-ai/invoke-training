@@ -1,13 +1,18 @@
 import os
 
 import torch
-from diffusers import DiffusionPipeline
 from tqdm import tqdm
+
+from invoke_training.training.shared.model_loading_utils import (
+    PipelineVersionEnum,
+    load_pipeline,
+)
 
 
 def generate_images(
     out_dir: str,
     model: str,
+    pipeline_version: PipelineVersionEnum,
     prompt: str,
     num_images: int,
     height: int,
@@ -23,6 +28,7 @@ def generate_images(
     Args:
         out_dir (str): The output directory to create.
         model (str): The name or path of the diffusers pipeline to generate with.
+        sd_version (PipelineVersionEnum): The model version.
         prompt (str): The prompt to generate images with.
         num_images (int): The number of images to generate.
         height (int): The output image height in pixels (recommended to match the resolution that the model was trained
@@ -35,11 +41,8 @@ def generate_images(
         enable_cpu_offload (bool, optional): If True, models will be loaded onto the GPU one by one to conserve VRAM.
             Defaults to False.
     """
-    pipeline = DiffusionPipeline.from_pretrained(
-        model,
-        safety_checker=None,
-        requires_safety_checker=False,
-    )
+
+    pipeline = load_pipeline(model, pipeline_version)
 
     pipeline.to(torch_dtype=torch_dtype)
     if enable_cpu_offload:

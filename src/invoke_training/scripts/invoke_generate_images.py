@@ -1,5 +1,6 @@
 import argparse
 
+from invoke_training.training.shared.model_loading_utils import PipelineVersionEnum
 from invoke_training.training.tools.generate_images import generate_images
 
 
@@ -20,8 +21,15 @@ def parse_args():
         "--model",
         type=str,
         required=True,
-        help="Name or path of the diffusers model to generate images with. (E.g. 'runwayml/stable-diffusion-v1-5', "
-        "'stabilityai/stable-diffusion-xl-base-1.0', etc. )",
+        help="Name or path of the diffusers model to generate images with. Can be in diffusers format, or a single "
+        "stable diffusion checkpoint file. (E.g. 'runwayml/stable-diffusion-v1-5', "
+        "'stabilityai/stable-diffusion-xl-base-1.0', '/path/to/realisticVisionV51_v51VAE.safetensors', etc. )",
+    )
+    parser.add_argument(
+        "--sd-version",
+        type=str,
+        required=True,
+        help="The Stable Diffusion version. One of: ['SD', 'SDXL'].",
     )
     parser.add_argument("-p", "--prompt", type=str, required=True, help="The prompt to use for image generation.")
     parser.add_argument(
@@ -62,10 +70,11 @@ def parse_args():
 def main():
     args = parse_args()
 
-    print(f"Generating {args.num_images} at '{args.out_dir}'.")
+    print(f"Generating {args.num_images} images in '{args.out_dir}'.")
     generate_images(
         out_dir=args.out_dir,
         model=args.model,
+        pipeline_version=PipelineVersionEnum(args.sd_version),
         prompt=args.prompt,
         num_images=args.num_images,
         height=args.height,

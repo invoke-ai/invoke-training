@@ -31,7 +31,9 @@ class TrainingOutputConfig(BaseModel):
 class LoRATrainingConfig(BaseModel):
     """The base configuration for any LoRA training run."""
 
-    # The name of the Hugging Face Hub model to train against.
+    # Name or path of the base model to train. Can be in diffusers format, or a single stable diffusion checkpoint file.
+    # (E.g. 'runwayml/stable-diffusion-v1-5', 'stabilityai/stable-diffusion-xl-base-1.0',
+    # '/path/to/realisticVisionV51_v51VAE.safetensors', etc. )
     model: str = "runwayml/stable-diffusion-v1-5"
 
     # A seed for reproducible training.
