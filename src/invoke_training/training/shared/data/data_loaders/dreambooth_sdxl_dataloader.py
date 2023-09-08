@@ -1,9 +1,7 @@
-import typing
-
 from torch.utils.data import ConcatDataset, DataLoader
 from transformers import PreTrainedTokenizer
 
-from invoke_training.training.config.data_config import ImageDirDatasetConfig
+from invoke_training.training.config.data_config import DreamBoothDataLoaderConfig
 from invoke_training.training.shared.data.data_loaders.dreambooth_sd_dataloader import (
     InterleavedSampler,
     SequentialRangeSampler,
@@ -30,10 +28,7 @@ from invoke_training.training.shared.data.transforms.sdxl_image_transform import
 
 
 def build_dreambooth_sdxl_dataloader(
-    instance_prompt: str,
-    instance_dataset_config: ImageDirDatasetConfig,
-    class_prompt: typing.Optional[str],
-    class_data_dir: typing.Optional[str],
+    data_loader_config: DreamBoothDataLoaderConfig,
     tokenizer_1: PreTrainedTokenizer,
     tokenizer_2: PreTrainedTokenizer,
     batch_size: int,
@@ -42,20 +37,26 @@ def build_dreambooth_sdxl_dataloader(
     """Construct a DataLoader for a DreamBooth dataset for Stable Diffusion XL."""
 
     # 1. Prepare instance dataset
-    instance_dataset = ImageDirDataset(instance_dataset_config.dataset_dir)
+    instance_dataset = ImageDirDataset(data_loader_config.instance_data_dir)
     instance_dataset = TransformDataset(
         instance_dataset,
-        [ConstantFieldTransform("caption", instance_prompt), ConstantFieldTransform("loss_weight", 1.0)],
+        [
+            ConstantFieldTransform("caption", data_loader_config.instance_prompt),
+            ConstantFieldTransform("loss_weight", 1.0),
+        ],
     )
     datasets = [instance_dataset]
 
     # 2. Prepare class dataset.
     class_dataset = None
-    if class_data_dir is not None:
-        class_dataset = ImageDirDataset(class_data_dir)
+    if data_loader_config.class_data_dir is not None:
+        class_dataset = ImageDirDataset(data_loader_config.class_data_dir)
         class_dataset = TransformDataset(
             class_dataset,
-            [ConstantFieldTransform("caption", class_prompt), ConstantFieldTransform("loss_weight", 1.0)],
+            [
+                ConstantFieldTransform("caption", data_loader_config.class_prompt),
+                ConstantFieldTransform("loss_weight", data_loader_config.class_data_loss_weight),
+            ],
         )
         datasets.append(class_dataset)
 
@@ -63,9 +64,9 @@ def build_dreambooth_sdxl_dataloader(
     merged_dataset = ConcatDataset(datasets)
     all_transforms = [
         SDXLImageTransform(
-            resolution=instance_dataset_config.image_transforms.resolution,
-            center_crop=instance_dataset_config.image_transforms.center_crop,
-            random_flip=instance_dataset_config.image_transforms.random_flip,
+            resolution=data_loader_config.image_transforms.resolution,
+            center_crop=data_loader_config.image_transforms.center_crop,
+            random_flip=data_loader_config.image_transforms.random_flip,
         ),
         SDTokenizeTransform(tokenizer_1, src_caption_key="caption", dst_token_key="caption_token_ids_1"),
         SDTokenizeTransform(tokenizer_2, src_caption_key="caption", dst_token_key="caption_token_ids_2"),
@@ -94,5 +95,5 @@ def build_dreambooth_sdxl_dataloader(
         sampler=interleaved_sampler,
         collate_fn=sdxl_image_caption_collate_fn,
         batch_size=batch_size,
-        num_workers=instance_dataset_config.dataloader_num_workers,
+        num_workers=data_loader_config.dataloader_num_workers,
     )

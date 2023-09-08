@@ -2,7 +2,7 @@ import pytest
 import torch
 from transformers import CLIPTokenizer
 
-from invoke_training.training.config.data_config import ImageDirDatasetConfig
+from invoke_training.training.config.data_config import DreamBoothDataLoaderConfig
 from invoke_training.training.shared.data.data_loaders.dreambooth_sd_dataloader import (
     build_dreambooth_sd_dataloader,
 )
@@ -21,14 +21,16 @@ def test_build_dreambooth_sd_dataloader(image_dir):  # noqa: F811
         revision="c9ab35ff5f2c362e9e22fbafe278077e196057f0",
     )
 
-    config = ImageDirDatasetConfig(dataset_dir=str(image_dir))
-
-    data_loader = build_dreambooth_sd_dataloader(
+    config = DreamBoothDataLoaderConfig(
         instance_prompt="test instance prompt",
-        instance_dataset_config=config,
+        instance_data_dir=str(image_dir),
         class_prompt="test class prompt",
         # For testing, we just use the same directory for the instance and class datasets.
         class_data_dir=str(image_dir),
+    )
+
+    data_loader = build_dreambooth_sd_dataloader(
+        data_loader_config=config,
         tokenizer=tokenizer,
         batch_size=2,
     )
@@ -62,13 +64,13 @@ def test_build_dreambooth_sd_dataloader_no_class_dataset(image_dir):  # noqa: F8
         revision="c9ab35ff5f2c362e9e22fbafe278077e196057f0",
     )
 
-    config = ImageDirDatasetConfig(dataset_dir=str(image_dir))
+    config = DreamBoothDataLoaderConfig(
+        instance_prompt="test instance prompt",
+        instance_data_dir=str(image_dir),
+    )
 
     data_loader = build_dreambooth_sd_dataloader(
-        instance_prompt="test instance prompt",
-        instance_dataset_config=config,
-        class_prompt=None,
-        class_data_dir=None,
+        data_loader_config=config,
         tokenizer=tokenizer,
         batch_size=2,
     )

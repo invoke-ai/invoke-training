@@ -6,7 +6,7 @@ from transformers import CLIPTokenizer
 
 from invoke_training.training.config.data_config import ImageTransformConfig
 from invoke_training.training.config.finetune_lora_config import (
-    ImageCaptionDatasetConfig,
+    ImageCaptionDataLoaderConfig,
 )
 from invoke_training.training.shared.data.data_loaders.image_caption_sdxl_dataloader import (
     build_image_caption_sdxl_dataloader,
@@ -28,7 +28,7 @@ def test_build_image_caption_sdxl_dataloader():
         local_files_only=True,
     )
 
-    config = ImageCaptionDatasetConfig(
+    config = ImageCaptionDataLoaderConfig(
         dataset_name="lambdalabs/pokemon-blip-captions", image_transforms=ImageTransformConfig(resolution=512)
     )
     data_loader = build_image_caption_sdxl_dataloader(config, tokenizer_1, tokenizer_2, 4)
