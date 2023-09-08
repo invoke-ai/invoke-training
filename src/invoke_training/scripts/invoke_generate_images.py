@@ -9,20 +9,23 @@ def parse_args():
         "preservation/regularization datasets.)"
     )
     parser.add_argument(
+        "-o",
         "--out-dir",
         type=str,
         required=True,
         help="Path to the directory where the images will be stored.",
     )
     parser.add_argument(
+        "-m",
         "--model",
         type=str,
         required=True,
         help="Name or path of the diffusers model to generate images with. (E.g. 'runwayml/stable-diffusion-v1-5', "
         "'stabilityai/stable-diffusion-xl-base-1.0', etc. )",
     )
-    parser.add_argument("--prompt", type=str, required=True, help="The prompt to use for image generation.")
+    parser.add_argument("-p", "--prompt", type=str, required=True, help="The prompt to use for image generation.")
     parser.add_argument(
+        "-n",
         "--num-images",
         type=int,
         required=True,
@@ -41,6 +44,7 @@ def parse_args():
         help="The width of the generated images in pixels.",
     )
     parser.add_argument(
+        "-s",
         "--seed",
         type=int,
         default=0,
