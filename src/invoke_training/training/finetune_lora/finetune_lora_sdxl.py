@@ -7,6 +7,7 @@ import time
 
 import numpy as np
 import torch
+import torch.utils.data
 from accelerate import Accelerator
 from accelerate.hooks import remove_hook_from_module
 from accelerate.utils import set_seed
@@ -207,9 +208,7 @@ def cache_text_encoder_outputs(
 
 def cache_vae_outputs(
     cache_dir: str,
-    config: FinetuneLoRASDXLConfig,
-    tokenizer_1: PreTrainedTokenizer,
-    tokenizer_2: PreTrainedTokenizer,
+    data_loader: torch.utils.data.DataLoader,
     vae: AutoencoderKL,
 ):
     """Run the VAE on all images in the dataset and cache the results to disk.
@@ -220,10 +219,6 @@ def cache_vae_outputs(
         tokenizer (CLIPTokenizer): The tokenizer.
         vae (AutoencoderKL): The VAE.
     """
-    data_loader = build_image_caption_sdxl_dataloader(
-        config.dataset, tokenizer_1, tokenizer_2, config.train_batch_size, shuffle=False
-    )
-
     cache = TensorDiskCache(cache_dir)
 
     for data_batch in tqdm(data_loader):
@@ -521,7 +516,10 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
             # Only the main process should to populate the cache.
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
-            cache_vae_outputs(vae_output_cache_dir_name, config, tokenizer_1, tokenizer_2, vae)
+            data_loader = build_image_caption_sdxl_dataloader(
+                config.dataset, tokenizer_1, tokenizer_2, config.train_batch_size, shuffle=False
+            )
+            cache_vae_outputs(vae_output_cache_dir_name, data_loader, vae)
         # Move the VAE back to the CPU, because it is not needed for training.
         vae.to("cpu")
         accelerator.wait_for_everyone()

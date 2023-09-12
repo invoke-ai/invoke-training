@@ -18,11 +18,20 @@ from invoke_training.training.shared.data.datasets.transform_dataset import (
 from invoke_training.training.shared.data.transforms.constant_field_transform import (
     ConstantFieldTransform,
 )
+from invoke_training.training.shared.data.transforms.drop_field_transform import (
+    DropFieldTransform,
+)
+from invoke_training.training.shared.data.transforms.load_cache_transform import (
+    LoadCacheTransform,
+)
 from invoke_training.training.shared.data.transforms.sd_image_transform import (
     SDImageTransform,
 )
 from invoke_training.training.shared.data.transforms.sd_tokenize_transform import (
     SDTokenizeTransform,
+)
+from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
+    TensorDiskCache,
 )
 
 
@@ -30,12 +39,29 @@ def build_dreambooth_sd_dataloader(
     data_loader_config: DreamBoothDataLoaderConfig,
     tokenizer: typing.Optional[CLIPTokenizer],
     batch_size: int,
+    vae_output_cache_dir: typing.Optional[str] = None,
     shuffle: bool = True,
+    sequential_batching: bool = False,
 ) -> DataLoader:
-    """Construct a DataLoader for a DreamBooth dataset for Stable Diffusion v1/v2.."""
+    """Construct a DataLoader for a DreamBooth dataset for Stable Diffusion v1/v2.
+
+    Args:
+        data_loader_config (DreamBoothDataLoaderConfig):
+        tokenizer (typing.Optional[CLIPTokenizer]):
+        batch_size (int):
+        vae_output_cache_dir (str, optional): The directory where VAE outputs are cached and should be loaded from. If
+            set, then the image augmentation transforms will be skipped, and the image will not be copied to VRAM.
+        shuffle (bool, optional): Whether to shuffle the dataset order.
+        sequential_batching (bool, optional): If True, the internal dataset will be processed sequentially rather than
+            interleaving class and instance examples. This is intended to be used when processing the entire dataset for
+            caching purposes. Defaults to False.
+
+    Returns:
+        DataLoader
+    """
 
     # 1. Prepare instance dataset
-    instance_dataset = ImageDirDataset(data_loader_config.instance_data_dir)
+    instance_dataset = ImageDirDataset(data_loader_config.instance_data_dir, id_prefix="instance_")
     instance_dataset = TransformDataset(
         instance_dataset,
         [
@@ -48,7 +74,7 @@ def build_dreambooth_sd_dataloader(
     # 2. Prepare class dataset.
     class_dataset = None
     if data_loader_config.class_data_dir is not None:
-        class_dataset = ImageDirDataset(data_loader_config.class_data_dir)
+        class_dataset = ImageDirDataset(data_loader_config.class_data_dir, id_prefix="class_")
         class_dataset = TransformDataset(
             class_dataset,
             [
@@ -60,31 +86,51 @@ def build_dreambooth_sd_dataloader(
 
     # 3. Merge instance dataset and class dataset.
     merged_dataset = ConcatDataset(datasets)
-    all_transforms = [
-        SDImageTransform(
-            resolution=data_loader_config.image_transforms.resolution,
-            center_crop=data_loader_config.image_transforms.center_crop,
-            random_flip=data_loader_config.image_transforms.random_flip,
-        ),
-        SDTokenizeTransform(tokenizer),
-    ]
+    all_transforms = [SDTokenizeTransform(tokenizer)]
+    if vae_output_cache_dir is None:
+        all_transforms.append(
+            SDImageTransform(
+                resolution=data_loader_config.image_transforms.resolution,
+                center_crop=data_loader_config.image_transforms.center_crop,
+                random_flip=data_loader_config.image_transforms.random_flip,
+            )
+        )
+    else:
+        vae_cache = TensorDiskCache(vae_output_cache_dir)
+        all_transforms.append(
+            LoadCacheTransform(
+                cache=vae_cache, cache_key_field="id", cache_field_to_output_field={"vae_output": "vae_output"}
+            )
+        )
+        # We drop the image to avoid having to either convert from PIL, or handle PIL batch collation.
+        all_transforms.append(DropFieldTransform("image"))
     merged_dataset = TransformDataset(merged_dataset, all_transforms)
 
-    # 4. Prepare instance dataset sampler. Note that the instance_dataset comes first in the merged_dataset.
+    # 4. If sequential_batching is enabled, return a basic data loader that iterates over examples sequentially (without
+    #    interleaving class and instance examples). This is typically only used when preparing the data cache.
+    if sequential_batching:
+        return DataLoader(
+            merged_dataset,
+            batch_size=batch_size,
+            num_workers=data_loader_config.dataloader_num_workers,
+            shuffle=shuffle,
+        )
+
+    # 5. Prepare instance dataset sampler. Note that the instance_dataset comes first in the merged_dataset.
     samplers = []
     if shuffle:
         samplers.append(SequentialRangeSampler(0, len(instance_dataset)))
     else:
         samplers.append(ShuffledRangeSampler(0, len(instance_dataset)))
 
-    # 5. Prepare class dataset sampler. Note that the class_dataset comes first in the merged_dataset.
+    # 6. Prepare class dataset sampler. Note that the class_dataset comes first in the merged_dataset.
     if class_dataset is not None:
         if shuffle:
             samplers.append(SequentialRangeSampler(len(instance_dataset), len(instance_dataset) + len(class_dataset)))
         else:
             samplers.append(ShuffledRangeSampler(len(instance_dataset), len(instance_dataset) + len(class_dataset)))
 
-    # 6. Interleave instance and class samplers.
+    # 7. Interleave instance and class samplers.
     interleaved_sampler = InterleavedSampler(samplers)
 
     return DataLoader(

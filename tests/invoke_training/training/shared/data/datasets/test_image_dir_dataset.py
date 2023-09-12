@@ -21,4 +21,4 @@ def test_image_dir_dataset_getitem(image_dir):  # noqa: F811
     assert set(example.keys()) == {"image", "id"}
     assert isinstance(example["image"], PIL.Image.Image)
     assert example["image"].mode == "RGB"
-    assert example["id"] == 0
+    assert example["id"] == "0"

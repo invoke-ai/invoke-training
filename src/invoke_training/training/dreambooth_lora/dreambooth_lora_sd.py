@@ -1,6 +1,7 @@
 import json
 import math
 import os
+import tempfile
 import time
 
 import torch
@@ -16,6 +17,7 @@ from invoke_training.lora.injection.stable_diffusion import (
 )
 from invoke_training.training.config.finetune_lora_config import DreamBoothLoRAConfig
 from invoke_training.training.finetune_lora.finetune_lora_sd import (
+    cache_vae_outputs,
     generate_validation_images,
     load_models,
     train_forward,
@@ -88,14 +90,32 @@ def run_training(config: DreamBoothLoRAConfig):  # noqa: C901
         text_encoder.to(accelerator.device, dtype=weight_dtype)
 
     # Prepare VAE output cache.
-    # vae_output_cache_dir_name = None
+    vae_output_cache_dir_name = None
     if config.cache_vae_outputs:
-        if config.instance_dataset.image_transforms.random_flip:
+        if config.dataset.image_transforms.random_flip:
             raise ValueError("'cache_vae_outputs' cannot be True if 'random_flip' is True.")
-        if not config.instance_dataset.image_transforms.center_crop:
+        if not config.dataset.image_transforms.center_crop:
             raise ValueError("'cache_vae_outputs' cannot be True if 'center_crop' is False.")
 
-        raise NotImplementedError("'cache_vae_outputs' is not yet supported in DreamBooth training.")
+        # We use a temporary directory for the cache. The directory will automatically be cleaned up when
+        # tmp_vae_output_cache_dir is destroyed.
+        tmp_vae_output_cache_dir = tempfile.TemporaryDirectory()
+        vae_output_cache_dir_name = tmp_vae_output_cache_dir.name
+        if accelerator.is_local_main_process:
+            # Only the main process should to populate the cache.
+            logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
+            vae.to(accelerator.device, dtype=weight_dtype)
+            data_loader = build_dreambooth_sd_dataloader(
+                data_loader_config=config.dataset,
+                tokenizer=tokenizer,
+                batch_size=config.train_batch_size,
+                shuffle=False,
+                sequential_batching=True,
+            )
+            cache_vae_outputs(vae_output_cache_dir_name, data_loader, vae)
+        # Move the VAE back to the CPU, because it is not needed for training.
+        vae.to("cpu")
+        accelerator.wait_for_everyone()
     else:
         vae.to(accelerator.device, dtype=weight_dtype)
 
@@ -143,6 +163,7 @@ def run_training(config: DreamBoothLoRAConfig):  # noqa: C901
         data_loader_config=config.dataset,
         tokenizer=tokenizer,
         batch_size=config.train_batch_size,
+        vae_output_cache_dir=vae_output_cache_dir_name,
     )
 
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
