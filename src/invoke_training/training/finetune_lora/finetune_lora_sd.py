@@ -409,14 +409,23 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
     unet.to(accelerator.device, dtype=weight_dtype)
 
     lora_layers = torch.nn.ModuleDict()
+    trainable_param_groups = []
     if config.train_unet:
         lora_layers["unet"] = inject_lora_into_unet(
             unet, config.train_unet_non_attention_blocks, lora_rank_dim=config.lora_rank_dim
         )
+        unet_param_group = {"params": lora_layers["unet"].parameters()}
+        if config.unet_learning_rate is not None:
+            unet_param_group["lr"] = config.unet_learning_rate
+        trainable_param_groups.append(unet_param_group)
     if config.train_text_encoder:
         lora_layers["text_encoder"] = inject_lora_into_clip_text_encoder(
             text_encoder, lora_rank_dim=config.lora_rank_dim
         )
+        text_encoder_param_group = {"params": lora_layers["text_encoder"].parameters()}
+        if config.text_encoder_learning_rate is not None:
+            text_encoder_param_group["lr"] = config.text_encoder_learning_rate
+        trainable_param_groups.append(text_encoder_param_group)
 
     if config.gradient_checkpointing:
         unet.enable_gradient_checkpointing()
@@ -435,7 +444,7 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
             # would have 0 gradients, and so would not get trained.
             text_encoder.text_model.embeddings.requires_grad_(True)
 
-    optimizer = initialize_optimizer(config.optimizer, lora_layers.parameters())
+    optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
 
     data_loader = build_image_caption_sd_dataloader(
         config.dataset,
@@ -556,9 +565,20 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1
-                log = {"train_loss": train_loss, "lr": lr_scheduler.get_last_lr()[0]}
-                if config.optimizer.optimizer.optimizer_type == "Prodigy":
-                    log["lr/d*lr"] = optimizer.param_groups[0]["d"] * optimizer.param_groups[0]["lr"]
+                log = {"train_loss": train_loss}
+
+                lrs = lr_scheduler.get_last_lr()
+                if config.train_unet:
+                    # When training the UNet, it will always be the first parameter group.
+                    log["lr/unet"] = float(lrs[0])
+                    if config.optimizer.optimizer.optimizer_type == "Prodigy":
+                        log["lr/d*lr/unet"] = optimizer.param_groups[0]["d"] * optimizer.param_groups[0]["lr"]
+                if config.train_text_encoder:
+                    # When training the text encoder, it will always be the last parameter group.
+                    log["lr/text_encoder"] = float(lrs[-1])
+                    if config.optimizer.optimizer.optimizer_type == "Prodigy":
+                        log["lr/d*lr/text_encoder"] = optimizer.param_groups[-1]["d"] * optimizer.param_groups[-1]["lr"]
+
                 accelerator.log(log, step=global_step)
                 train_loss = 0.0
 

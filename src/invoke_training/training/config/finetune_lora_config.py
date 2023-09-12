@@ -45,6 +45,12 @@ class LoRATrainingConfig(BaseModel):
     # Whether to add LoRA layers to the text encoder and train it.
     train_text_encoder: bool = True
 
+    # The learning rate to use for the text encoder model. If set, this overrides the optimizer's default learning rate.
+    text_encoder_learning_rate: typing.Optional[float] = None
+
+    # The learning rate to use for the UNet model. If set, this overrides the optimizer's default learning rate.
+    unet_learning_rate: typing.Optional[float] = None
+
     # Whether to inject LoRA layers into the non-attention UNet blocks for training. Enabling will produce a more
     # expressive LoRA model at the cost of slower training, higher training VRAM requirements, and a larger LoRA weight
     # file.
