@@ -17,7 +17,7 @@ classifiers = [
 dependencies = [
     "accelerate~=0.21.0",
     "datasets~=2.14.3",
-    "diffusers~=0.19.3",
+    "diffusers~=0.24.0",
     "numpy",
     "omegaconf",
     "Pillow",

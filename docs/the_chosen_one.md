@@ -16,4 +16,6 @@ Rough idea:
 invoke-generate-images -o output/tco_1 -m /home/ryan/invokeai/autoimport/main/realisticVisionV51_v51VAE.safetensors --sd-version SD -p "A photo of a 50 years old man with curly hair" -n 128 --height 512 --width 512
 
 python src/invoke_training/scripts/cluster_images.py -i output/tco_1 -o output/tco_cluster_1 -m /home/ryan/invokeai/models/any/clip_vision/ip_adapter_sd_image_encoder
+
+invoke-dreambooth-lora-sd --cfg-file configs/tco_dreambooth_lora_sd_1x24gb.yaml
 ```
