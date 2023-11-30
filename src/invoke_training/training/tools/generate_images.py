@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+from typing import Optional
 
 import torch
 from tqdm import tqdm
@@ -17,6 +19,7 @@ def generate_images(
     num_images: int,
     height: int,
     width: int,
+    loras: Optional[list[tuple[Path, float]]] = None,
     seed: int = 0,
     torch_dtype: torch.dtype = torch.float16,
     torch_device: str = "cuda",
@@ -43,6 +46,12 @@ def generate_images(
     """
 
     pipeline = load_pipeline(model, pipeline_version)
+
+    loras = loras or []
+    for lora in loras:
+        lora_path, lora_scale = lora
+        pipeline.load_lora_weights(str(lora_path), weight_name=str(lora_path.name))
+        pipeline.fuse_lora(lora_scale=lora_scale)
 
     pipeline.to(torch_dtype=torch_dtype)
     if enable_cpu_offload:
