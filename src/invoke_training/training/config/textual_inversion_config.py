@@ -23,6 +23,7 @@ class TextualInversionTrainingConfig(BaseModel):
 
     # The special word to associate the learned embeddings with. You must use this trigger word in your prompt at
     # inference time.
+    # TODO(ryand): Rename to placeholder_str - seems more appropriate.
     placeholder_token: str
 
     # A vocabulary token to use as an initializer for the placeholder token(s). It should be a single word that roughly
@@ -34,6 +35,12 @@ class TextualInversionTrainingConfig(BaseModel):
 
     # The learning rate.
     learning_rate: float = 0.00001
+
+    # If True, the VAE will be applied to all of the images in the dataset before starting training and the results will
+    # be cached to disk. This reduces the VRAM requirements during training (don't have to keep the VAE in VRAM), and
+    # speeds up training (don't have to run the VAE encoding step). This option can only be enabled if all
+    # non-deterministic image augmentations are disabled (i.e. center_crop=True, random_flip=False).
+    cache_vae_outputs: bool = False
 
     # If True, models will be kept in CPU memory and loaded into GPU memory one-by-one while generating validation
     # images. This reduces VRAM requirements at the cost of slower generation of validation images.
