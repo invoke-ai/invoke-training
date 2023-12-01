@@ -33,9 +33,6 @@ class TextualInversionTrainingConfig(BaseModel):
     # Whether you're training the model to learn a new "style" or a new "object".
     learnable_property: typing.Literal["object", "style"] = "object"
 
-    # The learning rate.
-    learning_rate: float = 0.00001
-
     # If True, the VAE will be applied to all of the images in the dataset before starting training and the results will
     # be cached to disk. This reduces the VRAM requirements during training (don't have to keep the VAE in VRAM), and
     # speeds up training (don't have to run the VAE encoding step). This option can only be enabled if all

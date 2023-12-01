@@ -50,6 +50,7 @@ dependencies = [
 "invoke-dreambooth-lora-sd" = "invoke_training.scripts.invoke_dreambooth_lora_sd:main"
 "invoke-dreambooth-lora-sdxl" = "invoke_training.scripts.invoke_dreambooth_lora_sdxl:main"
 "invoke-generate-images" = "invoke_training.scripts.invoke_generate_images:main"
+"invoke-textual-inversion-sd" = "invoke_training.scripts.invoke_textual_inversion_sd:main"
 
 [project.urls]
 "Homepage" = "https://github.com/invoke-ai/invoke-training"

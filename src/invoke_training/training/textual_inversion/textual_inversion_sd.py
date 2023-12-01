@@ -161,7 +161,7 @@ def train_forward(
     noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
 
     # Get the text embedding for conditioning.
-    encoder_hidden_states = text_encoder(data_batch["input_ids"])[0].to(dtype=weight_dtype)
+    encoder_hidden_states = text_encoder(data_batch["caption_token_ids"])[0].to(dtype=weight_dtype)
 
     # Predict the noise residual
     model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
@@ -397,7 +397,7 @@ def run_training(config: TextualInversionConfig):  # noqa: C901
         text_encoder.train()
 
         train_loss = 0.0
-        for data_batch in enumerate(data_loader):
+        for data_batch in data_loader:
             with accelerator.accumulate(text_encoder):
                 loss = train_forward(
                     config,
