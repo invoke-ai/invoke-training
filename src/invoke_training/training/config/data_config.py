@@ -72,3 +72,18 @@ class DreamBoothDataLoaderConfig(BaseModel):
 
     # Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
     dataloader_num_workers: int = 0
+
+
+class TextualInversionDataLoaderConfig(BaseModel):
+    # The directory to load images from.
+    dataset_dir: str
+
+    # The image file extensions to include in the dataset.
+    # If None, then the following file extensions will be loaded: [".png", ".jpg", ".jpeg"].
+    image_file_extensions: typing.Optional[list[str]] = None
+
+    # The image transforms to apply to all instance and class dataset images.
+    image_transforms: ImageTransformConfig = ImageTransformConfig()
+
+    # Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
+    dataloader_num_workers: int = 0

@@ -2,7 +2,7 @@ import typing
 
 from pydantic import BaseModel
 
-from invoke_training.training.config.data_config import ImageCaptionDataLoaderConfig
+from invoke_training.training.config.data_config import TextualInversionDataLoaderConfig
 from invoke_training.training.config.optimizer_config import OptimizerConfig
 from invoke_training.training.config.training_output_config import TrainingOutputConfig
 
@@ -94,4 +94,4 @@ class TextualInversionTrainingConfig(BaseModel):
 class TextualInversionConfig(TextualInversionTrainingConfig):
     output: TrainingOutputConfig
     optimizer: OptimizerConfig
-    dataset: ImageCaptionDataLoaderConfig
+    dataset: TextualInversionDataLoaderConfig
