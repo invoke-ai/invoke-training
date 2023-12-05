@@ -51,7 +51,7 @@ def main():
     for cluster in clusters:
         dest_dir = out_dir / str(cluster.label)
         os.makedirs(dest_dir)
-        print(f"Copying images for cluster '{cluster.label}' to '{dest_dir}'.")
+        print(f"Copying {len(cluster.image_paths)} images for cluster '{cluster.label}' to '{dest_dir}'.")
         for image_path in cluster.image_paths:
             shutil.copyfile(src=image_path, dst=dest_dir / image_path.name)
 
