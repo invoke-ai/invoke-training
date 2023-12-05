@@ -42,18 +42,21 @@ def main():
 
     in_dir: Path = args.in_dir
     in_paths = [p for p in in_dir.iterdir() if p.suffix in (".jpg", ".jpeg", ".png")]
-    clusters = cluster_images(in_paths, clip_image_encoder, device=device, dtype=dtype, target_cluster_size=25)
-    best_cluster = choose_best_cluster(clusters, min_cluster_size=10)
-
-    print(f"Selected cluster '{best_cluster.label}'.")
+    clusters = cluster_images(in_paths, clip_image_encoder, device=device, dtype=dtype, target_cluster_size=10)
+    best_cluster = choose_best_cluster(clusters, min_cluster_size=5)
 
     out_dir: Path = args.out_dir
     for cluster in clusters:
         dest_dir = out_dir / str(cluster.label)
         os.makedirs(dest_dir)
-        print(f"Copying {len(cluster.image_paths)} images for cluster '{cluster.label}' to '{dest_dir}'.")
+        print(
+            f"Cluster {cluster.label: >2}: num_images = {len(cluster.image_paths): >3}, "
+            f"cohesion distance = {cluster.mean_dist_from_center:.3f}, location = '{dest_dir}'"
+        )
         for image_path in cluster.image_paths:
             shutil.copyfile(src=image_path, dst=dest_dir / image_path.name)
+
+    print(f"Most cohesive cluster: '{best_cluster.label}'.")
 
 
 if __name__ == "__main__":
