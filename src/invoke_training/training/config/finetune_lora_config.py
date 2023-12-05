@@ -18,6 +18,10 @@ class LoRATrainingConfig(BaseModel):
     # '/path/to/realisticVisionV51_v51VAE.safetensors', etc. )
     model: str = "runwayml/stable-diffusion-v1-5"
 
+    # A list of paths to TI embeddings that should be applied to the base model before training. This should be used if
+    # the training captions include TI trigger words.
+    textual_inversion_embeddings: typing.Optional[list[str]] = None
+
     # A seed for reproducible training.
     seed: typing.Optional[int] = None
 

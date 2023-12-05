@@ -68,6 +68,10 @@ def load_models(
     """
     pipeline: StableDiffusionPipeline = load_pipeline(config.model, PipelineVersionEnum.SD)
 
+    if config.textual_inversion_embeddings is not None:
+        for ti_embedding in config.textual_inversion_embeddings:
+            pipeline.load_textual_inversion(ti_embedding)
+
     # Extract sub-models from the pipeline.
     tokenizer: CLIPTokenizer = pipeline.tokenizer
     text_encoder: CLIPTextModel = pipeline.text_encoder
