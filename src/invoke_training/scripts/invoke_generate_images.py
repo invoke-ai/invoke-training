@@ -35,6 +35,12 @@ def parse_args():
         "separator. E.g. `-l path/to/lora.bin:0.5 -l path/to/lora_2.safetensors`. ",
     )
     parser.add_argument(
+        "--ti",
+        type=str,
+        nargs="*",
+        help="Paths(s) to Textual Inversion embeddings to apply to the base model.",
+    )
+    parser.add_argument(
         "--sd-version",
         type=str,
         required=True,
@@ -109,6 +115,7 @@ def main():
         height=args.height,
         width=args.width,
         loras=loras,
+        ti_embeddings=args.ti,
         seed=args.seed,
         enable_cpu_offload=args.enable_cpu_offload,
     )
