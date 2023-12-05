@@ -25,6 +25,7 @@ from invoke_training.training.config.textual_inversion_config import (
 from invoke_training.training.finetune_lora.finetune_lora_sd import (
     cache_vae_outputs,
     generate_validation_images,
+    train_forward,
 )
 from invoke_training.training.shared.accelerator_utils import (
     get_mixed_precision_dtype,
@@ -125,65 +126,6 @@ def save_ti_embeddings(
     learned_embeds_dict = {placeholder_token: learned_embeds.detach().cpu()}
 
     save_state_dict(learned_embeds_dict, save_path)
-
-
-def train_forward(
-    config: TextualInversionConfig,
-    data_batch: dict,
-    vae: AutoencoderKL,
-    noise_scheduler: DDPMScheduler,
-    text_encoder: CLIPTextModel,
-    unet: UNet2DConditionModel,
-    weight_dtype: torch.dtype,
-) -> torch.Tensor:
-    """Run the forward training pass for a single data_batch.
-
-    Returns:
-        torch.Tensor: Loss
-    """
-    # Convert images to latent space.
-    # The VAE output may have been cached and included in the data_batch. If not, we calculate it here.
-    latents = data_batch.get("vae_output", None)
-    if latents is None:
-        latents = vae.encode(data_batch["image"].to(dtype=weight_dtype)).latent_dist.sample().detach()
-        latents = latents * vae.config.scaling_factor
-
-    # Sample noise that we'll add to the latents.
-    noise = torch.randn_like(latents)
-
-    batch_size = latents.shape[0]
-    # Sample a random timestep for each image
-    timesteps = torch.randint(0, noise_scheduler.config.num_train_timesteps, (batch_size,), device=latents.device)
-    timesteps = timesteps.long()
-
-    # Add noise to the latents according to the noise magnitude at each timestep (this is the forward
-    # diffusion process).
-    noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
-
-    # Get the text embedding for conditioning.
-    encoder_hidden_states = text_encoder(data_batch["caption_token_ids"])[0].to(dtype=weight_dtype)
-
-    # Predict the noise residual
-    model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
-
-    # Get the target for loss depending on the prediction type.
-    if config.prediction_type is not None:
-        # Set the prediction_type of scheduler if it's defined in config.
-        noise_scheduler.register_to_config(prediction_type=config.prediction_type)
-    if noise_scheduler.config.prediction_type == "epsilon":
-        target = noise
-    elif noise_scheduler.config.prediction_type == "v_prediction":
-        target = noise_scheduler.get_velocity(latents, noise, timesteps)
-    else:
-        raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
-
-    loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="none")
-    if "loss_weight" in data_batch:
-        # Mean-reduce the loss along all dimensions except for the batch dimension.
-        loss = loss.mean([1, 2, 3])
-        # Apply per-example weights.
-        loss = loss * data_batch["loss_weight"]
-    return loss.mean()
 
 
 def run_training(config: TextualInversionConfig):  # noqa: C901
