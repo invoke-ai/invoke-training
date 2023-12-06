@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 
 import torch
-from transformers import CLIPVisionModelWithProjection
+from transformers import AutoImageProcessor, Dinov2Model
 
 from invoke_training.training.tools.cohesion_clustering import (
     choose_best_cluster,
@@ -28,7 +28,6 @@ def parse_args():
         required=True,
         help="Path to the directory of output images.",
     )
-    parser.add_argument("-m", "--model", type=Path, required=True, help="Path to the CLIP Vision model.")
     return parser.parse_args()
 
 
@@ -38,12 +37,21 @@ def main():
     device = torch.device("cuda")
     dtype = torch.float16
 
-    clip_image_encoder = CLIPVisionModelWithProjection.from_pretrained(args.model, torch_dtype=dtype).to(device)
+    # TODO: Add support for CLIP image encoding.
+    # image_encoder = CLIPVisionModelWithProjection.from_pretrained(args.model, torch_dtype=dtype).to(device)
+    # image_processor = CLIPImageProcessor()
+
+    # DINOv2
+    image_encoder = Dinov2Model.from_pretrained("facebook/dinov2-base")
+    image_processor = AutoImageProcessor.from_pretrained("facebook/dinov2-base")
+    image_encoder.to(device, dtype=dtype)
 
     in_dir: Path = args.in_dir
     in_paths = [p for p in in_dir.iterdir() if p.suffix in (".jpg", ".jpeg", ".png")]
-    clusters = cluster_images(in_paths, clip_image_encoder, device=device, dtype=dtype, target_cluster_size=10)
-    best_cluster = choose_best_cluster(clusters, min_cluster_size=5)
+    clusters = cluster_images(
+        in_paths, image_processor, image_encoder, device=device, dtype=dtype, target_cluster_size=7
+    )
+    best_cluster = choose_best_cluster(clusters, min_cluster_size=6)
 
     out_dir: Path = args.out_dir
     for cluster in clusters:

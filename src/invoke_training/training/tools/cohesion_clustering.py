@@ -5,7 +5,8 @@ import numpy as np
 import torch
 from PIL import Image
 from sklearn.cluster import KMeans
-from transformers import CLIPImageProcessor, CLIPVisionModelWithProjection
+from transformers import CLIPVisionModelWithProjection
+from transformers.image_processing_utils import BaseImageProcessor
 
 
 @dataclass
@@ -16,17 +17,19 @@ class Cluster:
 
 
 def _embed_images(
-    image_paths: list[Path], clip_image_encoder: CLIPVisionModelWithProjection, device: torch.device, dtype: torch.dtype
+    image_paths: list[Path],
+    image_processor: BaseImageProcessor,
+    image_encoder: CLIPVisionModelWithProjection,
+    device: torch.device,
+    dtype: torch.dtype,
 ) -> np.ndarray:
-    clip_image_processor = CLIPImageProcessor()
-
-    # Calculate CLIP image embeddings of all images.
+    # Calculate image embeddings of all images.
     image_embeds = []
     for image_path in image_paths:
         image_pil = [Image.open(image_path)]
-        image_clip = clip_image_processor(images=image_pil, return_tensors="pt").pixel_values
-        clip_image_embeds = clip_image_encoder(image_clip.to(device, dtype=dtype)).image_embeds
-        image_embeds.append(clip_image_embeds.detach().clone().cpu().numpy())
+        image_clip = image_processor(images=image_pil, return_tensors="pt").pixel_values
+        single_image_embeds: torch.Tensor = image_encoder(image_clip.to(device, dtype=dtype)).last_hidden_state
+        image_embeds.append(single_image_embeds.detach().clone().cpu().numpy())
 
     # Flatten the embedding for each image.
     image_embeds = np.array(image_embeds)
@@ -45,7 +48,8 @@ def _calculate_cluster_cohesion(image_embeds: np.ndarray, cluster_centers: np.nd
 
 def cluster_images(
     image_paths: list[Path],
-    clip_image_encoder: CLIPVisionModelWithProjection,
+    image_processor: BaseImageProcessor,
+    image_encoder,
     device: torch.device,
     dtype: torch.dtype,
     target_cluster_size: int,
@@ -53,7 +57,7 @@ def cluster_images(
     num_clusters = len(image_paths) // target_cluster_size
     assert num_clusters > 1
 
-    image_embeds = _embed_images(image_paths, clip_image_encoder, device, dtype)
+    image_embeds = _embed_images(image_paths, image_processor, image_encoder, device, dtype)
 
     # Run k-means++
     # TODO(ryand): The paper is not totally clear about what distance metric is used for k-means and how the centroids
