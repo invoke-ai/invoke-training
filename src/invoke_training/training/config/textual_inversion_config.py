@@ -27,8 +27,14 @@ class TextualInversionTrainingConfig(BaseModel):
     placeholder_token: str
 
     # A vocabulary token to use as an initializer for the placeholder token(s). It should be a single word that roughly
-    # describes the object or style that you're trying to train on. Must map to a single tokenizer token.
-    initializer_token: str
+    # describes the object or style that you're trying to train on. Must map to a single tokenizer token. Either
+    # initializer_token or initial_embedding_file should be set.
+    initializer_token: typing.Optional[str] = None
+
+    # Path to an existing TI embedding that will be used to initialize the embedding being trained. The placeholder
+    # token in the file must match the 'placeholder_token' field. Either initializer_token or initial_embedding_file
+    # should be set.
+    initial_embedding_file: typing.Optional[str] = None
 
     # Whether you're training the model to learn a new "style" or a new "object".
     learnable_property: typing.Literal["object", "style"] = "object"
