@@ -1,7 +1,6 @@
 import typing
 
 from torch.utils.data import DataLoader
-from transformers import CLIPTokenizer
 
 from invoke_training.training.config.data_config import TextualInversionDataLoaderConfig
 from invoke_training.training.shared.data.datasets.image_dir_dataset import (
@@ -18,9 +17,6 @@ from invoke_training.training.shared.data.transforms.load_cache_transform import
 )
 from invoke_training.training.shared.data.transforms.sd_image_transform import (
     SDImageTransform,
-)
-from invoke_training.training.shared.data.transforms.sd_tokenize_transform import (
-    SDTokenizeTransform,
 )
 from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
     TensorDiskCache,
@@ -91,7 +87,6 @@ def build_textual_inversion_sd_dataloader(
     config: TextualInversionDataLoaderConfig,
     placeholder_str: str,
     learnable_property: typing.Literal["object", "style"],
-    tokenizer: typing.Optional[CLIPTokenizer],
     batch_size: int,
     caption_templates: typing.Optional[list[str]] = None,
     vae_output_cache_dir: typing.Optional[str] = None,
@@ -124,7 +119,6 @@ def build_textual_inversion_sd_dataloader(
             placeholder_str=placeholder_str,
             caption_templates=caption_templates,
         ),
-        SDTokenizeTransform(tokenizer),
     ]
 
     if vae_output_cache_dir is None:

@@ -26,6 +26,7 @@ from invoke_training.lora.injection.stable_diffusion import (
     inject_lora_into_unet,
 )
 from invoke_training.training.config.finetune_lora_config import FinetuneLoRASDXLConfig
+from invoke_training.training.finetune_lora.tokenize_captions import tokenize_captions
 from invoke_training.training.shared.accelerator_utils import (
     get_mixed_precision_dtype,
     initialize_accelerator,
@@ -186,15 +187,15 @@ def cache_text_encoder_outputs(
         text_encoder_1 (CLIPPreTrainedModel):
         text_encoder_2 (CLIPPreTrainedModel):
     """
-    data_loader = build_image_caption_sdxl_dataloader(
-        config.dataset, tokenizer_1, tokenizer_2, config.train_batch_size, shuffle=False
-    )
+    data_loader = build_image_caption_sdxl_dataloader(config.dataset, config.train_batch_size, shuffle=False)
 
     cache = TensorDiskCache(cache_dir)
 
     for data_batch in tqdm(data_loader):
+        caption_token_ids_1 = tokenize_captions(tokenizer_1, data_batch["caption"])
+        caption_token_ids_2 = tokenize_captions(tokenizer_2, data_batch["caption"])
         prompt_embeds, pooled_prompt_embeds = _encode_prompt(
-            [text_encoder_1, text_encoder_2], [data_batch["caption_token_ids_1"], data_batch["caption_token_ids_2"]]
+            [text_encoder_1, text_encoder_2], [caption_token_ids_1, caption_token_ids_2]
         )
 
         # Split batch before caching.
@@ -341,6 +342,8 @@ def train_forward(
     data_batch: dict,
     vae: AutoencoderKL,
     noise_scheduler: DDPMScheduler,
+    tokenizer_1: PreTrainedTokenizer,
+    tokenizer_2: PreTrainedTokenizer,
     text_encoder_1: CLIPPreTrainedModel,
     text_encoder_2: CLIPPreTrainedModel,
     unet: UNet2DConditionModel,
@@ -400,9 +403,10 @@ def train_forward(
         prompt_embeds = data_batch["prompt_embeds"]
         pooled_prompt_embeds = data_batch["pooled_prompt_embeds"]
     else:
+        caption_token_ids_1 = tokenize_captions(tokenizer_1, data_batch["caption"])
+        caption_token_ids_2 = tokenize_captions(tokenizer_2, data_batch["caption"])
         prompt_embeds, pooled_prompt_embeds = _encode_prompt(
-            text_encoders=[text_encoder_1, text_encoder_2],
-            prompt_token_ids_list=[data_batch["caption_token_ids_1"], data_batch["caption_token_ids_2"]],
+            [text_encoder_1, text_encoder_2], [caption_token_ids_1, caption_token_ids_2]
         )
 
     unet_conditions["text_embeds"] = pooled_prompt_embeds
@@ -516,9 +520,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
             # Only the main process should to populate the cache.
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
-            data_loader = build_image_caption_sdxl_dataloader(
-                config.dataset, tokenizer_1, tokenizer_2, config.train_batch_size, shuffle=False
-            )
+            data_loader = build_image_caption_sdxl_dataloader(config.dataset, config.train_batch_size, shuffle=False)
             cache_vae_outputs(vae_output_cache_dir_name, data_loader, vae)
         # Move the VAE back to the CPU, because it is not needed for training.
         vae.to("cpu")
@@ -573,12 +575,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
 
     data_loader = build_image_caption_sdxl_dataloader(
-        config.dataset,
-        tokenizer_1,
-        tokenizer_2,
-        config.train_batch_size,
-        text_encoder_output_cache_dir_name,
-        vae_output_cache_dir_name,
+        config.dataset, config.train_batch_size, text_encoder_output_cache_dir_name, vae_output_cache_dir_name
     )
 
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
@@ -679,6 +676,8 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
                     data_batch,
                     vae,
                     noise_scheduler,
+                    tokenizer_1,
+                    tokenizer_2,
                     text_encoder_1,
                     text_encoder_2,
                     unet,

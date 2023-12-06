@@ -107,7 +107,6 @@ def run_training(config: DreamBoothLoRAConfig):  # noqa: C901
             vae.to(accelerator.device, dtype=weight_dtype)
             data_loader = build_dreambooth_sd_dataloader(
                 data_loader_config=config.dataset,
-                tokenizer=tokenizer,
                 batch_size=config.train_batch_size,
                 shuffle=False,
                 sequential_batching=True,
@@ -161,7 +160,6 @@ def run_training(config: DreamBoothLoRAConfig):  # noqa: C901
 
     data_loader = build_dreambooth_sd_dataloader(
         data_loader_config=config.dataset,
-        tokenizer=tokenizer,
         batch_size=config.train_batch_size,
         vae_output_cache_dir=vae_output_cache_dir_name,
     )
@@ -254,6 +252,7 @@ def run_training(config: DreamBoothLoRAConfig):  # noqa: C901
                     data_batch,
                     vae,
                     noise_scheduler,
+                    tokenizer,
                     text_encoder,
                     unet,
                     weight_dtype,

@@ -26,6 +26,7 @@ from invoke_training.lora.injection.stable_diffusion import (
     inject_lora_into_unet,
 )
 from invoke_training.training.config.finetune_lora_config import FinetuneLoRAConfig
+from invoke_training.training.finetune_lora.tokenize_captions import tokenize_captions
 from invoke_training.training.shared.accelerator_utils import (
     get_mixed_precision_dtype,
     initialize_accelerator,
@@ -105,14 +106,12 @@ def cache_text_encoder_outputs(
         tokenizer (CLIPTokenizer): The tokenizer.
         text_encoder (CLIPTextModel): The text_encoder.
     """
-    data_loader = build_image_caption_sd_dataloader(
-        config.dataset, tokenizer, batch_size=config.train_batch_size, shuffle=False
-    )
+    data_loader = build_image_caption_sd_dataloader(config.dataset, batch_size=config.train_batch_size, shuffle=False)
 
     cache = TensorDiskCache(cache_dir)
 
     for data_batch in tqdm(data_loader):
-        caption_token_ids = data_batch["caption_token_ids"].to(text_encoder.device)
+        caption_token_ids = tokenize_captions(tokenizer, data_batch["caption"]).to(text_encoder.device)
         text_encoder_output_batch = text_encoder(caption_token_ids)[0]
         # Split batch before caching.
         for i in range(len(data_batch["id"])):
@@ -252,6 +251,7 @@ def train_forward(
     data_batch: dict,
     vae: AutoencoderKL,
     noise_scheduler: DDPMScheduler,
+    tokenizer: CLIPTokenizer,
     text_encoder: CLIPTextModel,
     unet: UNet2DConditionModel,
     weight_dtype: torch.dtype,
@@ -289,7 +289,8 @@ def train_forward(
     # The text_encoder_output may have been cached and included in the data_batch. If not, we calculate it here.
     encoder_hidden_states = data_batch.get("text_encoder_output", None)
     if encoder_hidden_states is None:
-        encoder_hidden_states = text_encoder(data_batch["caption_token_ids"])[0].to(dtype=weight_dtype)
+        caption_token_ids = tokenize_captions(tokenizer, data_batch["caption"]).to(text_encoder.device)
+        encoder_hidden_states = text_encoder(caption_token_ids)[0].to(dtype=weight_dtype)
 
     # Get the target for loss depending on the prediction type.
     if config.prediction_type is not None:
@@ -396,7 +397,7 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
             data_loader = build_image_caption_sd_dataloader(
-                config.dataset, tokenizer, batch_size=config.train_batch_size, shuffle=False
+                config.dataset, batch_size=config.train_batch_size, shuffle=False
             )
             cache_vae_outputs(vae_output_cache_dir_name, data_loader, vae)
         # Move the VAE back to the CPU, because it is not needed for training.
@@ -447,7 +448,6 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
 
     data_loader = build_image_caption_sd_dataloader(
         config.dataset,
-        tokenizer,
         config.train_batch_size,
         text_encoder_output_cache_dir_name,
         vae_output_cache_dir_name,
@@ -541,6 +541,7 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
                     data_batch,
                     vae,
                     noise_scheduler,
+                    tokenizer,
                     text_encoder,
                     unet,
                     weight_dtype,

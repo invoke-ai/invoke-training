@@ -1,7 +1,6 @@
 import typing
 
 from torch.utils.data import DataLoader
-from transformers import CLIPTokenizer
 
 from invoke_training.training.config.finetune_lora_config import (
     ImageCaptionDataLoaderConfig,
@@ -24,9 +23,6 @@ from invoke_training.training.shared.data.transforms.load_cache_transform import
 from invoke_training.training.shared.data.transforms.sd_image_transform import (
     SDImageTransform,
 )
-from invoke_training.training.shared.data.transforms.sd_tokenize_transform import (
-    SDTokenizeTransform,
-)
 from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
     TensorDiskCache,
 )
@@ -34,7 +30,6 @@ from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
 
 def build_image_caption_sd_dataloader(
     config: ImageCaptionDataLoaderConfig,
-    tokenizer: typing.Optional[CLIPTokenizer],
     batch_size: int,
     text_encoder_output_cache_dir: typing.Optional[str] = None,
     vae_output_cache_dir: typing.Optional[str] = None,
@@ -95,9 +90,7 @@ def build_image_caption_sd_dataloader(
         # We drop the image to avoid having to either convert from PIL, or handle PIL batch collation.
         all_transforms.append(DropFieldTransform("image"))
 
-    if text_encoder_output_cache_dir is None:
-        all_transforms.append(SDTokenizeTransform(tokenizer))
-    else:
+    if text_encoder_output_cache_dir is not None:
         text_encoder_cache = TensorDiskCache(text_encoder_output_cache_dir)
         all_transforms.append(
             LoadCacheTransform(
