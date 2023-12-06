@@ -30,7 +30,7 @@ from invoke_training.training.shared.data.transforms.textual_inversion_caption_t
 )
 
 
-def _get_default_textual_inversion_prompt_templates(learnable_property: typing.Literal["object", "style"]) -> list[str]:
+def _get_preset_ti_caption_templates(learnable_property: typing.Literal["object", "style"]) -> list[str]:
     if learnable_property == "object":
         return [
             "a photo of a {}",
@@ -93,6 +93,7 @@ def build_textual_inversion_sd_dataloader(
     learnable_property: typing.Literal["object", "style"],
     tokenizer: typing.Optional[CLIPTokenizer],
     batch_size: int,
+    caption_templates: typing.Optional[list[str]] = None,
     vae_output_cache_dir: typing.Optional[str] = None,
     shuffle: bool = True,
 ) -> DataLoader:
@@ -114,11 +115,14 @@ def build_textual_inversion_sd_dataloader(
 
     base_dataset = ImageDirDataset(image_dir=config.dataset_dir, image_extensions=config.image_file_extensions)
 
+    if caption_templates is None:
+        caption_templates = _get_preset_ti_caption_templates(learnable_property)
+
     all_transforms = [
         TextualInversionCaptionTransform(
             field_name="caption",
             placeholder_str=placeholder_str,
-            caption_templates=_get_default_textual_inversion_prompt_templates(learnable_property),
+            caption_templates=caption_templates,
         ),
         SDTokenizeTransform(tokenizer),
     ]
