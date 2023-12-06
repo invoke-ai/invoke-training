@@ -255,7 +255,7 @@ def train_forward(
     text_encoder: CLIPTextModel,
     unet: UNet2DConditionModel,
     weight_dtype: torch.dtype,
-):
+) -> torch.Tensor:
     """Run the forward training pass for a single data_batch.
 
     Returns:
@@ -289,7 +289,7 @@ def train_forward(
     # The text_encoder_output may have been cached and included in the data_batch. If not, we calculate it here.
     encoder_hidden_states = data_batch.get("text_encoder_output", None)
     if encoder_hidden_states is None:
-        encoder_hidden_states = text_encoder(data_batch["caption_token_ids"])[0]
+        encoder_hidden_states = text_encoder(data_batch["caption_token_ids"])[0].to(dtype=weight_dtype)
 
     # Get the target for loss depending on the prediction type.
     if config.prediction_type is not None:
