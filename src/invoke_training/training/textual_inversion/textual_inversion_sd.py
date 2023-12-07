@@ -406,6 +406,7 @@ def run_training(config: TextualInversionConfig):  # noqa: C901
                     data_batch,
                     vae,
                     noise_scheduler,
+                    tokenizer,
                     text_encoder,
                     unet,
                     weight_dtype,

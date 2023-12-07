@@ -39,11 +39,6 @@ class TextualInversionTrainingConfig(BaseModel):
     # Whether you're training the model to learn a new "style" or a new "object".
     learnable_property: typing.Literal["object", "style"] = "object"
 
-    # The list of caption templates to use to build captions during training. Each template string should have a single
-    # slot for the placeholder token to be injected. E.g.: ["a photo of a {}", "a rendering of a {}"]. If unset, a
-    # preset list of caption templates will be chosen based on the 'learnable_property'.
-    caption_templates: typing.Optional[list[str]] = None
-
     # If True, the VAE will be applied to all of the images in the dataset before starting training and the results will
     # be cached to disk. This reduces the VRAM requirements during training (don't have to keep the VAE in VRAM), and
     # speeds up training (don't have to run the VAE encoding step). This option can only be enabled if all

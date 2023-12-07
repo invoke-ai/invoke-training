@@ -18,6 +18,9 @@ from invoke_training.training.shared.data.transforms.load_cache_transform import
 from invoke_training.training.shared.data.transforms.sd_image_transform import (
     SDImageTransform,
 )
+from invoke_training.training.shared.data.transforms.shuffle_caption_transform import (
+    ShuffleCaptionTransform,
+)
 from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
     TensorDiskCache,
 )
@@ -88,7 +91,6 @@ def build_textual_inversion_sd_dataloader(
     placeholder_str: str,
     learnable_property: typing.Literal["object", "style"],
     batch_size: int,
-    caption_templates: typing.Optional[list[str]] = None,
     vae_output_cache_dir: typing.Optional[str] = None,
     shuffle: bool = True,
 ) -> DataLoader:
@@ -110,7 +112,9 @@ def build_textual_inversion_sd_dataloader(
 
     base_dataset = ImageDirDataset(image_dir=config.dataset_dir, image_extensions=config.image_file_extensions)
 
-    if caption_templates is None:
+    if config.caption_templates is not None:
+        caption_templates = config.caption_templates
+    else:
         caption_templates = _get_preset_ti_caption_templates(learnable_property)
 
     all_transforms = [
@@ -120,6 +124,11 @@ def build_textual_inversion_sd_dataloader(
             caption_templates=caption_templates,
         ),
     ]
+
+    if config.shuffle_caption_transform.shuffle_captions:
+        all_transforms.append(
+            ShuffleCaptionTransform(field_name="caption", delimiter=config.shuffle_caption_transform.delimiter)
+        )
 
     if vae_output_cache_dir is None:
         all_transforms.append(
