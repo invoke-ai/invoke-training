@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+from typing import Optional
 
 import torch
 from tqdm import tqdm
@@ -17,6 +19,8 @@ def generate_images(
     num_images: int,
     height: int,
     width: int,
+    loras: Optional[list[tuple[Path, float]]] = None,
+    ti_embeddings: Optional[list[str]] = None,
     seed: int = 0,
     torch_dtype: torch.dtype = torch.float16,
     torch_device: str = "cuda",
@@ -35,6 +39,9 @@ def generate_images(
             with).
         width (int): The output image width in pixels (recommended to match the resolution that the model was trained
             with).
+        loras (list[tuple[Path, float]], optional): Paths to LoRA models to apply to the base model with associated
+            weights.
+        ti_embeddings (list[str], optional): Paths to TI embeddings to apply to the base model.
         seed (int, optional): A seed for repeatability. Defaults to 0.
         torch_dtype (torch.dtype, optional): The torch dtype. Defaults to torch.float16.
         torch_device (str, optional): The torch device. Defaults to "cuda".
@@ -43,6 +50,16 @@ def generate_images(
     """
 
     pipeline = load_pipeline(model, pipeline_version)
+
+    loras = loras or []
+    for lora in loras:
+        lora_path, lora_scale = lora
+        pipeline.load_lora_weights(str(lora_path), weight_name=str(lora_path.name))
+        pipeline.fuse_lora(lora_scale=lora_scale)
+
+    ti_embeddings = ti_embeddings or []
+    for ti_embedding in ti_embeddings:
+        pipeline.load_textual_inversion(ti_embedding)
 
     pipeline.to(torch_dtype=torch_dtype)
     if enable_cpu_offload:
