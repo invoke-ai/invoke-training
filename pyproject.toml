@@ -17,7 +17,7 @@ classifiers = [
 dependencies = [
     "accelerate~=0.21.0",
     "datasets~=2.14.3",
-    "diffusers~=0.19.3",
+    "diffusers~=0.24.0",
     "numpy",
     "omegaconf",
     "Pillow",
@@ -29,7 +29,7 @@ dependencies = [
     "torch>=2.0.1",
     "torchvision~=0.15.2",
     "tqdm",
-    "transformers~=4.31.0",
+    "transformers~=4.35.0",
     # Known issue with xformers 0.0.16 on some GPUs:
     # https://github.com/huggingface/diffusers/issues/2234#issuecomment-1416931212
     "xformers>=0.0.17",
