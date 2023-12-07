@@ -1,7 +1,6 @@
 import typing
 
 from torch.utils.data import ConcatDataset, DataLoader
-from transformers import CLIPTokenizer
 
 from invoke_training.training.config.data_config import DreamBoothDataLoaderConfig
 from invoke_training.training.shared.data.data_loaders.dreambooth_samplers import (
@@ -27,9 +26,6 @@ from invoke_training.training.shared.data.transforms.load_cache_transform import
 from invoke_training.training.shared.data.transforms.sd_image_transform import (
     SDImageTransform,
 )
-from invoke_training.training.shared.data.transforms.sd_tokenize_transform import (
-    SDTokenizeTransform,
-)
 from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
     TensorDiskCache,
 )
@@ -37,7 +33,6 @@ from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
 
 def build_dreambooth_sd_dataloader(
     data_loader_config: DreamBoothDataLoaderConfig,
-    tokenizer: typing.Optional[CLIPTokenizer],
     batch_size: int,
     vae_output_cache_dir: typing.Optional[str] = None,
     shuffle: bool = True,
@@ -86,7 +81,7 @@ def build_dreambooth_sd_dataloader(
 
     # 3. Merge instance dataset and class dataset.
     merged_dataset = ConcatDataset(datasets)
-    all_transforms = [SDTokenizeTransform(tokenizer)]
+    all_transforms = []
     if vae_output_cache_dir is None:
         all_transforms.append(
             SDImageTransform(

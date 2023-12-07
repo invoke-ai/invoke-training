@@ -109,8 +109,6 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
             vae.to(accelerator.device, dtype=weight_dtype)
             data_loader = build_dreambooth_sdxl_dataloader(
                 data_loader_config=config.dataset,
-                tokenizer_1=tokenizer_1,
-                tokenizer_2=tokenizer_2,
                 batch_size=config.train_batch_size,
                 shuffle=False,
                 sequential_batching=True,
@@ -170,8 +168,6 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
 
     data_loader = build_dreambooth_sdxl_dataloader(
         data_loader_config=config.dataset,
-        tokenizer_1=tokenizer_1,
-        tokenizer_2=tokenizer_2,
         batch_size=config.train_batch_size,
         vae_output_cache_dir=vae_output_cache_dir_name,
     )
@@ -274,6 +270,8 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
                     data_batch,
                     vae,
                     noise_scheduler,
+                    tokenizer_1,
+                    tokenizer_2,
                     text_encoder_1,
                     text_encoder_2,
                     unet,

@@ -15,6 +15,14 @@ class ImageTransformConfig(BaseModel):
     random_flip: bool = False
 
 
+class ShuffleCaptionTransformConfig(BaseModel):
+    # If True, captions will be split into chunks and shuffled.
+    shuffle_captions: bool = False
+
+    # The delimiter to use for caption splitting.
+    delimiter: str = ","
+
+
 class ImageCaptionDataLoaderConfig(BaseModel):
     # The name of a Hugging Face dataset.
     # One of dataset_name and dataset_dir should be set (dataset_name takes precedence).
@@ -82,8 +90,16 @@ class TextualInversionDataLoaderConfig(BaseModel):
     # If None, then the following file extensions will be loaded: [".png", ".jpg", ".jpeg"].
     image_file_extensions: typing.Optional[list[str]] = None
 
+    # The list of caption templates to use to build captions during training. Each template string should have a single
+    # slot for the placeholder token to be injected. E.g.: ["a photo of a {}", "a rendering of a {}"]. If unset, a
+    # preset list of caption templates will be chosen based on the 'learnable_property'.
+    caption_templates: typing.Optional[list[str]] = None
+
     # The image transforms to apply to all instance and class dataset images.
     image_transforms: ImageTransformConfig = ImageTransformConfig()
+
+    # The caption shuffling configuration.
+    shuffle_caption_transform: ShuffleCaptionTransformConfig = ShuffleCaptionTransformConfig()
 
     # Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
     dataloader_num_workers: int = 0

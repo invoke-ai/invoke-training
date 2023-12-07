@@ -1,7 +1,6 @@
 import typing
 
 from torch.utils.data import DataLoader
-from transformers import CLIPTokenizer
 
 from invoke_training.training.config.data_config import TextualInversionDataLoaderConfig
 from invoke_training.training.shared.data.datasets.image_dir_dataset import (
@@ -19,8 +18,8 @@ from invoke_training.training.shared.data.transforms.load_cache_transform import
 from invoke_training.training.shared.data.transforms.sd_image_transform import (
     SDImageTransform,
 )
-from invoke_training.training.shared.data.transforms.sd_tokenize_transform import (
-    SDTokenizeTransform,
+from invoke_training.training.shared.data.transforms.shuffle_caption_transform import (
+    ShuffleCaptionTransform,
 )
 from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
     TensorDiskCache,
@@ -30,7 +29,7 @@ from invoke_training.training.shared.data.transforms.textual_inversion_caption_t
 )
 
 
-def _get_default_textual_inversion_prompt_templates(learnable_property: typing.Literal["object", "style"]) -> list[str]:
+def _get_preset_ti_caption_templates(learnable_property: typing.Literal["object", "style"]) -> list[str]:
     if learnable_property == "object":
         return [
             "a photo of a {}",
@@ -91,7 +90,6 @@ def build_textual_inversion_sd_dataloader(
     config: TextualInversionDataLoaderConfig,
     placeholder_str: str,
     learnable_property: typing.Literal["object", "style"],
-    tokenizer: typing.Optional[CLIPTokenizer],
     batch_size: int,
     vae_output_cache_dir: typing.Optional[str] = None,
     shuffle: bool = True,
@@ -114,14 +112,23 @@ def build_textual_inversion_sd_dataloader(
 
     base_dataset = ImageDirDataset(image_dir=config.dataset_dir, image_extensions=config.image_file_extensions)
 
+    if config.caption_templates is not None:
+        caption_templates = config.caption_templates
+    else:
+        caption_templates = _get_preset_ti_caption_templates(learnable_property)
+
     all_transforms = [
         TextualInversionCaptionTransform(
             field_name="caption",
             placeholder_str=placeholder_str,
-            caption_templates=_get_default_textual_inversion_prompt_templates(learnable_property),
+            caption_templates=caption_templates,
         ),
-        SDTokenizeTransform(tokenizer),
     ]
+
+    if config.shuffle_caption_transform.shuffle_captions:
+        all_transforms.append(
+            ShuffleCaptionTransform(field_name="caption", delimiter=config.shuffle_caption_transform.delimiter)
+        )
 
     if vae_output_cache_dir is None:
         all_transforms.append(

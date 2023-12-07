@@ -2,7 +2,6 @@ import typing
 
 import torch
 from torch.utils.data import DataLoader
-from transformers import PreTrainedTokenizer
 
 from invoke_training.training.config.finetune_lora_config import (
     ImageCaptionDataLoaderConfig,
@@ -21,9 +20,6 @@ from invoke_training.training.shared.data.transforms.drop_field_transform import
 )
 from invoke_training.training.shared.data.transforms.load_cache_transform import (
     LoadCacheTransform,
-)
-from invoke_training.training.shared.data.transforms.sd_tokenize_transform import (
-    SDTokenizeTransform,
 )
 from invoke_training.training.shared.data.transforms.sdxl_image_transform import (
     SDXLImageTransform,
@@ -48,9 +44,8 @@ def sdxl_image_caption_collate_fn(examples):
     if "crop_top_left_yx" in examples[0]:
         out_examples["crop_top_left_yx"] = [example["crop_top_left_yx"] for example in examples]
 
-    if "caption_token_ids_1" in examples[0]:
-        out_examples["caption_token_ids_1"] = torch.stack([example["caption_token_ids_1"] for example in examples])
-        out_examples["caption_token_ids_2"] = torch.stack([example["caption_token_ids_2"] for example in examples])
+    if "caption" in examples[0]:
+        out_examples["caption"] = [example["caption"] for example in examples]
 
     if "loss_weight" in examples[0]:
         out_examples["loss_weight"] = torch.tensor([example["loss_weight"] for example in examples])
@@ -67,8 +62,6 @@ def sdxl_image_caption_collate_fn(examples):
 
 def build_image_caption_sdxl_dataloader(
     config: ImageCaptionDataLoaderConfig,
-    tokenizer_1: PreTrainedTokenizer,
-    tokenizer_2: PreTrainedTokenizer,
     batch_size: int,
     text_encoder_output_cache_dir: typing.Optional[str] = None,
     vae_output_cache_dir: typing.Optional[str] = None,
@@ -134,14 +127,7 @@ def build_image_caption_sdxl_dataloader(
         # We drop the image to avoid having to either convert from PIL, or handle PIL batch collation.
         all_transforms.append(DropFieldTransform("image"))
 
-    if text_encoder_output_cache_dir is None:
-        all_transforms.append(
-            SDTokenizeTransform(tokenizer_1, src_caption_key="caption", dst_token_key="caption_token_ids_1")
-        )
-        all_transforms.append(
-            SDTokenizeTransform(tokenizer_2, src_caption_key="caption", dst_token_key="caption_token_ids_2")
-        )
-    else:
+    if text_encoder_output_cache_dir is not None:
         text_encoder_cache = TensorDiskCache(text_encoder_output_cache_dir)
         all_transforms.append(
             LoadCacheTransform(

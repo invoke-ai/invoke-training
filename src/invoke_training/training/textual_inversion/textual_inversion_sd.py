@@ -297,7 +297,6 @@ def run_training(config: TextualInversionConfig):  # noqa: C901
                 config=config.dataset,
                 placeholder_str=config.placeholder_token,
                 learnable_property=config.learnable_property,
-                tokenizer=tokenizer,
                 batch_size=config.train_batch_size,
                 shuffle=False,
             )
@@ -315,7 +314,6 @@ def run_training(config: TextualInversionConfig):  # noqa: C901
         config=config.dataset,
         placeholder_str=config.placeholder_token,
         learnable_property=config.learnable_property,
-        tokenizer=tokenizer,
         batch_size=config.train_batch_size,
         vae_output_cache_dir=vae_output_cache_dir_name,
     )
@@ -408,6 +406,7 @@ def run_training(config: TextualInversionConfig):  # noqa: C901
                     data_batch,
                     vae,
                     noise_scheduler,
+                    tokenizer,
                     text_encoder,
                     unet,
                     weight_dtype,
