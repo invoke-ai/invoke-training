@@ -27,8 +27,8 @@ python -m pip install --upgrade pip
 # Editable install:
 pip install -e ".[test]" --extra-index-url https://download.pytorch.org/whl/cu118
 ```
-3. (Optional) Install the pre-commit hooks: `pre-commit install`. This will run static analysis tools (black, ruff, isort) on `git commit`.
-4. (Optional) Set up `black`, `isort`, and `ruff` in your IDE of choice.
+3. (Optional) Install the pre-commit hooks: `pre-commit install`. This will run static analysis tools (ruff) on `git commit`.
+4. (Optional) Set `ruff` in your IDE of choice.
 
 ### Unit Tests
 Run all unit tests with:

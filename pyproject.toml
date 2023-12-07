@@ -37,11 +37,10 @@ dependencies = [
 
 [project.optional-dependencies]
 "test" = [
-    "black~=23.7.0",
-    "isort~=5.12.0",
     "pre-commit~=3.3.3",
     "pytest~=7.4.0",
-    "ruff~=0.0.281",
+    # When bumping ruff, consider also bumping the ruff-pre-commit version in .pre-commit-config.yaml.
+    "ruff~=0.1.7",
 ]
 
 [project.scripts]
@@ -56,14 +55,9 @@ dependencies = [
 "Homepage" = "https://github.com/invoke-ai/invoke-training"
 "Discord" = "https://discord.gg/ZmtBAhwWhy"
 
-[tool.black]
-line-length = 120
-
-[tool.isort]
-profile = "black"
-
 [tool.ruff]
-select = ["E", "F", "W", "C9", "N8"]
+src = ["src"]
+select = ["E", "F", "W", "C9", "N8", "I"]
 target-version = "py39"
 line-length = 120
 

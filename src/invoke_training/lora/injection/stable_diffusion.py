@@ -65,7 +65,7 @@ def inject_lora_into_clip_text_encoder(text_encoder: CLIPTextModel, prefix: str 
 
 
 def convert_lora_state_dict_to_kohya_format(
-    state_dict: typing.Dict[str, torch.Tensor]
+    state_dict: typing.Dict[str, torch.Tensor],
 ) -> typing.Dict[str, torch.Tensor]:
     """Convert a Stable Diffusion LoRA state_dict from internal invoke-training format to kohya_ss format.
 
