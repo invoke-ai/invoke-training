@@ -481,6 +481,10 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     # Prepare text encoder output cache.
     text_encoder_output_cache_dir_name = None
     if config.cache_text_encoder_outputs:
+        # TODO(ryand): Think about how to better check if it is safe to cache the text encoder outputs. Currently, there
+        # are a number of configurations that would cause variation in the text encoder outputs and should not be used
+        # with caching.
+
         if config.train_text_encoder:
             raise ValueError("'cache_text_encoder_outputs' and 'train_text_encoder' cannot both be True.")
 
