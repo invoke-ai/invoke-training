@@ -4,7 +4,7 @@ from pathlib import Path
 import yaml
 
 from invoke_training.config.pipelines.finetune_lora_config import FinetuneLoRAConfig
-from invoke_training.training.finetune_lora.finetune_lora_sd import run_training
+from invoke_training.training2.pipelines.stable_diffusion.finetune_lora_sd import run_training
 
 
 def parse_args():

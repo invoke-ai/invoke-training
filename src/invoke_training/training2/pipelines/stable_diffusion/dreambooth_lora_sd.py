@@ -9,14 +9,14 @@ from accelerate.utils import set_seed
 from diffusers import UNet2DConditionModel
 from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
-from transformers import CLIPPreTrainedModel
+from transformers import CLIPTextModel
 
-from invoke_training.config.pipelines.finetune_lora_config import DreamBoothLoRASDXLConfig
+from invoke_training.config.pipelines.finetune_lora_config import DreamBoothLoRAConfig
 from invoke_training.core.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet,
 )
-from invoke_training.training.finetune_lora.finetune_lora_sdxl import (
+from invoke_training.training2.pipelines.stable_diffusion.finetune_lora_sd import (
     cache_vae_outputs,
     generate_validation_images,
     load_models,
@@ -28,18 +28,16 @@ from invoke_training.training2.shared.accelerator.accelerator_utils import (
     initialize_logging,
 )
 from invoke_training.training2.shared.checkpoints.checkpoint_tracker import CheckpointTracker
-from invoke_training.training2.shared.data.data_loaders.dreambooth_sdxl_dataloader import (
-    build_dreambooth_sdxl_dataloader,
-)
+from invoke_training.training2.shared.data.data_loaders.dreambooth_sd_dataloader import build_dreambooth_sd_dataloader
 from invoke_training.training2.shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training.training2.shared.stable_diffusion.lora_checkpoint_utils import save_lora_checkpoint
 
 
-def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
+def run_training(config: DreamBoothLoRAConfig):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     # TODO(ryan): Update this check to work with single-file SD checkpoints.
     # check_base_model_version(
-    #     {BaseModelVersionEnum.STABLE_DIFFUSION_SDXL_BASE},
+    #     {BaseModelVersionEnum.STABLE_DIFFUSION_V1, BaseModelVersionEnum.STABLE_DIFFUSION_V2},
     #     config.model,
     #     local_files_only=False,
     # )
@@ -60,7 +58,7 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
     # Log the accelerator configuration from every process to help with debugging.
     logger.info(accelerator.state, main_process_only=False)
 
-    logger.info("Starting Training.")
+    logger.info("Starting LoRA Training.")
     logger.info(f"Configuration:\n{json.dumps(config.dict(), indent=2, default=str)}")
     logger.info(f"Output dir: '{out_dir}'")
 
@@ -71,7 +69,7 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
     weight_dtype = get_mixed_precision_dtype(accelerator)
 
     logger.info("Loading models.")
-    tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = load_models(config)
+    tokenizer, noise_scheduler, text_encoder, vae, unet = load_models(config)
 
     if config.xformers:
         import xformers  # noqa: F401
@@ -84,10 +82,10 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
     if config.cache_text_encoder_outputs:
         if config.train_text_encoder:
             raise ValueError("'cache_text_encoder_outputs' and 'train_text_encoder' cannot both be True.")
+
         raise NotImplementedError("'cache_text_encoder_outputs' is not yet supported in DreamBooth training.")
     else:
-        text_encoder_1.to(accelerator.device, dtype=weight_dtype)
-        text_encoder_2.to(accelerator.device, dtype=weight_dtype)
+        text_encoder.to(accelerator.device, dtype=weight_dtype)
 
     # Prepare VAE output cache.
     vae_output_cache_dir_name = None
@@ -105,7 +103,7 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
             # Only the main process should to populate the cache.
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
-            data_loader = build_dreambooth_sdxl_dataloader(
+            data_loader = build_dreambooth_sd_dataloader(
                 data_loader_config=config.dataset,
                 batch_size=config.train_batch_size,
                 shuffle=False,
@@ -131,17 +129,13 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
             unet_param_group["lr"] = config.unet_learning_rate
         trainable_param_groups.append(unet_param_group)
     if config.train_text_encoder:
-        for te_model, key, lora_prefix in [
-            (text_encoder_1, "text_encoder_1", "lora_te1"),
-            (text_encoder_2, "text_encoder_2", "lora_te2"),
-        ]:
-            lora_layers[key] = inject_lora_into_clip_text_encoder(
-                te_model, lora_prefix, lora_rank_dim=config.lora_rank_dim
-            )
-            text_encoder_param_group = {"params": lora_layers[key].parameters()}
-            if config.text_encoder_learning_rate is not None:
-                text_encoder_param_group["lr"] = config.text_encoder_learning_rate
-            trainable_param_groups.append(text_encoder_param_group)
+        lora_layers["text_encoder"] = inject_lora_into_clip_text_encoder(
+            text_encoder, lora_rank_dim=config.lora_rank_dim
+        )
+        text_encoder_param_group = {"params": lora_layers["text_encoder"].parameters()}
+        if config.text_encoder_learning_rate is not None:
+            text_encoder_param_group["lr"] = config.text_encoder_learning_rate
+        trainable_param_groups.append(text_encoder_param_group)
 
     if config.gradient_checkpointing:
         unet.enable_gradient_checkpointing()
@@ -150,21 +144,19 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
         # not change its forward behavior.
         unet.train()
         if config.train_text_encoder:
-            for te in [text_encoder_1, text_encoder_2]:
-                te.gradient_checkpointing_enable()
+            text_encoder.gradient_checkpointing_enable()
+            # text_encoder must be in train() mode for gradient checkpointing to take effect.
+            # At the time of writing, the text_encoder dropout probabilities default to 0, so putting the text_encoder
+            # in train mode does not change its forward behavior.
+            text_encoder.train()
 
-                # The text encoders must be in train() mode for gradient checkpointing to take effect.
-                # At the time of writing, the text encoder dropout probabilities default to 0, so putting the text
-                # encoders in train mode does not change their forward behavior.
-                te.train()
-
-                # Set requires_grad = True on the first parameters of the text encoders. Without this, the text encoder
-                # LoRA weights would have 0 gradients, and so would not get trained.
-                te.text_model.embeddings.requires_grad_(True)
+            # Set requires_grad = True on the first parameters of the text encoder. Without this, the text encoder LoRA
+            # would have 0 gradients, and so would not get trained.
+            text_encoder.text_model.embeddings.requires_grad_(True)
 
     optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
 
-    data_loader = build_dreambooth_sdxl_dataloader(
+    data_loader = build_dreambooth_sd_dataloader(
         data_loader_config=config.dataset,
         batch_size=config.train_batch_size,
         vae_output_cache_dir=vae_output_cache_dir_name,
@@ -184,32 +176,22 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
 
     prepared_result: tuple[
         UNet2DConditionModel,
-        CLIPPreTrainedModel,
-        CLIPPreTrainedModel,
+        CLIPTextModel,
         torch.nn.ModuleDict,
         torch.optim.Optimizer,
         torch.utils.data.DataLoader,
         torch.optim.lr_scheduler.LRScheduler,
     ] = accelerator.prepare(
         unet,
-        text_encoder_1,
-        text_encoder_2,
+        text_encoder,
         lora_layers,
         optimizer,
         data_loader,
         lr_scheduler,
         # Disable automatic device placement for text_encoder if the text encoder outputs were cached.
-        device_placement=[
-            True,
-            not config.cache_text_encoder_outputs,
-            not config.cache_text_encoder_outputs,
-            True,
-            True,
-            True,
-            True,
-        ],
+        device_placement=[True, not config.cache_text_encoder_outputs, True, True, True, True],
     )
-    unet, text_encoder_1, text_encoder_2, lora_layers, optimizer, data_loader, lr_scheduler = prepared_result
+    unet, text_encoder, lora_layers, optimizer, data_loader, lr_scheduler = prepared_result
 
     # Calculate the number of epochs and total training steps. A "step" represents a single weight update operation
     # (i.e. takes into account gradient accumulation steps).
@@ -264,18 +246,14 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
         for data_batch in data_loader:
             with accelerator.accumulate(lora_layers):
                 loss = train_forward(
-                    accelerator,
+                    config,
                     data_batch,
                     vae,
                     noise_scheduler,
-                    tokenizer_1,
-                    tokenizer_2,
-                    text_encoder_1,
-                    text_encoder_2,
+                    tokenizer,
+                    text_encoder,
                     unet,
                     weight_dtype,
-                    config.dataset.image_transforms.resolution,
-                    config.prediction_type,
                 )
 
                 # Gather the losses across all processes for logging (if we use distributed training).
@@ -341,10 +319,8 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
                     out_dir=out_dir,
                     accelerator=accelerator,
                     vae=vae,
-                    text_encoder_1=text_encoder_1,
-                    text_encoder_2=text_encoder_2,
-                    tokenizer_1=tokenizer_1,
-                    tokenizer_2=tokenizer_2,
+                    text_encoder=text_encoder,
+                    tokenizer=tokenizer,
                     noise_scheduler=noise_scheduler,
                     unet=unet,
                     config=config,

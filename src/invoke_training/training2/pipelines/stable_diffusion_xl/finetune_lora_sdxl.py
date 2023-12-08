@@ -21,7 +21,6 @@ from invoke_training.core.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet,
 )
-from invoke_training.training.finetune_lora.tokenize_captions import tokenize_captions
 from invoke_training.training2.shared.accelerator.accelerator_utils import (
     get_mixed_precision_dtype,
     initialize_accelerator,
@@ -35,6 +34,7 @@ from invoke_training.training2.shared.data.transforms.tensor_disk_cache import T
 from invoke_training.training2.shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training.training2.shared.stable_diffusion.lora_checkpoint_utils import save_lora_checkpoint
 from invoke_training.training2.shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
+from invoke_training.training2.shared.stable_diffusion.tokenize_captions import tokenize_captions
 
 
 def _import_model_class_for_model(pretrained_model_name_or_path: str, subfolder: str = "", revision: str = "main"):
