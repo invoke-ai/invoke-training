@@ -5,8 +5,8 @@ import torch
 from invoke_training.core.lora.injection.stable_diffusion import (
     convert_lora_state_dict_to_kohya_format,
 )
-from invoke_training.training2.shared.checkpoints.checkpoint_tracker import CheckpointTracker
-from invoke_training.training2.shared.checkpoints.serialization import save_state_dict
+from invoke_training.training.shared.checkpoints.checkpoint_tracker import CheckpointTracker
+from invoke_training.training.shared.checkpoints.serialization import save_state_dict
 
 
 def save_lora_checkpoint(

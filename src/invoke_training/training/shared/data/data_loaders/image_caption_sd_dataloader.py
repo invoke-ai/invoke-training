@@ -3,13 +3,13 @@ import typing
 from torch.utils.data import DataLoader
 
 from invoke_training.config.pipelines.finetune_lora_config import ImageCaptionDataLoaderConfig
-from invoke_training.training2.shared.data.datasets.hf_dir_image_caption_dataset import HFDirImageCaptionDataset
-from invoke_training.training2.shared.data.datasets.hf_hub_image_caption_dataset import HFHubImageCaptionDataset
-from invoke_training.training2.shared.data.datasets.transform_dataset import TransformDataset
-from invoke_training.training2.shared.data.transforms.drop_field_transform import DropFieldTransform
-from invoke_training.training2.shared.data.transforms.load_cache_transform import LoadCacheTransform
-from invoke_training.training2.shared.data.transforms.sd_image_transform import SDImageTransform
-from invoke_training.training2.shared.data.transforms.tensor_disk_cache import TensorDiskCache
+from invoke_training.training.shared.data.datasets.hf_dir_image_caption_dataset import HFDirImageCaptionDataset
+from invoke_training.training.shared.data.datasets.hf_hub_image_caption_dataset import HFHubImageCaptionDataset
+from invoke_training.training.shared.data.datasets.transform_dataset import TransformDataset
+from invoke_training.training.shared.data.transforms.drop_field_transform import DropFieldTransform
+from invoke_training.training.shared.data.transforms.load_cache_transform import LoadCacheTransform
+from invoke_training.training.shared.data.transforms.sd_image_transform import SDImageTransform
+from invoke_training.training.shared.data.transforms.tensor_disk_cache import TensorDiskCache
 
 
 def build_image_caption_sd_dataloader(

@@ -16,21 +16,21 @@ from invoke_training.core.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet,
 )
-from invoke_training.training2.pipelines.stable_diffusion.finetune_lora_sd import (
+from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import (
     cache_vae_outputs,
     generate_validation_images,
     load_models,
     train_forward,
 )
-from invoke_training.training2.shared.accelerator.accelerator_utils import (
+from invoke_training.training.shared.accelerator.accelerator_utils import (
     get_mixed_precision_dtype,
     initialize_accelerator,
     initialize_logging,
 )
-from invoke_training.training2.shared.checkpoints.checkpoint_tracker import CheckpointTracker
-from invoke_training.training2.shared.data.data_loaders.dreambooth_sd_dataloader import build_dreambooth_sd_dataloader
-from invoke_training.training2.shared.optimizer.optimizer_utils import initialize_optimizer
-from invoke_training.training2.shared.stable_diffusion.lora_checkpoint_utils import save_lora_checkpoint
+from invoke_training.training.shared.checkpoints.checkpoint_tracker import CheckpointTracker
+from invoke_training.training.shared.data.data_loaders.dreambooth_sd_dataloader import build_dreambooth_sd_dataloader
+from invoke_training.training.shared.optimizer.optimizer_utils import initialize_optimizer
+from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils import save_lora_checkpoint
 
 
 def run_training(config: DreamBoothLoRAConfig):  # noqa: C901

@@ -4,7 +4,7 @@ import tempfile
 import pytest
 import torch
 
-from invoke_training.training2.shared.checkpoints.serialization import (
+from invoke_training.training.shared.checkpoints.serialization import (
     load_state_dict,
     save_state_dict,
 )

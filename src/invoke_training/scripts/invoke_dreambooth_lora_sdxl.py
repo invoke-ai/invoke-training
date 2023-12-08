@@ -6,7 +6,7 @@ import yaml
 from invoke_training.config.pipelines.finetune_lora_config import (
     DreamBoothLoRASDXLConfig,
 )
-from invoke_training.training2.pipelines.stable_diffusion_xl.dreambooth_lora_sdxl import run_training
+from invoke_training.training.pipelines.stable_diffusion_xl.dreambooth_lora_sdxl import run_training
 
 
 def parse_args():

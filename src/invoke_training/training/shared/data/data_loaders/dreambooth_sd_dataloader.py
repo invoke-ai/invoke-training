@@ -3,18 +3,18 @@ import typing
 from torch.utils.data import ConcatDataset, DataLoader
 
 from invoke_training.config.shared.data.data_config import DreamBoothDataLoaderConfig
-from invoke_training.training2.shared.data.data_loaders.dreambooth_samplers import (
+from invoke_training.training.shared.data.data_loaders.dreambooth_samplers import (
     InterleavedSampler,
     SequentialRangeSampler,
     ShuffledRangeSampler,
 )
-from invoke_training.training2.shared.data.datasets.image_dir_dataset import ImageDirDataset
-from invoke_training.training2.shared.data.datasets.transform_dataset import TransformDataset
-from invoke_training.training2.shared.data.transforms.constant_field_transform import ConstantFieldTransform
-from invoke_training.training2.shared.data.transforms.drop_field_transform import DropFieldTransform
-from invoke_training.training2.shared.data.transforms.load_cache_transform import LoadCacheTransform
-from invoke_training.training2.shared.data.transforms.sd_image_transform import SDImageTransform
-from invoke_training.training2.shared.data.transforms.tensor_disk_cache import TensorDiskCache
+from invoke_training.training.shared.data.datasets.image_dir_dataset import ImageDirDataset
+from invoke_training.training.shared.data.datasets.transform_dataset import TransformDataset
+from invoke_training.training.shared.data.transforms.constant_field_transform import ConstantFieldTransform
+from invoke_training.training.shared.data.transforms.drop_field_transform import DropFieldTransform
+from invoke_training.training.shared.data.transforms.load_cache_transform import LoadCacheTransform
+from invoke_training.training.shared.data.transforms.sd_image_transform import SDImageTransform
+from invoke_training.training.shared.data.transforms.tensor_disk_cache import TensorDiskCache
 
 
 def build_dreambooth_sd_dataloader(

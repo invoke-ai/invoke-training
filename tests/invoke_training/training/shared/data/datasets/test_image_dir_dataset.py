@@ -1,6 +1,6 @@
 import PIL.Image
 
-from invoke_training.training2.shared.data.datasets.image_dir_dataset import ImageDirDataset
+from invoke_training.training.shared.data.datasets.image_dir_dataset import ImageDirDataset
 
 from ..image_dir_fixture import image_dir  # noqa: F401
 

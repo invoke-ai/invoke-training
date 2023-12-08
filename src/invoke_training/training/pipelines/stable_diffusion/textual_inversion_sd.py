@@ -15,23 +15,23 @@ from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 
 from invoke_training.config.pipelines.textual_inversion_config import TextualInversionConfig
-from invoke_training.training2.pipelines.stable_diffusion.finetune_lora_sd import (
+from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import (
     cache_vae_outputs,
     generate_validation_images,
     train_forward,
 )
-from invoke_training.training2.shared.accelerator.accelerator_utils import (
+from invoke_training.training.shared.accelerator.accelerator_utils import (
     get_mixed_precision_dtype,
     initialize_accelerator,
     initialize_logging,
 )
-from invoke_training.training2.shared.checkpoints.checkpoint_tracker import CheckpointTracker
-from invoke_training.training2.shared.checkpoints.serialization import load_state_dict, save_state_dict
-from invoke_training.training2.shared.data.data_loaders.textual_inversion_sd_dataloader import (
+from invoke_training.training.shared.checkpoints.checkpoint_tracker import CheckpointTracker
+from invoke_training.training.shared.checkpoints.serialization import load_state_dict, save_state_dict
+from invoke_training.training.shared.data.data_loaders.textual_inversion_sd_dataloader import (
     build_textual_inversion_sd_dataloader,
 )
-from invoke_training.training2.shared.optimizer.optimizer_utils import initialize_optimizer
-from invoke_training.training2.shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
+from invoke_training.training.shared.optimizer.optimizer_utils import initialize_optimizer
+from invoke_training.training.shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
 
 
 def load_models(

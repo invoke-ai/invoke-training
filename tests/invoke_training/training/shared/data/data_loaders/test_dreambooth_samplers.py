@@ -1,6 +1,6 @@
 import torch
 
-from invoke_training.training2.shared.data.data_loaders.dreambooth_samplers import (
+from invoke_training.training.shared.data.data_loaders.dreambooth_samplers import (
     InterleavedSampler,
     SequentialRangeSampler,
     ShuffledRangeSampler,

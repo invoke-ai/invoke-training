@@ -1,7 +1,7 @@
 import PIL
 import pytest
 
-from invoke_training.training2.shared.data.datasets.hf_hub_image_caption_dataset import HFHubImageCaptionDataset
+from invoke_training.training.shared.data.datasets.hf_hub_image_caption_dataset import HFHubImageCaptionDataset
 
 
 @pytest.mark.loads_model

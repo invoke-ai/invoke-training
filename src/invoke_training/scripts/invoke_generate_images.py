@@ -1,8 +1,8 @@
 import argparse
 from pathlib import Path
 
-from invoke_training.training2.shared.stable_diffusion.model_loading_utils import PipelineVersionEnum
-from invoke_training.training2.shared.tools.generate_images import generate_images
+from invoke_training.training.shared.stable_diffusion.model_loading_utils import PipelineVersionEnum
+from invoke_training.training.shared.tools.generate_images import generate_images
 
 
 def parse_args():
