@@ -1,6 +1,6 @@
 import torch
 
-from invoke_training.training.config.data_config import DreamBoothDataLoaderConfig
+from invoke_training.config.shared.data.data_config import DreamBoothDataLoaderConfig
 from invoke_training.training2.shared.data.data_loaders.dreambooth_sdxl_dataloader import (
     build_dreambooth_sdxl_dataloader,
 )

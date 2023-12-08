@@ -2,7 +2,7 @@ import typing
 
 from torch.utils.data import DataLoader
 
-from invoke_training.training.config.data_config import TextualInversionDataLoaderConfig
+from invoke_training.config.shared.data.data_config import TextualInversionDataLoaderConfig
 from invoke_training.training2.shared.data.datasets.image_dir_dataset import ImageDirDataset
 from invoke_training.training2.shared.data.datasets.transform_dataset import TransformDataset
 from invoke_training.training2.shared.data.transforms.drop_field_transform import DropFieldTransform

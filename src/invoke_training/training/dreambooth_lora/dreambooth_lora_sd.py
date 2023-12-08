@@ -11,11 +11,11 @@ from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel
 
+from invoke_training.config.pipelines.finetune_lora_config import DreamBoothLoRAConfig
 from invoke_training.core.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet,
 )
-from invoke_training.training.config.finetune_lora_config import DreamBoothLoRAConfig
 from invoke_training.training.finetune_lora.finetune_lora_sd import (
     cache_vae_outputs,
     generate_validation_images,

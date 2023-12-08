@@ -3,7 +3,7 @@ import typing
 import torch
 from torch.utils.data import DataLoader
 
-from invoke_training.training.config.finetune_lora_config import ImageCaptionDataLoaderConfig
+from invoke_training.config.pipelines.finetune_lora_config import ImageCaptionDataLoaderConfig
 from invoke_training.training2.shared.data.datasets.hf_dir_image_caption_dataset import HFDirImageCaptionDataset
 from invoke_training.training2.shared.data.datasets.hf_hub_image_caption_dataset import HFHubImageCaptionDataset
 from invoke_training.training2.shared.data.datasets.transform_dataset import TransformDataset

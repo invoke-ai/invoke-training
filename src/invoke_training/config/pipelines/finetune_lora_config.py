@@ -2,13 +2,16 @@ import typing
 
 from pydantic import BaseModel
 
-from invoke_training.training.config.data_config import TextualInversionDataLoaderConfig
-from invoke_training.training.config.optimizer_config import OptimizerConfig
-from invoke_training.training.config.training_output_config import TrainingOutputConfig
+from invoke_training.config.shared.data.data_config import (
+    DreamBoothDataLoaderConfig,
+    ImageCaptionDataLoaderConfig,
+)
+from invoke_training.config.shared.optimizer.optimizer_config import OptimizerConfig
+from invoke_training.config.shared.training_output_config import TrainingOutputConfig
 
 
-class TextualInversionTrainingConfig(BaseModel):
-    """The base configuration for any Textual Inversion training run."""
+class LoRATrainingConfig(BaseModel):
+    """The base configuration for any LoRA training run."""
 
     # Name or path of the base model to train. Can be in diffusers format, or a single stable diffusion checkpoint file.
     # (E.g. 'runwayml/stable-diffusion-v1-5', 'stabilityai/stable-diffusion-xl-base-1.0',
@@ -18,26 +21,33 @@ class TextualInversionTrainingConfig(BaseModel):
     # A seed for reproducible training.
     seed: typing.Optional[int] = None
 
-    # The number of textual inversion placeholder vectors that will be used to learn the concept.
-    num_vectors: int = 1
+    # Whether to add LoRA layers to the UNet model and train it.
+    train_unet: bool = True
 
-    # The special word to associate the learned embeddings with. You must use this trigger word in your prompt at
-    # inference time.
-    # TODO(ryand): Rename to placeholder_str - seems more appropriate.
-    placeholder_token: str
+    # Whether to add LoRA layers to the text encoder and train it.
+    train_text_encoder: bool = True
 
-    # A vocabulary token to use as an initializer for the placeholder token(s). It should be a single word that roughly
-    # describes the object or style that you're trying to train on. Must map to a single tokenizer token. Either
-    # initializer_token or initial_embedding_file should be set.
-    initializer_token: typing.Optional[str] = None
+    # The learning rate to use for the text encoder model. If set, this overrides the optimizer's default learning rate.
+    text_encoder_learning_rate: typing.Optional[float] = None
 
-    # Path to an existing TI embedding that will be used to initialize the embedding being trained. The placeholder
-    # token in the file must match the 'placeholder_token' field. Either initializer_token or initial_embedding_file
-    # should be set.
-    initial_embedding_file: typing.Optional[str] = None
+    # The learning rate to use for the UNet model. If set, this overrides the optimizer's default learning rate.
+    unet_learning_rate: typing.Optional[float] = None
 
-    # Whether you're training the model to learn a new "style" or a new "object".
-    learnable_property: typing.Literal["object", "style"] = "object"
+    # Whether to inject LoRA layers into the non-attention UNet blocks for training. Enabling will produce a more
+    # expressive LoRA model at the cost of slower training, higher training VRAM requirements, and a larger LoRA weight
+    # file.
+    train_unet_non_attention_blocks: bool = False
+
+    # The rank dimension to use for the LoRA layers. Increasing the rank dimension increases the model's expressivity,
+    # but also increases the size of the generated LoRA model.
+    lora_rank_dim: int = 4
+
+    # If True, the text encoder(s) will be applied to all of the captions in the dataset before starting training and
+    # the results will be cached to disk. This reduces the VRAM requirements during training (don't have to keep the
+    # text encoders in VRAM), and speeds up training  (don't have to run the text encoders for each training example).
+    # This option can only be enabled if `train_text_encoder == False` and there are no caption augmentations being
+    # applied.
+    cache_text_encoder_outputs: bool = False
 
     # If True, the VAE will be applied to all of the images in the dataset before starting training and the results will
     # be cached to disk. This reduces the VRAM requirements during training (don't have to keep the VAE in VRAM), and
@@ -101,7 +111,27 @@ class TextualInversionTrainingConfig(BaseModel):
     train_batch_size: int = 4
 
 
-class TextualInversionConfig(TextualInversionTrainingConfig):
+class FinetuneLoRAConfig(LoRATrainingConfig):
     output: TrainingOutputConfig
     optimizer: OptimizerConfig
-    dataset: TextualInversionDataLoaderConfig
+    dataset: ImageCaptionDataLoaderConfig
+
+
+class FinetuneLoRASDXLConfig(FinetuneLoRAConfig):
+    # The name of the Hugging Face Hub VAE model to train against. This will override the VAE bundled with the base
+    # model (specified by the `model` parameter). This config option is provided for SDXL models, because SDXL shipped
+    # with a VAE that produces NaNs in fp16 mode, so it is common to replace this VAE with a fixed version.
+    vae_model: typing.Optional[str] = None
+
+
+class DreamBoothLoRAConfig(LoRATrainingConfig):
+    output: TrainingOutputConfig
+    optimizer: OptimizerConfig
+    dataset: DreamBoothDataLoaderConfig
+
+
+class DreamBoothLoRASDXLConfig(DreamBoothLoRAConfig):
+    # The name of the Hugging Face Hub VAE model to train against. This will override the VAE bundled with the base
+    # model (specified by the `model` parameter). This config option is provided for SDXL models, because SDXL shipped
+    # with a VAE that produces NaNs in fp16 mode, so it is common to replace this VAE with a fixed version.
+    vae_model: typing.Optional[str] = None

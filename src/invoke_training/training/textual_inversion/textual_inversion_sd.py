@@ -14,7 +14,7 @@ from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 
-from invoke_training.training.config.textual_inversion_config import TextualInversionConfig
+from invoke_training.config.pipelines.textual_inversion_config import TextualInversionConfig
 from invoke_training.training.finetune_lora.finetune_lora_sd import (
     cache_vae_outputs,
     generate_validation_images,

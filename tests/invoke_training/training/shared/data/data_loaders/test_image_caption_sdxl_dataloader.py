@@ -2,8 +2,8 @@ import math
 
 import torch
 
-from invoke_training.training.config.data_config import ImageTransformConfig
-from invoke_training.training.config.finetune_lora_config import ImageCaptionDataLoaderConfig
+from invoke_training.config.pipelines.finetune_lora_config import ImageCaptionDataLoaderConfig
+from invoke_training.config.shared.data.data_config import ImageTransformConfig
 from invoke_training.training2.shared.data.data_loaders.image_caption_sdxl_dataloader import (
     build_image_caption_sdxl_dataloader,
 )

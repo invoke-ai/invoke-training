@@ -3,7 +3,7 @@ from pathlib import Path
 
 import yaml
 
-from invoke_training.training.config.finetune_lora_config import DreamBoothLoRAConfig
+from invoke_training.config.pipelines.finetune_lora_config import DreamBoothLoRAConfig
 from invoke_training.training.dreambooth_lora.dreambooth_lora_sd import run_training
 
 

@@ -2,7 +2,7 @@ import typing
 
 from torch.utils.data import ConcatDataset, DataLoader
 
-from invoke_training.training.config.data_config import DreamBoothDataLoaderConfig
+from invoke_training.config.shared.data.data_config import DreamBoothDataLoaderConfig
 from invoke_training.training2.shared.data.data_loaders.dreambooth_samplers import (
     InterleavedSampler,
     SequentialRangeSampler,
