@@ -3,7 +3,7 @@ import typing
 
 import torch
 
-from invoke_training.lora.layers import BaseLoRALayer
+from invoke_training.core.lora.layers import BaseLoRALayer
 
 
 class LoRAConvLayer(BaseLoRALayer):

@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from invoke_training.lora.layers import LoRALinearLayer
+from invoke_training.core.lora.layers import LoRALinearLayer
 
 
 def test_lora_linear_layer_output_dim():

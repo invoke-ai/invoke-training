@@ -21,7 +21,7 @@ from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 
-from invoke_training.lora.injection.stable_diffusion import (
+from invoke_training.core.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet,
 )

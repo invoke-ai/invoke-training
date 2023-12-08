@@ -2,9 +2,9 @@ import typing
 
 import torch
 
-from invoke_training.lora.injection.lora_layer_collection import LoRALayerCollection
-from invoke_training.lora.layers import BaseLoRALayer
-from invoke_training.lora.lora_block import LoRABlock
+from invoke_training.core.lora.injection.lora_layer_collection import LoRALayerCollection
+from invoke_training.core.lora.layers import BaseLoRALayer
+from invoke_training.core.lora.lora_block import LoRABlock
 
 
 def find_modules(

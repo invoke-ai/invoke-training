@@ -1,7 +1,7 @@
 import pytest
 
-from invoke_training.lora.injection.lora_layer_collection import LoRALayerCollection
-from invoke_training.lora.layers import LoRALinearLayer
+from invoke_training.core.lora.injection.lora_layer_collection import LoRALayerCollection
+from invoke_training.core.lora.layers import LoRALinearLayer
 
 
 def test_lora_layer_collection_state_dict():

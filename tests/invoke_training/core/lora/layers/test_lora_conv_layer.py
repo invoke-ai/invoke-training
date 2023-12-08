@@ -3,12 +3,12 @@ import typing
 import pytest
 import torch
 
-from invoke_training.lora.layers import (
+from invoke_training.core.lora.layers import (
     LoRAConv1dLayer,
     LoRAConv2dLayer,
     LoRAConv3dLayer,
 )
-from invoke_training.lora.layers.lora_conv_layer import LoRAConvLayer
+from invoke_training.core.lora.layers.lora_conv_layer import LoRAConvLayer
 
 
 def test_lora_conv_layer_initialize_base_class():

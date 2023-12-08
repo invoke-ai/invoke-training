@@ -7,9 +7,9 @@ from diffusers.models.resnet import Downsample2D, ResnetBlock2D, Upsample2D
 from transformers import CLIPTextModel
 from transformers.models.clip.modeling_clip import CLIPMLP, CLIPAttention
 
-from invoke_training.lora.injection.lora_layer_collection import LoRALayerCollection
-from invoke_training.lora.injection.utils import inject_lora_layers
-from invoke_training.lora.layers import LoRAConv2dLayer, LoRALinearLayer
+from invoke_training.core.lora.injection.lora_layer_collection import LoRALayerCollection
+from invoke_training.core.lora.injection.utils import inject_lora_layers
+from invoke_training.core.lora.layers import LoRAConv2dLayer, LoRALinearLayer
 
 
 def inject_lora_into_unet(

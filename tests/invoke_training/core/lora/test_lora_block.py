@@ -1,6 +1,6 @@
 import torch
 
-from invoke_training.lora.lora_block import LoRABlock
+from invoke_training.core.lora.lora_block import LoRABlock
 
 
 def test_lora_block_multiplier():

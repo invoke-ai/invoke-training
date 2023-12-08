@@ -3,7 +3,7 @@ import torch
 from diffusers.models import UNet2DConditionModel
 from transformers import CLIPTextModel
 
-from invoke_training.lora.injection.stable_diffusion import (
+from invoke_training.core.lora.injection.stable_diffusion import (
     convert_lora_state_dict_to_kohya_format,
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet,
