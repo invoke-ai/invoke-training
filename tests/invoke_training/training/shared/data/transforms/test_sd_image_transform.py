@@ -3,9 +3,7 @@ import pytest
 import torch
 from PIL import Image
 
-from invoke_training.training.shared.data.transforms.sd_image_transform import (
-    SDImageTransform,
-)
+from invoke_training.training.shared.data.transforms.sd_image_transform import SDImageTransform
 
 
 @pytest.mark.parametrize("center_crop", [True, False])

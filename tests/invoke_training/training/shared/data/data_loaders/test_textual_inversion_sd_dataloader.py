@@ -1,9 +1,6 @@
 import torch
 
-from invoke_training.training.config.data_config import (
-    ImageTransformConfig,
-    TextualInversionDataLoaderConfig,
-)
+from invoke_training.config.shared.data.data_config import ImageTransformConfig, TextualInversionDataLoaderConfig
 from invoke_training.training.shared.data.data_loaders.textual_inversion_sd_dataloader import (
     build_textual_inversion_sd_dataloader,
 )

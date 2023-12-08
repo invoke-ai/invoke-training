@@ -3,9 +3,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
-    TensorDiskCache,
-)
+from invoke_training.training.shared.data.transforms.tensor_disk_cache import TensorDiskCache
 
 
 def test_tensor_disk_cache_roundtrip(tmp_path: Path):

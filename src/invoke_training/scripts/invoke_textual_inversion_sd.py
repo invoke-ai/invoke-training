@@ -3,10 +3,10 @@ from pathlib import Path
 
 import yaml
 
-from invoke_training.training.config.textual_inversion_config import (
+from invoke_training.config.pipelines.textual_inversion_config import (
     TextualInversionConfig,
 )
-from invoke_training.training.textual_inversion.textual_inversion_sd import run_training
+from invoke_training.training.pipelines.stable_diffusion.textual_inversion_sd import run_training
 
 
 def parse_args():

@@ -6,9 +6,7 @@ import PIL
 import pytest
 from PIL import Image
 
-from invoke_training.training.shared.data.datasets.hf_dir_image_caption_dataset import (
-    HFDirImageCaptionDataset,
-)
+from invoke_training.training.shared.data.datasets.hf_dir_image_caption_dataset import HFDirImageCaptionDataset
 
 
 def create_hf_imagefolder_dataset(tmp_dir: Path, num_images: int):

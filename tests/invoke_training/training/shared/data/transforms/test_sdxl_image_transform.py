@@ -4,9 +4,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-from invoke_training.training.shared.data.transforms.sdxl_image_transform import (
-    SDXLImageTransform,
-)
+from invoke_training.training.shared.data.transforms.sdxl_image_transform import SDXLImageTransform
 
 
 def denormalize_image(img: np.ndarray) -> np.ndarray:
