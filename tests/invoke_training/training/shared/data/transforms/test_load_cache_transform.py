@@ -2,9 +2,7 @@ import unittest.mock
 
 import torch
 
-from invoke_training.training.shared.data.transforms.load_cache_transform import (
-    LoadCacheTransform,
-)
+from invoke_training.training2.shared.data.transforms.load_cache_transform import LoadCacheTransform
 
 
 def test_load_cache_transform():

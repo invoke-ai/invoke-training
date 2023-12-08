@@ -11,12 +11,7 @@ import torch.utils.data
 from accelerate import Accelerator
 from accelerate.hooks import remove_hook_from_module
 from accelerate.utils import set_seed
-from diffusers import (
-    AutoencoderKL,
-    DDPMScheduler,
-    StableDiffusionXLPipeline,
-    UNet2DConditionModel,
-)
+from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionXLPipeline, UNet2DConditionModel
 from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
 from transformers import CLIPPreTrainedModel, PretrainedConfig, PreTrainedTokenizer
@@ -33,18 +28,13 @@ from invoke_training.training.shared.accelerator_utils import (
     initialize_logging,
 )
 from invoke_training.training.shared.checkpoint_tracker import CheckpointTracker
-from invoke_training.training.shared.data.data_loaders.image_caption_sdxl_dataloader import (
+from invoke_training.training.shared.lora_checkpoint_utils import save_lora_checkpoint
+from invoke_training.training.shared.model_loading_utils import PipelineVersionEnum, load_pipeline
+from invoke_training.training.shared.optimizer_utils import initialize_optimizer
+from invoke_training.training2.shared.data.data_loaders.image_caption_sdxl_dataloader import (
     build_image_caption_sdxl_dataloader,
 )
-from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
-    TensorDiskCache,
-)
-from invoke_training.training.shared.lora_checkpoint_utils import save_lora_checkpoint
-from invoke_training.training.shared.model_loading_utils import (
-    PipelineVersionEnum,
-    load_pipeline,
-)
-from invoke_training.training.shared.optimizer_utils import initialize_optimizer
+from invoke_training.training2.shared.data.transforms.tensor_disk_cache import TensorDiskCache
 
 
 def _import_model_class_for_model(pretrained_model_name_or_path: str, subfolder: str = "", revision: str = "main"):

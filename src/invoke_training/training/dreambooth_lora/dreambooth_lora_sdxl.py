@@ -15,9 +15,7 @@ from invoke_training.core.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet,
 )
-from invoke_training.training.config.finetune_lora_config import (
-    DreamBoothLoRASDXLConfig,
-)
+from invoke_training.training.config.finetune_lora_config import DreamBoothLoRASDXLConfig
 from invoke_training.training.finetune_lora.finetune_lora_sdxl import (
     cache_vae_outputs,
     generate_validation_images,
@@ -30,11 +28,11 @@ from invoke_training.training.shared.accelerator_utils import (
     initialize_logging,
 )
 from invoke_training.training.shared.checkpoint_tracker import CheckpointTracker
-from invoke_training.training.shared.data.data_loaders.dreambooth_sdxl_dataloader import (
-    build_dreambooth_sdxl_dataloader,
-)
 from invoke_training.training.shared.lora_checkpoint_utils import save_lora_checkpoint
 from invoke_training.training.shared.optimizer_utils import initialize_optimizer
+from invoke_training.training2.shared.data.data_loaders.dreambooth_sdxl_dataloader import (
+    build_dreambooth_sdxl_dataloader,
+)
 
 
 def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901

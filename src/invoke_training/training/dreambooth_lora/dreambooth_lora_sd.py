@@ -28,11 +28,9 @@ from invoke_training.training.shared.accelerator_utils import (
     initialize_logging,
 )
 from invoke_training.training.shared.checkpoint_tracker import CheckpointTracker
-from invoke_training.training.shared.data.data_loaders.dreambooth_sd_dataloader import (
-    build_dreambooth_sd_dataloader,
-)
 from invoke_training.training.shared.lora_checkpoint_utils import save_lora_checkpoint
 from invoke_training.training.shared.optimizer_utils import initialize_optimizer
+from invoke_training.training2.shared.data.data_loaders.dreambooth_sd_dataloader import build_dreambooth_sd_dataloader
 
 
 def run_training(config: DreamBoothLoRAConfig):  # noqa: C901

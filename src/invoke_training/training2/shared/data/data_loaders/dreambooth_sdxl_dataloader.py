@@ -3,46 +3,36 @@ import typing
 from torch.utils.data import ConcatDataset, DataLoader
 
 from invoke_training.training.config.data_config import DreamBoothDataLoaderConfig
-from invoke_training.training.shared.data.data_loaders.dreambooth_samplers import (
+from invoke_training.training2.shared.data.data_loaders.dreambooth_sd_dataloader import (
     InterleavedSampler,
     SequentialRangeSampler,
     ShuffledRangeSampler,
 )
-from invoke_training.training.shared.data.datasets.image_dir_dataset import (
-    ImageDirDataset,
+from invoke_training.training2.shared.data.data_loaders.image_caption_sdxl_dataloader import (
+    sdxl_image_caption_collate_fn,
 )
-from invoke_training.training.shared.data.datasets.transform_dataset import (
-    TransformDataset,
-)
-from invoke_training.training.shared.data.transforms.constant_field_transform import (
-    ConstantFieldTransform,
-)
-from invoke_training.training.shared.data.transforms.drop_field_transform import (
-    DropFieldTransform,
-)
-from invoke_training.training.shared.data.transforms.load_cache_transform import (
-    LoadCacheTransform,
-)
-from invoke_training.training.shared.data.transforms.sd_image_transform import (
-    SDImageTransform,
-)
-from invoke_training.training.shared.data.transforms.tensor_disk_cache import (
-    TensorDiskCache,
-)
+from invoke_training.training2.shared.data.datasets.image_dir_dataset import ImageDirDataset
+from invoke_training.training2.shared.data.datasets.transform_dataset import TransformDataset
+from invoke_training.training2.shared.data.transforms.constant_field_transform import ConstantFieldTransform
+from invoke_training.training2.shared.data.transforms.drop_field_transform import DropFieldTransform
+from invoke_training.training2.shared.data.transforms.load_cache_transform import LoadCacheTransform
+from invoke_training.training2.shared.data.transforms.sdxl_image_transform import SDXLImageTransform
+from invoke_training.training2.shared.data.transforms.tensor_disk_cache import TensorDiskCache
 
 
-def build_dreambooth_sd_dataloader(
+def build_dreambooth_sdxl_dataloader(
     data_loader_config: DreamBoothDataLoaderConfig,
     batch_size: int,
     vae_output_cache_dir: typing.Optional[str] = None,
     shuffle: bool = True,
     sequential_batching: bool = False,
 ) -> DataLoader:
-    """Construct a DataLoader for a DreamBooth dataset for Stable Diffusion v1/v2.
+    """Construct a DataLoader for a DreamBooth dataset for Stable Diffusion XL.
 
     Args:
         data_loader_config (DreamBoothDataLoaderConfig):
-        tokenizer (typing.Optional[CLIPTokenizer]):
+        tokenizer_1 (PreTrainedTokenizer): Tokenizer 1.
+        tokenizer_2 (PreTrainedTokenizer): Tokenizer 2.
         batch_size (int):
         vae_output_cache_dir (str, optional): The directory where VAE outputs are cached and should be loaded from. If
             set, then the image augmentation transforms will be skipped, and the image will not be copied to VRAM.
@@ -54,7 +44,6 @@ def build_dreambooth_sd_dataloader(
     Returns:
         DataLoader
     """
-
     # 1. Prepare instance dataset
     instance_dataset = ImageDirDataset(data_loader_config.instance_data_dir, id_prefix="instance_")
     instance_dataset = TransformDataset(
@@ -84,7 +73,7 @@ def build_dreambooth_sd_dataloader(
     all_transforms = []
     if vae_output_cache_dir is None:
         all_transforms.append(
-            SDImageTransform(
+            SDXLImageTransform(
                 resolution=data_loader_config.image_transforms.resolution,
                 center_crop=data_loader_config.image_transforms.center_crop,
                 random_flip=data_loader_config.image_transforms.random_flip,
@@ -94,7 +83,13 @@ def build_dreambooth_sd_dataloader(
         vae_cache = TensorDiskCache(vae_output_cache_dir)
         all_transforms.append(
             LoadCacheTransform(
-                cache=vae_cache, cache_key_field="id", cache_field_to_output_field={"vae_output": "vae_output"}
+                cache=vae_cache,
+                cache_key_field="id",
+                cache_field_to_output_field={
+                    "vae_output": "vae_output",
+                    "original_size_hw": "original_size_hw",
+                    "crop_top_left_yx": "crop_top_left_yx",
+                },
             )
         )
         # We drop the image to avoid having to either convert from PIL, or handle PIL batch collation.
@@ -106,6 +101,7 @@ def build_dreambooth_sd_dataloader(
     if sequential_batching:
         return DataLoader(
             merged_dataset,
+            collate_fn=sdxl_image_caption_collate_fn,
             batch_size=batch_size,
             num_workers=data_loader_config.dataloader_num_workers,
             shuffle=shuffle,
@@ -131,6 +127,7 @@ def build_dreambooth_sd_dataloader(
     return DataLoader(
         merged_dataset,
         sampler=interleaved_sampler,
+        collate_fn=sdxl_image_caption_collate_fn,
         batch_size=batch_size,
         num_workers=data_loader_config.dataloader_num_workers,
     )

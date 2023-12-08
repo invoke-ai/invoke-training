@@ -1,6 +1,4 @@
-from invoke_training.training.shared.data.transforms.constant_field_transform import (
-    ConstantFieldTransform,
-)
+from invoke_training.training2.shared.data.transforms.constant_field_transform import ConstantFieldTransform
 
 
 def test_constant_field_transform():
