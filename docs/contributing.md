@@ -7,33 +7,25 @@ invoke-training/
 ├── src/
 │   └── invoke-training/
 │       ├── scripts/ # Main entrypoints.
-│       ├── core/ # Utils shared across multiple pipelines. High unit test coverage. Likely to be imported by downstream libraries.
+│       ├── core/ # Shared across multiple pipelines. High unit test coverage. Likely to be imported by downstream libraries.
 │       │   ├── lora
-│       │   ├── utils
 │       │   └── ...
 │       ├── training/
-│       │   ├── shared/ # Training utils shared by multiple pipelines.
-│       │   │   ├── data # Data handling that is shared across multiple pipelines.
-│       │   │   ├── stable_diffusion_1_or_2 # Things that are shared across SD1 or 2 pipelines.
-│       │   │   ├── lora # Things that are shared across lora pipelines.
+│       │   ├── shared/
+│       │   │   ├── checkpoints # Shared utils related to checkpointing.
+│       │   │   ├── data # Data handling that is shared across multiple pipelines
+│       │   │   ├── stable_diffusion # Things that are shared by many SD pipelines.
+│       │   │   ├── stable_diffusion_lora # Things that are shared by multiple SD LoRA pipelines.
 │       │   │   └── ...
 │       │   └── pipelines/
-│       │       ├── stable_diffusion_1_or_2/
-│       │       │   ├── lora/
-│       │       │   │   └── train.py
-│       │       │   ├── textual_inversion/
-│       │       │   │   └── train.py
-│       │       │   ├── pivotal_tuning/
-│       │       │   │   └── train.py
-│       │       │   └── ...
+│       │       ├── stable_diffusion/
+│       │       │   ├── train_lora.py
+│       │       │   ├── train_textual_inversion.py
+│       │       │   └── train_pivotal_tuning.py
 │       │       └── stable_diffusion_xl/
-│       │           ├── lora/
-│       │           │   └── train.py
-│       │           ├── textual_inversion/
-│       │           │   └── train.py
-│       │           ├── pivotal_tuning/
-│       │           │   └── train.py
-│       │           └── ...
+│       │           ├── train_lora.py
+│       │           ├── train_textual_inversion.py
+│       │           └── train_pivotal_tuning.py
 │       └── config/ # Mirrors training/ structure.
 └── tests/ # Mirrors src/ directory.
 ```
