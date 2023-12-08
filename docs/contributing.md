@@ -34,6 +34,6 @@ invoke-training/
 │       │           ├── pivotal_tuning/
 │       │           │   └── train.py
 │       │           └── ...
-│       └── config/ # Mirrors pipelines/ structure.
+│       └── config/ # Mirrors training/ structure.
 └── tests/ # Mirrors src/ directory.
 ```

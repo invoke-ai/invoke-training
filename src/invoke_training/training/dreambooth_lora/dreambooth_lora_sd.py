@@ -22,15 +22,15 @@ from invoke_training.training.finetune_lora.finetune_lora_sd import (
     load_models,
     train_forward,
 )
-from invoke_training.training.shared.accelerator_utils import (
+from invoke_training.training2.shared.accelerator.accelerator_utils import (
     get_mixed_precision_dtype,
     initialize_accelerator,
     initialize_logging,
 )
-from invoke_training.training.shared.checkpoint_tracker import CheckpointTracker
-from invoke_training.training.shared.lora_checkpoint_utils import save_lora_checkpoint
-from invoke_training.training.shared.optimizer_utils import initialize_optimizer
+from invoke_training.training2.shared.checkpoints.checkpoint_tracker import CheckpointTracker
 from invoke_training.training2.shared.data.data_loaders.dreambooth_sd_dataloader import build_dreambooth_sd_dataloader
+from invoke_training.training2.shared.optimizer.optimizer_utils import initialize_optimizer
+from invoke_training.training2.shared.stable_diffusion.lora_checkpoint_utils import save_lora_checkpoint
 
 
 def run_training(config: DreamBoothLoRAConfig):  # noqa: C901

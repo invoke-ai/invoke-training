@@ -5,7 +5,7 @@ from typing import Optional
 import torch
 from tqdm import tqdm
 
-from invoke_training.training.shared.model_loading_utils import (
+from invoke_training.training2.shared.stable_diffusion.model_loading_utils import (
     PipelineVersionEnum,
     load_pipeline,
 )
