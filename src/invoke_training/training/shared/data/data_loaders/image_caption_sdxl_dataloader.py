@@ -3,9 +3,15 @@ import typing
 import torch
 from torch.utils.data import DataLoader
 
-from invoke_training.config.pipelines.finetune_lora_config import ImageCaptionDataLoaderConfig
-from invoke_training.training.shared.data.datasets.hf_dir_image_caption_dataset import HFDirImageCaptionDataset
-from invoke_training.training.shared.data.datasets.hf_hub_image_caption_dataset import HFHubImageCaptionDataset
+from invoke_training.config.shared.data.data_loader_config import ImageCaptionSDXLDataLoaderConfig
+from invoke_training.config.shared.data.dataset_config import (
+    HFDirImageCaptionDatasetConfig,
+    HFHubImageCaptionDatasetConfig,
+)
+from invoke_training.training.shared.data.datasets.build_dataset import (
+    build_hf_dir_image_caption_dataset,
+    build_hf_hub_image_caption_dataset,
+)
 from invoke_training.training.shared.data.datasets.transform_dataset import TransformDataset
 from invoke_training.training.shared.data.transforms.drop_field_transform import DropFieldTransform
 from invoke_training.training.shared.data.transforms.load_cache_transform import LoadCacheTransform
@@ -45,7 +51,7 @@ def sdxl_image_caption_collate_fn(examples):
 
 
 def build_image_caption_sdxl_dataloader(
-    config: ImageCaptionDataLoaderConfig,
+    config: ImageCaptionSDXLDataLoaderConfig,
     batch_size: int,
     text_encoder_output_cache_dir: typing.Optional[str] = None,
     vae_output_cache_dir: typing.Optional[str] = None,
@@ -54,7 +60,7 @@ def build_image_caption_sdxl_dataloader(
     """Construct a DataLoader for an image-caption dataset for Stable Diffusion XL.
 
     Args:
-        config (ImageCaptionDataLoaderConfig): The dataset config.
+        config (ImageCaptionSDXLDataLoaderConfig): The dataset config.
         tokenizer (CLIPTokenizer): The tokenizer to apply to the captions. Can be None if
             `text_encoder_output_cache_dir` is set.
         batch_size (int): The DataLoader batch size.
@@ -66,25 +72,12 @@ def build_image_caption_sdxl_dataloader(
     Returns:
         DataLoader
     """
-    if config.dataset_name is not None:
-        base_dataset = HFHubImageCaptionDataset(
-            dataset_name=config.dataset_name,
-            hf_load_dataset_kwargs={
-                "name": config.dataset_config_name,
-                "cache_dir": config.hf_cache_dir,
-            },
-            image_column=config.image_column,
-            caption_column=config.caption_column,
-        )
-    elif config.dataset_dir is not None:
-        base_dataset = HFDirImageCaptionDataset(
-            dataset_dir=config.dataset_dir,
-            hf_load_dataset_kwargs=None,
-            image_column=config.image_column,
-            caption_column=config.caption_column,
-        )
+    if isinstance(config.dataset, HFHubImageCaptionDatasetConfig):
+        base_dataset = build_hf_hub_image_caption_dataset(config.dataset)
+    elif isinstance(config.dataset, HFDirImageCaptionDatasetConfig):
+        base_dataset = build_hf_dir_image_caption_dataset(config)
     else:
-        raise ValueError("One of 'dataset_name' or 'dataset_dir' must be set.")
+        raise ValueError(f"Unexpected dataset config type: '{type(config.dataset)}'.")
 
     all_transforms = []
     if vae_output_cache_dir is None:

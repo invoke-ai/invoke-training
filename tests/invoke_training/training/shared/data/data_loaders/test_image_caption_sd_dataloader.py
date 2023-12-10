@@ -2,8 +2,9 @@ import math
 
 import torch
 
-from invoke_training.config.pipelines.finetune_lora_config import ImageCaptionDataLoaderConfig
-from invoke_training.config.shared.data.data_config import ImageTransformConfig
+from invoke_training.config.shared.data.data_loader_config import ImageCaptionSDDataLoaderConfig
+from invoke_training.config.shared.data.dataset_config import HFHubImageCaptionDatasetConfig
+from invoke_training.config.shared.data.transform_config import SDImageTransformConfig
 from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
     build_image_caption_sd_dataloader,
 )
@@ -11,8 +12,9 @@ from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataload
 
 def test_build_image_caption_sd_dataloader():
     """Smoke test of build_image_caption_sd_dataloader(...)."""
-    config = ImageCaptionDataLoaderConfig(
-        dataset_name="lambdalabs/pokemon-blip-captions", image_transforms=ImageTransformConfig(resolution=512)
+    config = ImageCaptionSDDataLoaderConfig(
+        dataset=HFHubImageCaptionDatasetConfig(dataset_name="lambdalabs/pokemon-blip-captions"),
+        image_transforms=SDImageTransformConfig(resolution=512),
     )
     data_loader = build_image_caption_sd_dataloader(config, 4)
 

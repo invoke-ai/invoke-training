@@ -14,7 +14,7 @@ from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 
-from invoke_training.config.pipelines.textual_inversion_config import TextualInversionConfig
+from invoke_training.config.pipelines.textual_inversion_config import TextualInversionSDConfig
 from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import (
     cache_vae_outputs,
     generate_validation_images,
@@ -35,12 +35,12 @@ from invoke_training.training.shared.stable_diffusion.model_loading_utils import
 
 
 def load_models(
-    config: TextualInversionConfig,
+    config: TextualInversionSDConfig,
 ) -> tuple[CLIPTokenizer, DDPMScheduler, CLIPTextModel, AutoencoderKL, UNet2DConditionModel]:
     """Load all models required for training from disk, transfer them to the target training device.
 
     Args:
-        config (FinetuneLoRAConfig): The LoRA training run config.
+        config (TextualInversionSDConfig): The LoRA training run config.
         logger (logging.Logger): A logger.
 
     Returns:
@@ -170,7 +170,7 @@ def _initialize_placeholder_tokens_from_initial_embedding(
     return placeholder_token_ids
 
 
-def run_training(config: TextualInversionConfig):  # noqa: C901
+def run_training(config: TextualInversionSDConfig):  # noqa: C901
     # Create a timestamped directory for all outputs.
     out_dir = os.path.join(config.output.base_output_dir, f"{time.time()}")
     os.makedirs(out_dir)
@@ -267,9 +267,9 @@ def run_training(config: TextualInversionConfig):  # noqa: C901
     # Prepare VAE output cache.
     vae_output_cache_dir_name = None
     if config.cache_vae_outputs:
-        if config.dataset.image_transforms.random_flip:
+        if config.data_loader.image_transforms.random_flip:
             raise ValueError("'cache_vae_outputs' cannot be True if 'random_flip' is True.")
-        if not config.dataset.image_transforms.center_crop:
+        if not config.data_loader.image_transforms.center_crop:
             raise ValueError("'cache_vae_outputs' cannot be True if 'center_crop' is False.")
 
         # We use a temporary directory for the cache. The directory will automatically be cleaned up when
@@ -281,9 +281,8 @@ def run_training(config: TextualInversionConfig):  # noqa: C901
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
             data_loader = build_textual_inversion_sd_dataloader(
-                config=config.dataset,
+                config=config.data_loader,
                 placeholder_str=config.placeholder_token,
-                learnable_property=config.learnable_property,
                 batch_size=config.train_batch_size,
                 shuffle=False,
             )
@@ -298,9 +297,8 @@ def run_training(config: TextualInversionConfig):  # noqa: C901
     optimizer = initialize_optimizer(config.optimizer, text_encoder.get_input_embeddings().parameters())
 
     data_loader = build_textual_inversion_sd_dataloader(
-        config=config.dataset,
+        config=config.data_loader,
         placeholder_str=config.placeholder_token,
-        learnable_property=config.learnable_property,
         batch_size=config.train_batch_size,
         vae_output_cache_dir=vae_output_cache_dir_name,
     )

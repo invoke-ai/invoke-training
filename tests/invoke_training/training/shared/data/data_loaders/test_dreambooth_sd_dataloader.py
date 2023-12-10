@@ -1,6 +1,8 @@
 import torch
 
-from invoke_training.config.shared.data.data_config import DreamBoothDataLoaderConfig
+from invoke_training.config.shared.data.data_loader_config import DreamboothSDDataLoaderConfig
+from invoke_training.config.shared.data.dataset_config import ImageDirDatasetConfig
+from invoke_training.config.shared.data.transform_config import SDImageTransformConfig
 from invoke_training.training.shared.data.data_loaders.dreambooth_sd_dataloader import build_dreambooth_sd_dataloader
 
 from ..image_dir_fixture import image_dir  # noqa: F401
@@ -8,13 +10,13 @@ from ..image_dir_fixture import image_dir  # noqa: F401
 
 def test_build_dreambooth_sd_dataloader(image_dir):  # noqa: F811
     """Smoke test of build_dreambooth_sd_dataloader(...)."""
-
-    config = DreamBoothDataLoaderConfig(
-        instance_prompt="test instance prompt",
-        instance_data_dir=str(image_dir),
-        class_prompt="test class prompt",
+    config = DreamboothSDDataLoaderConfig(
+        instance_caption="test instance prompt",
+        instance_dataset=ImageDirDatasetConfig(dataset_dir=str(image_dir)),
+        class_caption="test class prompt",
         # For testing, we just use the same directory for the instance and class datasets.
-        class_data_dir=str(image_dir),
+        class_dataset=ImageDirDatasetConfig(dataset_dir=str(image_dir)),
+        image_transforms=SDImageTransformConfig(),
     )
 
     data_loader = build_dreambooth_sd_dataloader(data_loader_config=config, batch_size=2)
@@ -38,7 +40,11 @@ def test_build_dreambooth_sd_dataloader(image_dir):  # noqa: F811
 
 def test_build_dreambooth_sd_dataloader_no_class_dataset(image_dir):  # noqa: F811
     """Smoke test of build_dreambooth_sd_dataloader(...) without a class dataset."""
-    config = DreamBoothDataLoaderConfig(instance_prompt="test instance prompt", instance_data_dir=str(image_dir))
+    config = DreamboothSDDataLoaderConfig(
+        instance_caption="test instance prompt",
+        instance_dataset=ImageDirDatasetConfig(dataset_dir=str(image_dir)),
+        image_transforms=SDImageTransformConfig(),
+    )
 
     data_loader = build_dreambooth_sd_dataloader(data_loader_config=config, batch_size=2)
 

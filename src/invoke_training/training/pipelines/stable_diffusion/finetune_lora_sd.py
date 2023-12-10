@@ -16,7 +16,7 @@ from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 
-from invoke_training.config.pipelines.finetune_lora_config import FinetuneLoRAConfig
+from invoke_training.config.pipelines.finetune_lora_config import FinetuneLoRASDConfig
 from invoke_training.core.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet,
@@ -38,13 +38,13 @@ from invoke_training.training.shared.stable_diffusion.tokenize_captions import t
 
 
 def load_models(
-    config: FinetuneLoRAConfig,
+    config: FinetuneLoRASDConfig,
 ) -> tuple[CLIPTokenizer, DDPMScheduler, CLIPTextModel, AutoencoderKL, UNet2DConditionModel]:
     """Load all models required for training from disk, transfer them to the
     target training device and cast their weight dtypes.
 
     Args:
-        config (FinetuneLoRAConfig): The LoRA training run config.
+        config (FinetuneLoRASDConfig): The LoRA training run config.
         logger (logging.Logger): A logger.
 
     Returns:
@@ -86,17 +86,19 @@ def load_models(
 
 
 def cache_text_encoder_outputs(
-    cache_dir: str, config: FinetuneLoRAConfig, tokenizer: CLIPTokenizer, text_encoder: CLIPTextModel
+    cache_dir: str, config: FinetuneLoRASDConfig, tokenizer: CLIPTokenizer, text_encoder: CLIPTextModel
 ):
     """Run the text encoder on all captions in the dataset and cache the results to disk.
 
     Args:
         cache_dir (str): The directory where the results will be cached.
-        config (FinetuneLoRAConfig): Training config.
+        config (FinetuneLoRASDConfig): Training config.
         tokenizer (CLIPTokenizer): The tokenizer.
         text_encoder (CLIPTextModel): The text_encoder.
     """
-    data_loader = build_image_caption_sd_dataloader(config.dataset, batch_size=config.train_batch_size, shuffle=False)
+    data_loader = build_image_caption_sd_dataloader(
+        config.data_loader, batch_size=config.train_batch_size, shuffle=False
+    )
 
     cache = TensorDiskCache(cache_dir)
 
@@ -135,7 +137,7 @@ def generate_validation_images(
     tokenizer: CLIPTokenizer,
     noise_scheduler: DDPMScheduler,
     unet: UNet2DConditionModel,
-    config: FinetuneLoRAConfig,
+    config: FinetuneLoRASDConfig,
     logger: logging.Logger,
 ):
     """Generate validation images for the purpose of tracking image generation behaviour on fixed prompts throughout
@@ -150,7 +152,7 @@ def generate_validation_images(
         tokenizer (CLIPTokenizer):
         noise_scheduler (DDPMScheduler):
         unet (UNet2DConditionModel):
-        config (FinetuneLoRAConfig): Training configs.
+        config (FinetuneLoRASDConfig): Training configs.
         logger (logging.Logger): Logger.
     """
     logger.info("Generating validation images.")
@@ -194,8 +196,8 @@ def generate_validation_images(
                             prompt,
                             num_inference_steps=30,
                             generator=generator,
-                            height=config.dataset.image_transforms.resolution,
-                            width=config.dataset.image_transforms.resolution,
+                            height=config.data_loader.image_transforms.resolution,
+                            width=config.data_loader.image_transforms.resolution,
                         ).images[0]
                     )
 
@@ -237,7 +239,7 @@ def generate_validation_images(
 
 
 def train_forward(
-    config: FinetuneLoRAConfig,
+    config: FinetuneLoRASDConfig,
     data_batch: dict,
     vae: AutoencoderKL,
     noise_scheduler: DDPMScheduler,
@@ -305,7 +307,7 @@ def train_forward(
     return loss.mean()
 
 
-def run_training(config: FinetuneLoRAConfig):  # noqa: C901
+def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     # TODO(ryan): Update this check to work with single-file SD checkpoints.
     # check_base_model_version(
@@ -376,9 +378,9 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
     # Prepare VAE output cache.
     vae_output_cache_dir_name = None
     if config.cache_vae_outputs:
-        if config.dataset.image_transforms.random_flip:
+        if config.data_loader.image_transforms.random_flip:
             raise ValueError("'cache_vae_outputs' cannot be True if 'random_flip' is True.")
-        if not config.dataset.image_transforms.center_crop:
+        if not config.data_loader.image_transforms.center_crop:
             raise ValueError("'cache_vae_outputs' cannot be True if 'center_crop' is False.")
 
         # We use a temporary directory for the cache. The directory will automatically be cleaned up when
@@ -390,7 +392,7 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
             data_loader = build_image_caption_sd_dataloader(
-                config.dataset, batch_size=config.train_batch_size, shuffle=False
+                config.data_loader, batch_size=config.train_batch_size, shuffle=False
             )
             cache_vae_outputs(vae_output_cache_dir_name, data_loader, vae)
         # Move the VAE back to the CPU, because it is not needed for training.
@@ -440,7 +442,7 @@ def run_training(config: FinetuneLoRAConfig):  # noqa: C901
     optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
 
     data_loader = build_image_caption_sd_dataloader(
-        config.dataset,
+        config.data_loader,
         config.train_batch_size,
         text_encoder_output_cache_dir_name,
         vae_output_cache_dir_name,

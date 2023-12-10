@@ -45,12 +45,8 @@ dependencies = [
 ]
 
 [project.scripts]
-"invoke-finetune-lora-sd" = "invoke_training.scripts.invoke_finetune_lora_sd:main"
-"invoke-finetune-lora-sdxl" = "invoke_training.scripts.invoke_finetune_lora_sdxl:main"
-"invoke-dreambooth-lora-sd" = "invoke_training.scripts.invoke_dreambooth_lora_sd:main"
-"invoke-dreambooth-lora-sdxl" = "invoke_training.scripts.invoke_dreambooth_lora_sdxl:main"
+"invoke-train" = "invoke_training.scripts.invoke_train:main"
 "invoke-generate-images" = "invoke_training.scripts.invoke_generate_images:main"
-"invoke-textual-inversion-sd" = "invoke_training.scripts.invoke_textual_inversion_sd:main"
 
 [project.urls]
 "Homepage" = "https://github.com/invoke-ai/invoke-training"

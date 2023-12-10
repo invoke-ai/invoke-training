@@ -7,11 +7,11 @@ A library for training custom Stable Diffusion models (fine-tuning, LoRA trainin
 ## Training Modes
 
 - Finetune with LoRA
-    - Stable Diffusion v1/v2: `invoke-finetune-lora-sd`
-    - Stable Diffusion XL: `invoke-finetune-lora-sdxl`
+    - Stable Diffusion v1/v2
+    - Stable Diffusion XL
 - DreamBooth with LoRA
-    - Stable Diffusion v1/v2: `invoke-dreambooth-lora-sd`
-    - Stable Diffusion XL:  `invoke-dreambooth-lora-sdxl`
+    - Stable Diffusion v1/v2
+    - Stable Diffusion XL
 
 More training modes will be added soon.
 
@@ -53,9 +53,9 @@ This training process has been tested on an Nvidia GPU with 8GB of VRAM.
 2. Start training with the appropriate command for the config file that you selected:
 ```bash
 # Choose one of the following:
-invoke-finetune-lora-sd --cfg-file configs/finetune_lora_sd_pokemon_1x8gb_example.yaml
-invoke-finetune-lora-sdxl --cfg-file configs/finetune_lora_sdxl_pokemon_1x24gb_example.yaml
-invoke-finetune-lora-sdxl --cfg-file configs/finetune_lora_sdxl_pokemon_1x8gb_example.yaml
+invoke-train --cfg-file configs/finetune_lora_sd_pokemon_1x8gb_example.yaml
+invoke-train --cfg-file configs/finetune_lora_sdxl_pokemon_1x24gb_example.yaml
+invoke-train --cfg-file configs/finetune_lora_sdxl_pokemon_1x8gb_example.yaml
 ```
 3. Monitor the training process with Tensorboard by running `tensorboard --logdir output/` and visiting [localhost:6006](http://localhost:6006) in your browser. Here you can see generated images for fixed validation prompts throughout the training process.
 

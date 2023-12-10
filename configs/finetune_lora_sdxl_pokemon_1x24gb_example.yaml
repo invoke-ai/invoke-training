@@ -6,7 +6,8 @@
 # Notes:
 # This config file has been optimized for the primary goal of achieving reasonable results *quickly* (<15mins) for demo
 # purposes.
-
+type: FINETUNE_LORA_SDXL
+seed: 1
 output:
   base_output_dir: output/
 
@@ -19,15 +20,17 @@ optimizer:
     use_bias_correction: True
     safeguard_warmup: True
 
-dataset:
-  dataset_name: lambdalabs/pokemon-blip-captions
+data_loader:
+  type: IMAGE_CAPTION_SDXL_DATA_LOADER
+  dataset:
+    type: HF_HUB_IMAGE_CAPTION_DATASET
+    dataset_name: lambdalabs/pokemon-blip-captions
   image_transforms:
     resolution: 512
 
 # General
 model: stabilityai/stable-diffusion-xl-base-1.0
 vae_model: madebyollin/sdxl-vae-fp16-fix
-seed: 1
 gradient_accumulation_steps: 1
 mixed_precision: fp16
 xformers: True

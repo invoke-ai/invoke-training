@@ -6,7 +6,7 @@ from torchvision import transforms
 class SDImageTransform:
     """A transform that prepares and augments images for Stable Diffusion v1/v2 training."""
 
-    def __init__(self, resolution: int, center_crop: bool = False, random_flip: bool = False):
+    def __init__(self, resolution: int, center_crop: bool = True, random_flip: bool = False):
         """Initialize SDImageTransform.
 
         Args:

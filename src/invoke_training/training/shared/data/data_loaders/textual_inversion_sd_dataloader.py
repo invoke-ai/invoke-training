@@ -2,7 +2,11 @@ import typing
 
 from torch.utils.data import DataLoader
 
-from invoke_training.config.shared.data.data_config import TextualInversionDataLoaderConfig
+from invoke_training.config.shared.data.data_loader_config import TextualInversionSDDataLoaderConfig
+from invoke_training.config.shared.data.transform_config import (
+    TextualInversionCaptionTransformConfig,
+    TextualInversionPresetCaptionTransformConfig,
+)
 from invoke_training.training.shared.data.datasets.image_dir_dataset import ImageDirDataset
 from invoke_training.training.shared.data.datasets.transform_dataset import TransformDataset
 from invoke_training.training.shared.data.transforms.drop_field_transform import DropFieldTransform
@@ -15,8 +19,8 @@ from invoke_training.training.shared.data.transforms.textual_inversion_caption_t
 )
 
 
-def _get_preset_ti_caption_templates(learnable_property: typing.Literal["object", "style"]) -> list[str]:
-    if learnable_property == "object":
+def _get_preset_ti_caption_templates(preset: typing.Literal["object", "style"]) -> list[str]:
+    if preset == "object":
         return [
             "a photo of a {}",
             "a rendering of a {}",
@@ -46,7 +50,7 @@ def _get_preset_ti_caption_templates(learnable_property: typing.Literal["object"
             "a photo of a cool {}",
             "a photo of a small {}",
         ]
-    elif learnable_property == "style":
+    elif preset == "style":
         return [
             "a painting in the style of {}",
             "a rendering in the style of {}",
@@ -69,13 +73,12 @@ def _get_preset_ti_caption_templates(learnable_property: typing.Literal["object"
             "a large painting in the style of {}",
         ]
     else:
-        raise ValueError(f"Unrecognized learnable property type: '{learnable_property}'.")
+        raise ValueError(f"Unrecognized learnable property type: '{preset}'.")
 
 
 def build_textual_inversion_sd_dataloader(
-    config: TextualInversionDataLoaderConfig,
+    config: TextualInversionSDDataLoaderConfig,
     placeholder_str: str,
-    learnable_property: typing.Literal["object", "style"],
     batch_size: int,
     vae_output_cache_dir: typing.Optional[str] = None,
     shuffle: bool = True,
@@ -83,9 +86,8 @@ def build_textual_inversion_sd_dataloader(
     """Construct a DataLoader for a Textual Inversion dataset for Stable Diffusion v1/v2..
 
     Args:
-        config (ImageCaptionDataLoaderConfig): The dataset config.
+        config (TextualInversionSDDataLoaderConfig): The dataset config.
         placeholder_str (str): The placeholder string being trained.
-        learnable_property (str): One of ["object", "style"] indicating the type of training being performed.
         tokenizer (CLIPTokenizer, option): The tokenizer to apply to the captions. Can be None if
             `text_encoder_output_cache_dir` is set.
         batch_size (int): The DataLoader batch size.
@@ -96,12 +98,14 @@ def build_textual_inversion_sd_dataloader(
         DataLoader
     """
 
-    base_dataset = ImageDirDataset(image_dir=config.dataset_dir, image_extensions=config.image_file_extensions)
+    base_dataset = ImageDirDataset(image_dir=config.dataset.dataset_dir)
 
-    if config.caption_templates is not None:
-        caption_templates = config.caption_templates
+    if isinstance(config.captions, TextualInversionCaptionTransformConfig):
+        caption_templates = config.captions.templates
+    elif isinstance(config.captions, TextualInversionPresetCaptionTransformConfig):
+        caption_templates = _get_preset_ti_caption_templates(config.captions.preset)
     else:
-        caption_templates = _get_preset_ti_caption_templates(learnable_property)
+        raise ValueError(f"Unexpected caption config type: '{type(config.captions)}'.")
 
     all_transforms = [
         TextualInversionCaptionTransform(
@@ -111,7 +115,7 @@ def build_textual_inversion_sd_dataloader(
         ),
     ]
 
-    if config.shuffle_caption_transform.shuffle_captions:
+    if config.shuffle_caption_transform is not None:
         all_transforms.append(
             ShuffleCaptionTransform(field_name="caption", delimiter=config.shuffle_caption_transform.delimiter)
         )

@@ -2,7 +2,7 @@ import typing
 
 from torch.utils.data import ConcatDataset, DataLoader
 
-from invoke_training.config.shared.data.data_config import DreamBoothDataLoaderConfig
+from invoke_training.config.shared.data.data_loader_config import DreamboothSDDataLoaderConfig
 from invoke_training.training.shared.data.data_loaders.dreambooth_samplers import (
     InterleavedSampler,
     SequentialRangeSampler,
@@ -18,7 +18,7 @@ from invoke_training.training.shared.data.transforms.tensor_disk_cache import Te
 
 
 def build_dreambooth_sd_dataloader(
-    data_loader_config: DreamBoothDataLoaderConfig,
+    data_loader_config: DreamboothSDDataLoaderConfig,
     batch_size: int,
     vae_output_cache_dir: typing.Optional[str] = None,
     shuffle: bool = True,
@@ -27,7 +27,7 @@ def build_dreambooth_sd_dataloader(
     """Construct a DataLoader for a DreamBooth dataset for Stable Diffusion v1/v2.
 
     Args:
-        data_loader_config (DreamBoothDataLoaderConfig):
+        data_loader_config (DreamboothSDDataLoaderConfig):
         tokenizer (typing.Optional[CLIPTokenizer]):
         batch_size (int):
         vae_output_cache_dir (str, optional): The directory where VAE outputs are cached and should be loaded from. If
@@ -42,11 +42,11 @@ def build_dreambooth_sd_dataloader(
     """
 
     # 1. Prepare instance dataset
-    instance_dataset = ImageDirDataset(data_loader_config.instance_data_dir, id_prefix="instance_")
+    instance_dataset = ImageDirDataset(data_loader_config.instance_dataset.dataset_dir, id_prefix="instance_")
     instance_dataset = TransformDataset(
         instance_dataset,
         [
-            ConstantFieldTransform("caption", data_loader_config.instance_prompt),
+            ConstantFieldTransform("caption", data_loader_config.instance_caption),
             ConstantFieldTransform("loss_weight", 1.0),
         ],
     )
@@ -54,12 +54,12 @@ def build_dreambooth_sd_dataloader(
 
     # 2. Prepare class dataset.
     class_dataset = None
-    if data_loader_config.class_data_dir is not None:
-        class_dataset = ImageDirDataset(data_loader_config.class_data_dir, id_prefix="class_")
+    if data_loader_config.class_dataset is not None:
+        class_dataset = ImageDirDataset(data_loader_config.class_dataset.dataset_dir, id_prefix="class_")
         class_dataset = TransformDataset(
             class_dataset,
             [
-                ConstantFieldTransform("caption", data_loader_config.class_prompt),
+                ConstantFieldTransform("caption", data_loader_config.class_caption),
                 ConstantFieldTransform("loss_weight", data_loader_config.class_data_loss_weight),
             ],
         )
