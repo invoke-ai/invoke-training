@@ -5,15 +5,9 @@ import yaml
 from pydantic import TypeAdapter
 
 from invoke_training.config.pipelines.pipeline_config import PipelineConfig
-from invoke_training.training.pipelines.stable_diffusion.dreambooth_lora_sd import (
-    run_training as run_dreambooth_lora_sd,
-)
 from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import run_training as run_finetune_lora_sd
 from invoke_training.training.pipelines.stable_diffusion.textual_inversion_sd import (
     run_training as run_textual_inversion_sd,
-)
-from invoke_training.training.pipelines.stable_diffusion_xl.dreambooth_lora_sdxl import (
-    run_training as run_dreambooth_lora_sdxl,
 )
 from invoke_training.training.pipelines.stable_diffusion_xl.finetune_lora_sdxl import (
     run_training as run_finetune_lora_sdxl,
@@ -46,10 +40,6 @@ def main():
         run_finetune_lora_sd(train_config)
     elif train_config.type == "FINETUNE_LORA_SDXL":
         run_finetune_lora_sdxl(train_config)
-    elif train_config.type == "DREAMBOOTH_LORA_SD":
-        run_dreambooth_lora_sd(train_config)
-    elif train_config.type == "DREAMBOOTH_LORA_SDXL":
-        run_dreambooth_lora_sdxl(train_config)
     elif train_config.type == "TEXTUAL_INVERSION_SD":
         run_textual_inversion_sd(train_config)
     else:

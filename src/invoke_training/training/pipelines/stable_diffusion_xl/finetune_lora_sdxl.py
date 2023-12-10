@@ -4,6 +4,7 @@ import math
 import os
 import tempfile
 import time
+from typing import Optional, Union
 
 import numpy as np
 import torch
@@ -13,10 +14,15 @@ from accelerate.hooks import remove_hook_from_module
 from accelerate.utils import set_seed
 from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionXLPipeline, UNet2DConditionModel
 from diffusers.optimization import get_scheduler
+from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers import CLIPPreTrainedModel, PretrainedConfig, PreTrainedTokenizer
 
 from invoke_training.config.pipelines.finetune_lora_config import FinetuneLoRASDXLConfig
+from invoke_training.config.shared.data.data_loader_config import (
+    DreamboothSDXLDataLoaderConfig,
+    ImageCaptionSDXLDataLoaderConfig,
+)
 from invoke_training.core.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet,
@@ -27,6 +33,9 @@ from invoke_training.training.shared.accelerator.accelerator_utils import (
     initialize_logging,
 )
 from invoke_training.training.shared.checkpoints.checkpoint_tracker import CheckpointTracker
+from invoke_training.training.shared.data.data_loaders.dreambooth_sdxl_dataloader import (
+    build_dreambooth_sdxl_dataloader,
+)
 from invoke_training.training.shared.data.data_loaders.image_caption_sdxl_dataloader import (
     build_image_caption_sdxl_dataloader,
 )
@@ -134,6 +143,35 @@ def load_models(
     return tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet
 
 
+def build_data_loader(
+    data_loader_config: Union[ImageCaptionSDXLDataLoaderConfig, DreamboothSDXLDataLoaderConfig],
+    batch_size: int,
+    text_encoder_output_cache_dir: Optional[str] = None,
+    vae_output_cache_dir: Optional[str] = None,
+    shuffle: bool = True,
+    sequential_batching: bool = False,
+) -> DataLoader:
+    if data_loader_config.type == "IMAGE_CAPTION_SDXL_DATA_LOADER":
+        return build_image_caption_sdxl_dataloader(
+            config=data_loader_config,
+            batch_size=batch_size,
+            text_encoder_output_cache_dir=text_encoder_output_cache_dir,
+            vae_output_cache_dir=vae_output_cache_dir,
+            shuffle=shuffle,
+        )
+    elif data_loader_config.type == "DREAMBOOTH_SDXL_DATA_LOADER":
+        return build_dreambooth_sdxl_dataloader(
+            data_loader_config=data_loader_config,
+            batch_size=batch_size,
+            text_encoder_output_cache_dir=text_encoder_output_cache_dir,
+            vae_output_cache_dir=vae_output_cache_dir,
+            shuffle=shuffle,
+            sequential_batching=sequential_batching,
+        )
+    else:
+        raise ValueError(f"Unsupported data loader config type: '{data_loader_config.type}'.")
+
+
 # encode_prompt was adapted from:
 # https://github.com/huggingface/diffusers/blob/7b07f9812a58bfa96c06ed8ffe9e6b584286e2fd/examples/text_to_image/train_text_to_image_lora_sdxl.py#L470-L496
 def _encode_prompt(text_encoders: list[CLIPPreTrainedModel], prompt_token_ids_list: list[torch.Tensor]):
@@ -160,6 +198,9 @@ def _encode_prompt(text_encoders: list[CLIPPreTrainedModel], prompt_token_ids_li
     return prompt_embeds, pooled_prompt_embeds
 
 
+# TODO(ryand): Cache VAE outputs and text encoder outputs at the same time in a single pass over the dataset.
+
+
 def cache_text_encoder_outputs(
     cache_dir: str,
     config: FinetuneLoRASDXLConfig,
@@ -177,7 +218,12 @@ def cache_text_encoder_outputs(
         text_encoder_1 (CLIPPreTrainedModel):
         text_encoder_2 (CLIPPreTrainedModel):
     """
-    data_loader = build_image_caption_sdxl_dataloader(config.data_loader, config.train_batch_size, shuffle=False)
+    data_loader = build_data_loader(
+        data_loader_config=config.data_loader,
+        batch_size=config.train_batch_size,
+        shuffle=False,
+        sequential_batching=True,
+    )
 
     cache = TensorDiskCache(cache_dir)
 
@@ -199,7 +245,7 @@ def cache_text_encoder_outputs(
 
 def cache_vae_outputs(
     cache_dir: str,
-    data_loader: torch.utils.data.DataLoader,
+    config: FinetuneLoRASDXLConfig,
     vae: AutoencoderKL,
 ):
     """Run the VAE on all images in the dataset and cache the results to disk.
@@ -210,6 +256,13 @@ def cache_vae_outputs(
         tokenizer (CLIPTokenizer): The tokenizer.
         vae (AutoencoderKL): The VAE.
     """
+    data_loader = build_data_loader(
+        data_loader_config=config.data_loader,
+        batch_size=config.train_batch_size,
+        shuffle=False,
+        sequential_batching=True,
+    )
+
     cache = TensorDiskCache(cache_dir)
 
     for data_batch in tqdm(data_loader):
@@ -514,10 +567,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
             # Only the main process should to populate the cache.
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
-            data_loader = build_image_caption_sdxl_dataloader(
-                config.data_loader, config.train_batch_size, shuffle=False
-            )
-            cache_vae_outputs(vae_output_cache_dir_name, data_loader, vae)
+            cache_vae_outputs(vae_output_cache_dir_name, config, vae)
         # Move the VAE back to the CPU, because it is not needed for training.
         vae.to("cpu")
         accelerator.wait_for_everyone()
@@ -570,8 +620,11 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
 
     optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
 
-    data_loader = build_image_caption_sdxl_dataloader(
-        config.data_loader, config.train_batch_size, text_encoder_output_cache_dir_name, vae_output_cache_dir_name
+    data_loader = build_data_loader(
+        data_loader_config=config.data_loader,
+        batch_size=config.train_batch_size,
+        text_encoder_output_cache_dir=text_encoder_output_cache_dir_name,
+        vae_output_cache_dir=vae_output_cache_dir_name,
     )
 
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps

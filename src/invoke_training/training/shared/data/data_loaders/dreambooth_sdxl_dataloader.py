@@ -25,6 +25,7 @@ from invoke_training.training.shared.data.transforms.tensor_disk_cache import Te
 def build_dreambooth_sdxl_dataloader(
     data_loader_config: DreamboothSDXLDataLoaderConfig,
     batch_size: int,
+    text_encoder_output_cache_dir: typing.Optional[str] = None,
     vae_output_cache_dir: typing.Optional[str] = None,
     shuffle: bool = True,
     sequential_batching: bool = False,
@@ -36,6 +37,8 @@ def build_dreambooth_sdxl_dataloader(
         tokenizer_1 (PreTrainedTokenizer): Tokenizer 1.
         tokenizer_2 (PreTrainedTokenizer): Tokenizer 2.
         batch_size (int):
+        text_encoder_output_cache_dir (str, optional): The directory where text encoder outputs are cached and should be
+            loaded from.
         vae_output_cache_dir (str, optional): The directory where VAE outputs are cached and should be loaded from. If
             set, then the image augmentation transforms will be skipped, and the image will not be copied to VRAM.
         shuffle (bool, optional): Whether to shuffle the dataset order.
@@ -96,6 +99,20 @@ def build_dreambooth_sdxl_dataloader(
         )
         # We drop the image to avoid having to either convert from PIL, or handle PIL batch collation.
         all_transforms.append(DropFieldTransform("image"))
+
+    if text_encoder_output_cache_dir is not None:
+        text_encoder_cache = TensorDiskCache(text_encoder_output_cache_dir)
+        all_transforms.append(
+            LoadCacheTransform(
+                cache=text_encoder_cache,
+                cache_key_field="id",
+                cache_field_to_output_field={
+                    "prompt_embeds": "prompt_embeds",
+                    "pooled_prompt_embeds": "pooled_prompt_embeds",
+                },
+            )
+        )
+
     merged_dataset = TransformDataset(merged_dataset, all_transforms)
 
     # 4. If sequential_batching is enabled, return a basic data loader that iterates over examples sequentially (without

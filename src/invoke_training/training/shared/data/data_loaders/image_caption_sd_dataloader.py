@@ -33,7 +33,7 @@ def build_image_caption_sd_dataloader(
             `text_encoder_output_cache_dir` is set.
         batch_size (int): The DataLoader batch size.
         text_encoder_output_cache_dir (str, optional): The directory where text encoder outputs are cached and should be
-            loaded from. If set, then the TokenizeTransform will not be applied.
+            loaded from.
         vae_output_cache_dir (str, optional): The directory where VAE outputs are cached and should be loaded from. If
             set, then the image augmentation transforms will be skipped, and the image will not be copied to VRAM.
         shuffle (bool, optional): Whether to shuffle the dataset order.
@@ -58,6 +58,9 @@ def build_image_caption_sd_dataloader(
             )
         )
     else:
+        # Note: It is tempting to move the caching logic out of the data loaders and into the training scripts. Keep in
+        # mind that caching requires loading relatively large tensors from disk. Doing this in the data loader makes it
+        # easier to do it asynchronously.
         vae_cache = TensorDiskCache(vae_output_cache_dir)
         all_transforms.append(
             LoadCacheTransform(

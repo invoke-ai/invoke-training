@@ -1,5 +1,7 @@
 import typing
 
+from pydantic import Field
+
 from invoke_training.config.pipelines.base_pipeline_config import BasePipelineConfig
 from invoke_training.config.shared.data.data_loader_config import (
     DreamboothSDDataLoaderConfig,
@@ -111,32 +113,17 @@ class LoRATrainingConfig(BasePipelineConfig):
 class FinetuneLoRASDConfig(LoRATrainingConfig):
     type: typing.Literal["FINETUNE_LORA_SD"] = "FINETUNE_LORA_SD"
     optimizer: OptimizerConfig
-    data_loader: ImageCaptionSDDataLoaderConfig
+    data_loader: typing.Annotated[
+        typing.Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig], Field(discriminator="type")
+    ]
 
 
 class FinetuneLoRASDXLConfig(LoRATrainingConfig):
     type: typing.Literal["FINETUNE_LORA_SDXL"] = "FINETUNE_LORA_SDXL"
     optimizer: OptimizerConfig
-    data_loader: ImageCaptionSDXLDataLoaderConfig
-
-    # The name of the Hugging Face Hub VAE model to train against. This will override the VAE bundled with the base
-    # model (specified by the `model` parameter). This config option is provided for SDXL models, because SDXL shipped
-    # with a VAE that produces NaNs in fp16 mode, so it is common to replace this VAE with a fixed version.
-    vae_model: typing.Optional[str] = None
-
-
-class DreamBoothLoRASDConfig(LoRATrainingConfig):
-    type: typing.Literal["DREAMBOOTH_LORA_SD"] = "DREAMBOOTH_LORA_SD"
-
-    optimizer: OptimizerConfig
-    data_loader: DreamboothSDDataLoaderConfig
-
-
-class DreamBoothLoRASDXLConfig(LoRATrainingConfig):
-    type: typing.Literal["DREAMBOOTH_LORA_SDXL"] = "DREAMBOOTH_LORA_SDXL"
-
-    optimizer: OptimizerConfig
-    data_loader: DreamboothSDXLDataLoaderConfig
+    data_loader: typing.Annotated[
+        typing.Union[ImageCaptionSDXLDataLoaderConfig, DreamboothSDXLDataLoaderConfig], Field(discriminator="type")
+    ]
 
     # The name of the Hugging Face Hub VAE model to train against. This will override the VAE bundled with the base
     # model (specified by the `model` parameter). This config option is provided for SDXL models, because SDXL shipped
