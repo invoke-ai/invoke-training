@@ -9,7 +9,7 @@ from torchvision.transforms.functional import crop
 class SDXLImageTransform:
     """A transform that prepares and augments images for Stable Diffusion XL training."""
 
-    def __init__(self, resolution: int, center_crop: bool = False, random_flip: bool = False):
+    def __init__(self, resolution: int, center_crop: bool = True, random_flip: bool = False):
         """Initialize SDXLImageTransform.
 
         Args:

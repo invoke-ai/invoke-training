@@ -11,7 +11,7 @@ from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel
 
-from invoke_training.config.pipelines.finetune_lora_config import DreamBoothLoRAConfig
+from invoke_training.config.pipelines.finetune_lora_config import DreamBoothLoRASDConfig
 from invoke_training.core.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet,
@@ -33,7 +33,7 @@ from invoke_training.training.shared.optimizer.optimizer_utils import initialize
 from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils import save_lora_checkpoint
 
 
-def run_training(config: DreamBoothLoRAConfig):  # noqa: C901
+def run_training(config: DreamBoothLoRASDConfig):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     # TODO(ryan): Update this check to work with single-file SD checkpoints.
     # check_base_model_version(
@@ -90,9 +90,9 @@ def run_training(config: DreamBoothLoRAConfig):  # noqa: C901
     # Prepare VAE output cache.
     vae_output_cache_dir_name = None
     if config.cache_vae_outputs:
-        if config.dataset.image_transforms.random_flip:
+        if config.data_loader.image_transforms.random_flip:
             raise ValueError("'cache_vae_outputs' cannot be True if 'random_flip' is True.")
-        if not config.dataset.image_transforms.center_crop:
+        if not config.data_loader.image_transforms.center_crop:
             raise ValueError("'cache_vae_outputs' cannot be True if 'center_crop' is False.")
 
         # We use a temporary directory for the cache. The directory will automatically be cleaned up when
@@ -104,7 +104,7 @@ def run_training(config: DreamBoothLoRAConfig):  # noqa: C901
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
             data_loader = build_dreambooth_sd_dataloader(
-                data_loader_config=config.dataset,
+                data_loader_config=config.data_loader,
                 batch_size=config.train_batch_size,
                 shuffle=False,
                 sequential_batching=True,
@@ -157,7 +157,7 @@ def run_training(config: DreamBoothLoRAConfig):  # noqa: C901
     optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
 
     data_loader = build_dreambooth_sd_dataloader(
-        data_loader_config=config.dataset,
+        data_loader_config=config.data_loader,
         batch_size=config.train_batch_size,
         vae_output_cache_dir=vae_output_cache_dir_name,
     )

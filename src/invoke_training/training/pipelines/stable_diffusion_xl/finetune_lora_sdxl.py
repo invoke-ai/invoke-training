@@ -177,7 +177,7 @@ def cache_text_encoder_outputs(
         text_encoder_1 (CLIPPreTrainedModel):
         text_encoder_2 (CLIPPreTrainedModel):
     """
-    data_loader = build_image_caption_sdxl_dataloader(config.dataset, config.train_batch_size, shuffle=False)
+    data_loader = build_image_caption_sdxl_dataloader(config.data_loader, config.train_batch_size, shuffle=False)
 
     cache = TensorDiskCache(cache_dir)
 
@@ -284,8 +284,8 @@ def generate_validation_images(
                             prompt,
                             num_inference_steps=30,
                             generator=generator,
-                            height=config.dataset.image_transforms.resolution,
-                            width=config.dataset.image_transforms.resolution,
+                            height=config.data_loader.image_transforms.resolution,
+                            width=config.data_loader.image_transforms.resolution,
                         ).images[0]
                     )
 
@@ -501,9 +501,9 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     # Prepare VAE output cache.
     vae_output_cache_dir_name = None
     if config.cache_vae_outputs:
-        if config.dataset.image_transforms.random_flip:
+        if config.data_loader.image_transforms.random_flip:
             raise ValueError("'cache_vae_outputs' cannot be True if 'random_flip' is True.")
-        if not config.dataset.image_transforms.center_crop:
+        if not config.data_loader.image_transforms.center_crop:
             raise ValueError("'cache_vae_outputs' cannot be True if 'center_crop' is False.")
 
         # We use a temporary directory for the cache. The directory will automatically be cleaned up when
@@ -514,7 +514,9 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
             # Only the main process should to populate the cache.
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
-            data_loader = build_image_caption_sdxl_dataloader(config.dataset, config.train_batch_size, shuffle=False)
+            data_loader = build_image_caption_sdxl_dataloader(
+                config.data_loader, config.train_batch_size, shuffle=False
+            )
             cache_vae_outputs(vae_output_cache_dir_name, data_loader, vae)
         # Move the VAE back to the CPU, because it is not needed for training.
         vae.to("cpu")
@@ -569,7 +571,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
 
     data_loader = build_image_caption_sdxl_dataloader(
-        config.dataset, config.train_batch_size, text_encoder_output_cache_dir_name, vae_output_cache_dir_name
+        config.data_loader, config.train_batch_size, text_encoder_output_cache_dir_name, vae_output_cache_dir_name
     )
 
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
@@ -676,7 +678,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
                     text_encoder_2,
                     unet,
                     weight_dtype,
-                    config.dataset.image_transforms.resolution,
+                    config.data_loader.image_transforms.resolution,
                     config.prediction_type,
                 )
 

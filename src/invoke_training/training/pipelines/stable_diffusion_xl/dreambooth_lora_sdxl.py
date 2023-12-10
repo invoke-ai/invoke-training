@@ -92,9 +92,9 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
     # Prepare VAE output cache.
     vae_output_cache_dir_name = None
     if config.cache_vae_outputs:
-        if config.dataset.image_transforms.random_flip:
+        if config.data_loader.image_transforms.random_flip:
             raise ValueError("'cache_vae_outputs' cannot be True if 'random_flip' is True.")
-        if not config.dataset.image_transforms.center_crop:
+        if not config.data_loader.image_transforms.center_crop:
             raise ValueError("'cache_vae_outputs' cannot be True if 'center_crop' is False.")
 
         # We use a temporary directory for the cache. The directory will automatically be cleaned up when
@@ -106,7 +106,7 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
             data_loader = build_dreambooth_sdxl_dataloader(
-                data_loader_config=config.dataset,
+                data_loader_config=config.data_loader,
                 batch_size=config.train_batch_size,
                 shuffle=False,
                 sequential_batching=True,
@@ -165,7 +165,7 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
     optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
 
     data_loader = build_dreambooth_sdxl_dataloader(
-        data_loader_config=config.dataset,
+        data_loader_config=config.data_loader,
         batch_size=config.train_batch_size,
         vae_output_cache_dir=vae_output_cache_dir_name,
     )
@@ -274,7 +274,7 @@ def run_training(config: DreamBoothLoRASDXLConfig):  # noqa: C901
                     text_encoder_2,
                     unet,
                     weight_dtype,
-                    config.dataset.image_transforms.resolution,
+                    config.data_loader.image_transforms.resolution,
                     config.prediction_type,
                 )
 

@@ -4,7 +4,7 @@ from pathlib import Path
 import yaml
 
 from invoke_training.config.pipelines.textual_inversion_config import (
-    TextualInversionConfig,
+    TextualInversionSDConfig,
 )
 from invoke_training.training.pipelines.stable_diffusion.textual_inversion_sd import run_training
 
@@ -29,7 +29,7 @@ def main():
     with open(args.cfg_file, "r") as f:
         cfg = yaml.safe_load(f)
 
-    train_config = TextualInversionConfig(**cfg)
+    train_config = TextualInversionSDConfig(**cfg)
 
     run_training(train_config)
 

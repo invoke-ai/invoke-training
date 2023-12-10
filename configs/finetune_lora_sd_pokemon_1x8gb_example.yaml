@@ -7,6 +7,8 @@
 # This config file has been optimized for the primary goal of achieving reasonable results *quickly* (<15mins) for demo
 # purposes.
 
+type: FINETUNE_LORA_SD
+seed: 1
 output:
   base_output_dir: output/
 
@@ -19,14 +21,16 @@ optimizer:
     use_bias_correction: True
     safeguard_warmup: True
 
-dataset:
-  dataset_name: lambdalabs/pokemon-blip-captions
+data_loader:
+  type: IMAGE_CAPTION_SD_DATA_LOADER
+  dataset:
+    type: HF_HUB_IMAGE_CAPTION_DATASET
+    dataset_name: lambdalabs/pokemon-blip-captions
   image_transforms:
     resolution: 512
 
 # General
 model: runwayml/stable-diffusion-v1-5
-seed: 1
 gradient_accumulation_steps: 1
 mixed_precision: fp16
 xformers: True

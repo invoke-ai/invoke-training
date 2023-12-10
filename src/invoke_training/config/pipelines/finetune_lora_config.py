@@ -1,25 +1,22 @@
 import typing
 
-from pydantic import BaseModel
-
-from invoke_training.config.shared.data.data_config import (
-    DreamBoothDataLoaderConfig,
-    ImageCaptionDataLoaderConfig,
+from invoke_training.config.pipelines.base_pipeline_config import BasePipelineConfig
+from invoke_training.config.shared.data.data_loader_config import (
+    DreamboothSDDataLoaderConfig,
+    DreamboothSDXLDataLoaderConfig,
+    ImageCaptionSDDataLoaderConfig,
+    ImageCaptionSDXLDataLoaderConfig,
 )
 from invoke_training.config.shared.optimizer.optimizer_config import OptimizerConfig
-from invoke_training.config.shared.training_output_config import TrainingOutputConfig
 
 
-class LoRATrainingConfig(BaseModel):
+class LoRATrainingConfig(BasePipelineConfig):
     """The base configuration for any LoRA training run."""
 
     # Name or path of the base model to train. Can be in diffusers format, or a single stable diffusion checkpoint file.
     # (E.g. 'runwayml/stable-diffusion-v1-5', 'stabilityai/stable-diffusion-xl-base-1.0',
     # '/path/to/realisticVisionV51_v51VAE.safetensors', etc. )
     model: str = "runwayml/stable-diffusion-v1-5"
-
-    # A seed for reproducible training.
-    seed: typing.Optional[int] = None
 
     # Whether to add LoRA layers to the UNet model and train it.
     train_unet: bool = True
@@ -111,26 +108,36 @@ class LoRATrainingConfig(BaseModel):
     train_batch_size: int = 4
 
 
-class FinetuneLoRAConfig(LoRATrainingConfig):
-    output: TrainingOutputConfig
+class FinetuneLoRASDConfig(LoRATrainingConfig):
+    type: typing.Literal["FINETUNE_LORA_SD"] = "FINETUNE_LORA_SD"
     optimizer: OptimizerConfig
-    dataset: ImageCaptionDataLoaderConfig
+    data_loader: ImageCaptionSDDataLoaderConfig
 
 
-class FinetuneLoRASDXLConfig(FinetuneLoRAConfig):
+class FinetuneLoRASDXLConfig(LoRATrainingConfig):
+    type: typing.Literal["FINETUNE_LORA_SDXL"] = "FINETUNE_LORA_SDXL"
+    optimizer: OptimizerConfig
+    data_loader: ImageCaptionSDXLDataLoaderConfig
+
     # The name of the Hugging Face Hub VAE model to train against. This will override the VAE bundled with the base
     # model (specified by the `model` parameter). This config option is provided for SDXL models, because SDXL shipped
     # with a VAE that produces NaNs in fp16 mode, so it is common to replace this VAE with a fixed version.
     vae_model: typing.Optional[str] = None
 
 
-class DreamBoothLoRAConfig(LoRATrainingConfig):
-    output: TrainingOutputConfig
+class DreamBoothLoRASDConfig(LoRATrainingConfig):
+    type: typing.Literal["DREAMBOOTH_LORA_SD"] = "DREAMBOOTH_LORA_SD"
+
     optimizer: OptimizerConfig
-    dataset: DreamBoothDataLoaderConfig
+    data_loader: DreamboothSDDataLoaderConfig
 
 
-class DreamBoothLoRASDXLConfig(DreamBoothLoRAConfig):
+class DreamBoothLoRASDXLConfig(LoRATrainingConfig):
+    type: typing.Literal["DREAMBOOTH_LORA_SDXL"] = "DREAMBOOTH_LORA_SDXL"
+
+    optimizer: OptimizerConfig
+    data_loader: DreamboothSDXLDataLoaderConfig
+
     # The name of the Hugging Face Hub VAE model to train against. This will override the VAE bundled with the base
     # model (specified by the `model` parameter). This config option is provided for SDXL models, because SDXL shipped
     # with a VAE that produces NaNs in fp16 mode, so it is common to replace this VAE with a fixed version.

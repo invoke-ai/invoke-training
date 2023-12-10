@@ -3,7 +3,7 @@ from pathlib import Path
 
 import yaml
 
-from invoke_training.config.pipelines.finetune_lora_config import DreamBoothLoRAConfig
+from invoke_training.config.pipelines.finetune_lora_config import DreamBoothLoRASDConfig
 from invoke_training.training.pipelines.stable_diffusion.dreambooth_lora_sd import run_training
 
 
@@ -27,7 +27,7 @@ def main():
     with open(args.cfg_file, "r") as f:
         cfg = yaml.safe_load(f)
 
-    train_config = DreamBoothLoRAConfig(**cfg)
+    train_config = DreamBoothLoRASDConfig(**cfg)
 
     run_training(train_config)
 
