@@ -33,8 +33,8 @@ def main():
     with open(args.cfg_file, "r") as f:
         cfg = yaml.safe_load(f)
 
-    shape_adapter: TypeAdapter[PipelineConfig] = TypeAdapter(PipelineConfig)
-    train_config = shape_adapter.validate_python(cfg)
+    pipeline_adapter: TypeAdapter[PipelineConfig] = TypeAdapter(PipelineConfig)
+    train_config = pipeline_adapter.validate_python(cfg)
 
     if train_config.type == "FINETUNE_LORA_SD":
         run_finetune_lora_sd(train_config)
