@@ -1,0 +1,6 @@
+site_name: invoke-training Docs
+# site_url: ...
+
+theme: mkdocs
+nav:
+  - Getting Started: index.md
