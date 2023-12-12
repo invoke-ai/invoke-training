@@ -9,9 +9,17 @@ theme:
   features:
     - navigation.tabs
     - navigation.indexes
+    - content.code.copy
 
 markdown_extensions:
   - sane_lists
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
 
 nav:
 - Welcome: index.md
