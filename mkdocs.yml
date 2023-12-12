@@ -27,6 +27,7 @@ nav:
     - tutorials/stable_diffusion/pivotal_tuning_sd.md
     - tutorials/stable_diffusion/the_chosen_one_sd.md
 - Concepts:
+  - concepts/index.md
   - concepts/dataset_formats.md
 - Config Reference:
   - reference/config/index.md

@@ -1,3 +1,1 @@
 # Tutorials
-
-Main index.
