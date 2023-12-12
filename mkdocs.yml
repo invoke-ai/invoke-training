@@ -10,6 +10,9 @@ theme:
     - navigation.tabs
     - navigation.indexes
 
+markdown_extensions:
+  - sane_lists
+
 nav:
 - Welcome: index.md
 - Get Started:
