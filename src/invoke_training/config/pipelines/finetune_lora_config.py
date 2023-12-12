@@ -1,4 +1,4 @@
-import typing
+from typing import Annotated, Literal, Optional, Union
 
 from pydantic import Field
 
@@ -27,10 +27,10 @@ class LoRATrainingConfig(BasePipelineConfig):
     train_text_encoder: bool = True
 
     # The learning rate to use for the text encoder model. If set, this overrides the optimizer's default learning rate.
-    text_encoder_learning_rate: typing.Optional[float] = None
+    text_encoder_learning_rate: Optional[float] = None
 
     # The learning rate to use for the UNet model. If set, this overrides the optimizer's default learning rate.
-    unet_learning_rate: typing.Optional[float] = None
+    unet_learning_rate: Optional[float] = None
 
     # Whether to inject LoRA layers into the non-attention UNet blocks for training. Enabling will produce a more
     # expressive LoRA model at the cost of slower training, higher training VRAM requirements, and a larger LoRA weight
@@ -64,7 +64,7 @@ class LoRATrainingConfig(BasePipelineConfig):
 
     # The mixed precision mode to use ('no','fp16','bf16 or 'fp8'). This value is passed to Hugging Face Accelerate. See
     # accelerate.Accelerator for more details.
-    mixed_precision: typing.Optional[typing.Literal["no", "fp16", "bf16", "fp8"]] = None
+    mixed_precision: Optional[Literal["no", "fp16", "bf16", "fp8"]] = None
 
     # If true, use xformers for more efficient attention blocks.
     xformers: bool = False
@@ -78,22 +78,22 @@ class LoRATrainingConfig(BasePipelineConfig):
 
     # The interval (in epochs) at which to save checkpoints. If None, checkpoint won't be triggered by this setting. It
     # is recommend to only set one of save_every_n_epochs and save_every_n_steps to a non-None value.
-    save_every_n_epochs: typing.Optional[int] = 1
+    save_every_n_epochs: Optional[int] = 1
 
     # The interval (in steps) at which to save checkpoints. If None, checkpoint won't be triggered by this setting. It
     # is recommend to only set one of save_every_n_epochs and save_every_n_steps to a non-None value.
-    save_every_n_steps: typing.Optional[int] = None
+    save_every_n_steps: Optional[int] = None
 
     # The maximum number of checkpoints to keep. New checkpoints will replace earlier checkpoints to stay under this
     # limit. Note that this limit is applied to 'step' and 'epoch' checkpoints separately.
-    max_checkpoints: typing.Optional[int] = None
+    max_checkpoints: Optional[int] = None
 
     # The prediction_type that will be used for training. Choose between 'epsilon' or 'v_prediction' or leave 'None'.
     # If 'None', the prediction type of the scheduler: `noise_scheduler.config.prediction_type` is used.
-    prediction_type: typing.Optional[typing.Literal["epsilon", "v_prediction"]] = None
+    prediction_type: Optional[Literal["epsilon", "v_prediction"]] = None
 
     # Max gradient norm for clipping. Set to None for no clipping.
-    max_grad_norm: typing.Optional[float] = 1.0
+    max_grad_norm: Optional[float] = 1.0
 
     # A list of prompts that will be used to generate images throughout training for the purpose of tracking progress.
     # See also 'validate_every_n_epochs'.
@@ -111,21 +111,21 @@ class LoRATrainingConfig(BasePipelineConfig):
 
 
 class FinetuneLoRASDConfig(LoRATrainingConfig):
-    type: typing.Literal["FINETUNE_LORA_SD"] = "FINETUNE_LORA_SD"
+    type: Literal["FINETUNE_LORA_SD"] = "FINETUNE_LORA_SD"
     optimizer: OptimizerConfig
-    data_loader: typing.Annotated[
-        typing.Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig], Field(discriminator="type")
+    data_loader: Annotated[
+        Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig], Field(discriminator="type")
     ]
 
 
 class FinetuneLoRASDXLConfig(LoRATrainingConfig):
-    type: typing.Literal["FINETUNE_LORA_SDXL"] = "FINETUNE_LORA_SDXL"
+    type: Literal["FINETUNE_LORA_SDXL"] = "FINETUNE_LORA_SDXL"
     optimizer: OptimizerConfig
-    data_loader: typing.Annotated[
-        typing.Union[ImageCaptionSDXLDataLoaderConfig, DreamboothSDXLDataLoaderConfig], Field(discriminator="type")
+    data_loader: Annotated[
+        Union[ImageCaptionSDXLDataLoaderConfig, DreamboothSDXLDataLoaderConfig], Field(discriminator="type")
     ]
 
     # The name of the Hugging Face Hub VAE model to train against. This will override the VAE bundled with the base
     # model (specified by the `model` parameter). This config option is provided for SDXL models, because SDXL shipped
     # with a VAE that produces NaNs in fp16 mode, so it is common to replace this VAE with a fixed version.
-    vae_model: typing.Optional[str] = None
+    vae_model: Optional[str] = None
