@@ -25,11 +25,11 @@ class OptimizerConfig(BaseModel):
 
     optimizer: typing.Union[AdamOptimizer, ProdigyOptimizer] = AdamOptimizer()
 
-    # Initial learning rate to use (after the potential warmup period).
-    # Note that this can be overriden for a specific group of params:
-    # https://pytorch.org/docs/stable/optim.html#per-parameter-options
-    # (E.g. see `text_encoder_learning_rate` and `unet_learning_rate`)
     learning_rate: float = 1e-4
+    """Initial learning rate to use (after the potential warmup period). Note that in some training pipelines this can
+    be overriden for a specific group of params: https://pytorch.org/docs/stable/optim.html#per-parameter-options
+    # (E.g. see `text_encoder_learning_rate` and `unet_learning_rate`)
+    """
 
     lr_scheduler: typing.Literal[
         "linear",
@@ -40,6 +40,7 @@ class OptimizerConfig(BaseModel):
         "constant_with_warmup",
     ] = "constant"
 
-    # The number of warmup steps in the learning rate scheduler. Only applied to schedulers that support warmup.
-    # See lr_scheduler.
     lr_warmup_steps: int = 0
+    """The number of warmup steps in the learning rate scheduler. Only applied to schedulers that support warmup.
+    See lr_scheduler.
+    """

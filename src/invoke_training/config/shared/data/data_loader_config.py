@@ -18,8 +18,9 @@ class ImageCaptionSDDataLoaderConfig(BaseModel):
 
     image_transforms: SDImageTransformConfig
 
-    # Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
     dataloader_num_workers: int = 0
+    """Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
+    """
 
 
 class ImageCaptionSDXLDataLoaderConfig(ImageCaptionSDDataLoaderConfig):
@@ -37,13 +38,15 @@ class DreamboothSDDataLoaderConfig(BaseModel):
     instance_dataset: ImageDirDatasetConfig
     class_dataset: Optional[ImageDirDatasetConfig] = None
 
-    # The loss weight applied to class dataset examples. Instance dataset examples have an implicit loss weight of 1.0.
     class_data_loss_weight: float = 1.0
+    """The loss weight applied to class dataset examples. Instance dataset examples have an implicit loss weight of 1.0.
+    """
 
     image_transforms: SDImageTransformConfig
 
-    # Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
     dataloader_num_workers: int = 0
+    """Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
+    """
 
 
 class DreamboothSDXLDataLoaderConfig(DreamboothSDDataLoaderConfig):
@@ -59,14 +62,17 @@ class TextualInversionSDDataLoaderConfig(BaseModel):
 
     captions: TextualInversionCaptionConfig
 
-    # The image transforms to apply to all images.
     image_transforms: SDImageTransformConfig
+    """The image transforms to apply to all images.
+    """
 
-    # The caption shuffling configuration. If None, caption shuffling is disabled.
     shuffle_caption_transform: Optional[ShuffleCaptionTransformConfig] = None
+    """The caption shuffling configuration. If None, caption shuffling is disabled.
+    """
 
-    # Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
     dataloader_num_workers: int = 0
+    """Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
+    """
 
 
 # All data loaders.
