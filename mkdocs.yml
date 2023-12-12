@@ -4,15 +4,38 @@ site_url: https://invoke-ai.github.io/invoke-training/
 repo_name: invoke-ai/invoke-training
 repo_url: https://github.com/invoke-ai/invoke-training
 
-theme: material
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.indexes
 
 nav:
-- Getting Started: index.md
+- Welcome: index.md
+- Get Started:
+  - get_started/installation.md
+  - get_started/quick_start.md
+- Tutorials:
+  - tutorials/index.md
+  - Stable Diffusion:
+    - tutorials/stable_diffusion/finetune_lora_sd.md
+    - tutorials/stable_diffusion/dreambooth_lora_sd.md
+    - tutorials/stable_diffusion/textual_inversion_sd.md
+    - tutorials/stable_diffusion/pivotal_tuning_sd.md
+    - tutorials/stable_diffusion/the_chosen_one_sd.md
+- Concepts:
+  - concepts/dataset_formats.md
 - Config Reference:
+  - reference/config/index.md
   - Pipeline Configs:
-    - Finetune LoRA - Stable Diffusion: reference/config/pipelines/finetune_lora_sd_config.md
+    - Finetune LoRA - Stable Diffusion v1/v2: reference/config/pipelines/finetune_lora_sd_config.md
     - Finetune LoRA - Stable Diffusion XL: reference/config/pipelines/finetune_lora_sdxl_config.md
-    - Textual Inversion - Stable Diffusion: reference/config/pipelines/textual_inversion_sd_config.md
+    - Textual Inversion - Stable Diffusion v1/v2: reference/config/pipelines/textual_inversion_sd_config.md
+- Contributing:
+  - contributing/development_environment.md
+  - contributing/directory_structure.md
+  - contributing/tests.md
+  - contributing/documentation.md
 
 plugins:
 - search
