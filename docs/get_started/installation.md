@@ -14,7 +14,6 @@ python -m pip install --upgrade pip
 # Install:
 pip install ".[test]" --extra-index-url https://download.pytorch.org/whl/cu118
 ```
-4. Test out your installation by following the 
 
 ## Developer Installation
 1. Consider forking the repo if you plan to contribute code changes.
