@@ -1,6 +1,30 @@
 site_name: invoke-training Docs
 # site_url: ...
 
+repo_name: invoke-ai/invoke-training
+repo_url: https://github.com/invoke-ai/invoke-training
+
 theme: material
+
 nav:
-  - Getting Started: index.md
+- Getting Started: index.md
+- Config Reference:
+  - Pipeline Configs:
+    - Finetune LoRA - Stable Diffusion: reference/config/pipelines/finetune_lora_sd_config.md
+    - Finetune LoRA - Stable Diffusion XL: reference/config/pipelines/finetune_lora_sdxl_config.md
+    - Textual Inversion - Stable Diffusion: reference/config/pipelines/textual_inversion_sd_config.md
+
+plugins:
+- search
+- mkdocstrings:
+    default_handler: python
+    handlers:
+      python:
+        options:
+          show_bases: false
+          show_source: false
+          show_if_no_docstring: true
+          inherited_members: true
+          annotations_path: brief
+          separate_signature: true
+          show_signature_annotations: true
