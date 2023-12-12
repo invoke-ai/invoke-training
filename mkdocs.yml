@@ -1,5 +1,5 @@
-site_name: invoke-training Docs
-# site_url: ...
+site_name: invoke-training
+site_url: https://invoke-ai.github.io/invoke-training/
 
 repo_name: invoke-ai/invoke-training
 repo_url: https://github.com/invoke-ai/invoke-training
