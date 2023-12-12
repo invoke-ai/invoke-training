@@ -30,10 +30,17 @@ nav:
   - concepts/dataset_formats.md
 - Config Reference:
   - reference/config/index.md
-  - Pipeline Configs:
-    - Finetune LoRA - Stable Diffusion v1/v2: reference/config/pipelines/finetune_lora_sd_config.md
-    - Finetune LoRA - Stable Diffusion XL: reference/config/pipelines/finetune_lora_sdxl_config.md
-    - Textual Inversion - Stable Diffusion v1/v2: reference/config/pipelines/textual_inversion_sd_config.md
+  - pipelines:
+    - FinetuneLoRASDConfig: reference/config/pipelines/finetune_lora_sd_config.md
+    - FinetuneLoRASDXLConfig: reference/config/pipelines/finetune_lora_sdxl_config.md
+    - TextualInversionSDConfig: reference/config/pipelines/textual_inversion_sd_config.md
+  - shared:
+    - data:
+      - data_loader_config: reference/config/shared/data/data_loader_config.md
+      - dataset_config: reference/config/shared/data/dataset_config.md
+      - transform_config: reference/config/shared/data/transform_config.md
+    - training_output_config: reference/config/shared/training_output_config.md
+    - optimizer_config: reference/config/shared/optimizer_config.md
 - Contributing:
   - contributing/development_environment.md
   - contributing/directory_structure.md
