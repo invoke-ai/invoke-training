@@ -61,3 +61,4 @@ plugins:
           annotations_path: brief
           separate_signature: true
           show_signature_annotations: true
+          members_order: source
