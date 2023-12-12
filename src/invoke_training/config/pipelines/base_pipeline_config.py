@@ -10,7 +10,8 @@ class BasePipelineConfig(BaseModel):
 
     type: str
 
-    # A seed for reproducible training.
     seed: Optional[int] = None
+    """A seed for reproducible training.
+    """
 
     output: TrainingOutputConfig

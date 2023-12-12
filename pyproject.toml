@@ -37,6 +37,9 @@ dependencies = [
 
 [project.optional-dependencies]
 "test" = [
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocstrings[python]",
     "pre-commit~=3.3.3",
     "pytest~=7.4.0",
     # When bumping ruff, consider also bumping the ruff-pre-commit version in .pre-commit-config.yaml.
