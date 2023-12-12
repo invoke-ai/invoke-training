@@ -2,24 +2,23 @@
 
 A library for training custom Stable Diffusion models (fine-tuning, LoRA training, textual inversion, etc.) that can be used in [InvokeAI](https://github.com/invoke-ai/InvokeAI).
 
-**WARNING:**  This repo is currently under construction. More details coming soon.
+## Documentation
+
+https://invoke-ai.github.io/invoke-training/
 
 ## Training Modes
 
-- Finetune with LoRA
-    - Stable Diffusion v1/v2
-    - Stable Diffusion XL
-- DreamBooth with LoRA
-    - Stable Diffusion v1/v2
-    - Stable Diffusion XL
+- Stable Diffusion (v1 / v2 / SDXL)
+    - Finetune with LoRA
+    - DreamBooth with LoRA
+    - Textual Inversion
 
-More training modes will be added soon.
+More training modes coming soon!
 
-## Developer Quick Start
+## Installation
 
-### Setup Development Environment
-1. (Optional) Create a python virtual environment.
-2. Install `invoke-training` and its dependencies:
+For more installation details, see the [Installation](https://invoke-ai.github.io/invoke-training/get_started/installation/) section of the documentation.
+
 ```bash
 # A recent version of pip is required, so first upgrade pip:
 python -m pip install --upgrade pip
@@ -27,53 +26,23 @@ python -m pip install --upgrade pip
 # Editable install:
 pip install -e ".[test]" --extra-index-url https://download.pytorch.org/whl/cu118
 ```
-3. (Optional) Install the pre-commit hooks: `pre-commit install`. This will run static analysis tools (ruff) on `git commit`.
-4. (Optional) Set `ruff` in your IDE of choice.
 
-### Unit Tests
-Run all unit tests with:
+## A simple example
+
+Training is configured with type-checked YAML files, and launched with a single command:
 ```bash
-pytest tests/
-```
-
-There are some test 'markers' defined in [pyproject.toml](/pyproject.toml) that can be used to skip some tests. For example, the following command skips tests that require a GPU or require downloading model weights:
-```bash
-pytest tests/ -m "not cuda and not loads_model"
-```
-
-### Finetune a Stable Diffusion model with LoRA
-The following steps explain how to train a basic Pokemon Style LoRA using the [lambdalabs/pokemon-blip-captions](https://huggingface.co/datasets/lambdalabs/pokemon-blip-captions) dataset, and how to use it in [InvokeAI](https://github.com/invoke-ai/InvokeAI).
-
-This training process has been tested on an Nvidia GPU with 8GB of VRAM.
-
-1. Select the training configuration file based on your available GPU VRAM and the base model that you want to use:
-- [configs/finetune_lora_sd_pokemon_1x8gb_example.yaml](/configs/finetune_lora_sd_pokemon_1x8gb_example.yaml) (SD v1.5, 8GB VRAM)
-- [configs/finetune_lora_sdxl_pokemon_1x24gb_example.yaml](/configs/finetune_lora_sdxl_pokemon_1x24gb_example.yaml) (SDXL v1.0, 24GB VRAM)
-- [finetune_lora_sdxl_pokemon_1x8gb_example.yaml](/configs/finetune_lora_sdxl_pokemon_1x8gb_example.yaml) (SDXL v1.0, 8GB VRAM, UNet only)
-2. Start training with the appropriate command for the config file that you selected:
-```bash
-# Choose one of the following:
 invoke-train --cfg-file configs/finetune_lora_sd_pokemon_1x8gb_example.yaml
-invoke-train --cfg-file configs/finetune_lora_sdxl_pokemon_1x24gb_example.yaml
-invoke-train --cfg-file configs/finetune_lora_sdxl_pokemon_1x8gb_example.yaml
 ```
-3. Monitor the training process with Tensorboard by running `tensorboard --logdir output/` and visiting [localhost:6006](http://localhost:6006) in your browser. Here you can see generated images for fixed validation prompts throughout the training process.
 
-![Screenshot of the Tensorboard UI showing validation images.](images/tensorboard_val_images_screenshot.png)
+Training progress can be monitored with [Tensorboard](https://www.tensorflow.org/tensorboard):
+![Screenshot of the Tensorboard UI showing validation images.](docs/images/tensorboard_val_images_screenshot.png)
 *Validation images in the Tensorboard UI.*
 
-4. Select a checkpoint based on the quality of the generated images. In this short training run, there are only 3 checkpoints to choose from. As an example, we'll use the **Epoch 2** checkpoint.
-5. If you haven't already, setup [InvokeAI](https://github.com/invoke-ai/InvokeAI) by following its documentation.
-6. Copy your selected LoRA checkpoint into your `${INVOKEAI_ROOT}/autoimport/lora` directory. For example:
-```bash
-# Note: You will have to replace the timestamp in the checkpoint path.
-cp output/1691088769.5694647/checkpoint_epoch-00000002.safetensors ${INVOKEAI_ROOT}/autoimport/lora/pokemon_epoch-00000002.safetensors
-```
-7. You can now use your trained Pokemon LoRA in the InvokeAI UI! 🎉
+All trained models are compatible with InvokeAI:
 
-![Screenshot of the InvokeAI UI with an example of a Yoda pokemon generated using a Pokemon LoRA model.](images/invokeai_yoda_pokemon_lora.png)
-*Example image generated with the prompt "A cute yoda pokemon creature." and Pokemon LoRA.*
+![Screenshot of the InvokeAI UI with an example of a Yoda pokemon generated using a Pokemon LoRA model.](docs/images/invokeai_yoda_pokemon_lora.png)
+*Example image generated with the prompt "A cute yoda pokemon creature." and the trained Pokemon LoRA.*
 
-### Custom Datasets
+## Contributing
 
-See the [dataset formats](/docs/dataset_formats.md) for a description of the supported dataset formats and instructions for preparing your own custom dataset.
+Contributors are welcome. For developer guidance, see the [Contributing](https://invoke-ai.github.io/invoke-training/contributing/development_environment/) section of the documentation.
