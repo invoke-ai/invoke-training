@@ -16,7 +16,7 @@ from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionXLPipeline, U
 from diffusers.optimization import get_scheduler
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
-from transformers import CLIPPreTrainedModel, PretrainedConfig, PreTrainedTokenizer
+from transformers import CLIPPreTrainedModel, CLIPTextModel, PretrainedConfig, PreTrainedTokenizer
 
 from invoke_training.config.pipelines.finetune_lora_config import FinetuneLoRASDXLConfig
 from invoke_training.config.shared.data.data_loader_config import (
@@ -85,26 +85,13 @@ def load_models(
     PreTrainedTokenizer,
     PreTrainedTokenizer,
     DDPMScheduler,
-    CLIPPreTrainedModel,
-    CLIPPreTrainedModel,
+    CLIPTextModel,
+    CLIPTextModel,
     AutoencoderKL,
     UNet2DConditionModel,
 ]:
-    """Load all models required for training, transfer them to the target training device and cast their weight dtypes.
-
-    Args:
-        config (FinetuneLoRASDXLConfig): Training config.
-
-    Returns:
-        tuple[
-            PreTrainedTokenizer,
-            PreTrainedTokenizer,
-            DDPMScheduler,
-            CLIPPreTrainedModel,
-            CLIPPreTrainedModel,
-            AutoencoderKL,
-            UNet2DConditionModel,
-        ]: A tuple of loaded models.
+    """Load all models required for training, transfer them to the target training device and cast their weight
+    dtypes.
     """
 
     pipeline: StableDiffusionXLPipeline = load_pipeline(config.model, PipelineVersionEnum.SDXL)
@@ -243,26 +230,8 @@ def cache_text_encoder_outputs(
             cache.save(data_batch["id"][i], embeds)
 
 
-def cache_vae_outputs(
-    cache_dir: str,
-    config: FinetuneLoRASDXLConfig,
-    vae: AutoencoderKL,
-):
-    """Run the VAE on all images in the dataset and cache the results to disk.
-
-    Args:
-        cache_dir (str): The directory where the results will be cached.
-        config (FinetuneLoRAConfig): Training config.
-        tokenizer (CLIPTokenizer): The tokenizer.
-        vae (AutoencoderKL): The VAE.
-    """
-    data_loader = build_data_loader(
-        data_loader_config=config.data_loader,
-        batch_size=config.train_batch_size,
-        shuffle=False,
-        sequential_batching=True,
-    )
-
+def cache_vae_outputs(cache_dir: str, data_loader: DataLoader, vae: AutoencoderKL):
+    """Run the VAE on all images in the dataset and cache the results to disk."""
     cache = TensorDiskCache(cache_dir)
 
     for data_batch in tqdm(data_loader):
@@ -567,7 +536,13 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
             # Only the main process should to populate the cache.
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
-            cache_vae_outputs(vae_output_cache_dir_name, config, vae)
+            data_loader = build_data_loader(
+                data_loader_config=config.data_loader,
+                batch_size=config.train_batch_size,
+                shuffle=False,
+                sequential_batching=True,
+            )
+            cache_vae_outputs(vae_output_cache_dir_name, data_loader, vae)
         # Move the VAE back to the CPU, because it is not needed for training.
         vae.to("cpu")
         accelerator.wait_for_everyone()

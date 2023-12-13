@@ -23,7 +23,6 @@ class TextualInversionTrainingConfig(BasePipelineConfig):
     """The number of textual inversion placeholder vectors that will be used to learn the concept.
     """
 
-    # TODO(ryand): Rename to placeholder_str - seems more appropriate.
     placeholder_token: str
     """The special word to associate the learned embeddings with. You must use this trigger word in your prompt at
     inference time.
