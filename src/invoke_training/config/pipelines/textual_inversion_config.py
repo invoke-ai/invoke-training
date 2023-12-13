@@ -1,7 +1,10 @@
 from typing import Literal, Optional
 
 from invoke_training.config.pipelines.base_pipeline_config import BasePipelineConfig
-from invoke_training.config.shared.data.data_loader_config import TextualInversionSDDataLoaderConfig
+from invoke_training.config.shared.data.data_loader_config import (
+    TextualInversionSDDataLoaderConfig,
+    TextualInversionSDXLDataLoaderConfig,
+)
 from invoke_training.config.shared.optimizer.optimizer_config import OptimizerConfig
 
 
@@ -121,3 +124,16 @@ class TextualInversionSDConfig(TextualInversionTrainingConfig):
 
     optimizer: OptimizerConfig
     data_loader: TextualInversionSDDataLoaderConfig
+
+
+class TextualInversionSDXLConfig(TextualInversionTrainingConfig):
+    type: Literal["TEXTUAL_INVERSION_SDXL"] = "TEXTUAL_INVERSION_SDXL"
+
+    optimizer: OptimizerConfig
+    data_loader: TextualInversionSDXLDataLoaderConfig
+
+    vae_model: Optional[str] = None
+    """The name of the Hugging Face Hub VAE model to train against. This will override the VAE bundled with the base
+    model (specified by the `model` parameter). This config option is provided for SDXL models, because SDXL shipped
+    with a VAE that produces NaNs in fp16 mode, so it is common to replace this VAE with a fixed version.
+    """
