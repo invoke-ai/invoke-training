@@ -14,6 +14,8 @@ class TextualInversionTrainingConfig(BasePipelineConfig):
     '/path/to/realisticVisionV51_v51VAE.safetensors', etc. )
     """
 
+    # Helpful discussion for understanding how this works at inference time:
+    # https://github.com/huggingface/diffusers/pull/3144#discussion_r1172413509
     num_vectors: int = 1
     """The number of textual inversion placeholder vectors that will be used to learn the concept.
     """
