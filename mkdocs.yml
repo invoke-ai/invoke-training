@@ -43,6 +43,7 @@ nav:
     - FinetuneLoRASDConfig: reference/config/pipelines/finetune_lora_sd_config.md
     - FinetuneLoRASDXLConfig: reference/config/pipelines/finetune_lora_sdxl_config.md
     - TextualInversionSDConfig: reference/config/pipelines/textual_inversion_sd_config.md
+    - TextualInversionSDXLConfig: reference/config/pipelines/textual_inversion_sdxl_config.md
   - shared:
     - data:
       - data_loader_config: reference/config/shared/data/data_loader_config.md
