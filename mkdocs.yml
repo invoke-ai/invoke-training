@@ -31,7 +31,7 @@ nav:
   - Stable Diffusion:
     - tutorials/stable_diffusion/finetune_lora_sd.md
     - tutorials/stable_diffusion/dreambooth_lora_sd.md
-    - tutorials/stable_diffusion/textual_inversion_sd.md
+    - tutorials/stable_diffusion/textual_inversion_sdxl.md
     - tutorials/stable_diffusion/pivotal_tuning_sd.md
     - tutorials/stable_diffusion/the_chosen_one_sd.md
 - Concepts:
