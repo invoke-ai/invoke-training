@@ -95,7 +95,7 @@ class TextualInversionTrainingConfig(BasePipelineConfig):
     If 'None', the prediction type of the scheduler: `noise_scheduler.config.prediction_type` is used.
     """
 
-    max_grad_norm: Optional[float] = 1.0
+    max_grad_norm: Optional[float] = None
     """Max gradient norm for clipping. Set to None for no clipping.
     """
 

@@ -352,6 +352,7 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
                 optimizer.zero_grad(set_to_none=True)
 
                 # Make sure we don't update any embedding weights besides the newly-added token(s).
+                # TODO(ryand): Should we only do this if accelerator.sync_gradients?
                 restore_original_embeddings(
                     tokenizer=tokenizer_1,
                     placeholder_token_ids=placeholder_token_ids_1,
