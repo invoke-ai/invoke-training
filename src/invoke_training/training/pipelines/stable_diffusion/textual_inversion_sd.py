@@ -413,7 +413,7 @@ def run_training(config: TextualInversionSDConfig):  # noqa: C901
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1
-                log = {"train_loss": train_loss, "lr": lr_scheduler.get_last_lr()}
+                log = {"train_loss": train_loss, "lr": lr_scheduler.get_last_lr()[0]}
 
                 if config.optimizer.optimizer.optimizer_type == "Prodigy":
                     # TODO(ryand): Test Prodigy logging.

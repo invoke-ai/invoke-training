@@ -420,6 +420,8 @@ def train_forward(
         prompt_embeds, pooled_prompt_embeds = _encode_prompt(
             [text_encoder_1, text_encoder_2], [caption_token_ids_1, caption_token_ids_2]
         )
+        prompt_embeds = prompt_embeds.to(dtype=weight_dtype)
+        pooled_prompt_embeds = pooled_prompt_embeds.to(dtype=weight_dtype)
 
     unet_conditions["text_embeds"] = pooled_prompt_embeds
 

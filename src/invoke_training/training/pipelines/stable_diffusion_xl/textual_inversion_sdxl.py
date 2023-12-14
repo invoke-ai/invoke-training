@@ -310,8 +310,9 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
     progress_bar.set_description("Steps")
 
     # Keep original embeddings as reference.
-    orig_embeds_params_1 = accelerator.unwrap_model(text_encoder_1).get_input_embeddings().weight.data.clone()
-    orig_embeds_params_2 = accelerator.unwrap_model(text_encoder_1).get_input_embeddings().weight.data.clone()
+    with torch.no_grad():
+        orig_embeds_params_1 = accelerator.unwrap_model(text_encoder_1).get_input_embeddings().weight.data.clone()
+        orig_embeds_params_2 = accelerator.unwrap_model(text_encoder_2).get_input_embeddings().weight.data.clone()
 
     for epoch in range(first_epoch, num_train_epochs):
         text_encoder_1.train()
@@ -370,7 +371,7 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1
-                log = {"train_loss": train_loss, "lr": lr_scheduler.get_last_lr()}
+                log = {"train_loss": train_loss, "lr": lr_scheduler.get_last_lr()[0]}
 
                 if config.optimizer.optimizer.optimizer_type == "Prodigy":
                     # TODO(ryand): Test Prodigy logging.
@@ -386,10 +387,9 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
                             idx=global_step + 1,
                             text_encoder_1=text_encoder_1,
                             text_encoder_2=text_encoder_2,
-                            tokenizer_1=tokenizer_1,
-                            tokenizer_2=tokenizer_2,
+                            placeholder_token_ids_1=placeholder_token_ids_1,
+                            placeholder_token_ids_2=placeholder_token_ids_2,
                             accelerator=accelerator,
-                            placeholder_token=config.placeholder_token,
                             logger=logger,
                             checkpoint_tracker=step_checkpoint_tracker,
                         )
@@ -410,10 +410,9 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
                     idx=epoch + 1,
                     text_encoder_1=text_encoder_1,
                     text_encoder_2=text_encoder_2,
-                    tokenizer_1=tokenizer_1,
-                    tokenizer_2=tokenizer_2,
+                    placeholder_token_ids_1=placeholder_token_ids_1,
+                    placeholder_token_ids_2=placeholder_token_ids_2,
                     accelerator=accelerator,
-                    placeholder_token=config.placeholder_token,
                     logger=logger,
                     checkpoint_tracker=epoch_checkpoint_tracker,
                 )
