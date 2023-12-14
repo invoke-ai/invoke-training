@@ -149,21 +149,8 @@ def cache_text_encoder_outputs(
             cache.save(data_batch["id"][i], {"text_encoder_output": text_encoder_output_batch[i]})
 
 
-def cache_vae_outputs(cache_dir: str, config: FinetuneLoRASDConfig, vae: AutoencoderKL):
-    """Run the VAE on all images in the dataset and cache the results to disk.
-
-    Args:
-        cache_dir (str): The directory where the results will be cached.
-        data_loader (DataLoader): The data loader.
-        vae (AutoencoderKL): The VAE.
-    """
-    data_loader = build_data_loader(
-        data_loader_config=config.data_loader,
-        batch_size=config.train_batch_size,
-        shuffle=False,
-        sequential_batching=True,
-    )
-
+def cache_vae_outputs(cache_dir: str, data_loader: DataLoader, vae: AutoencoderKL):
+    """Run the VAE on all images in the dataset and cache the results to disk."""
     cache = TensorDiskCache(cache_dir)
 
     for data_batch in tqdm(data_loader):
@@ -437,7 +424,13 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
             # Only the main process should populate the cache.
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
-            cache_vae_outputs(vae_output_cache_dir_name, config, vae)
+            data_loader = build_data_loader(
+                data_loader_config=config.data_loader,
+                batch_size=config.train_batch_size,
+                shuffle=False,
+                sequential_batching=True,
+            )
+            cache_vae_outputs(vae_output_cache_dir_name, data_loader, vae)
         # Move the VAE back to the CPU, because it is not needed for training.
         vae.to("cpu")
         accelerator.wait_for_everyone()

@@ -12,6 +12,9 @@ from invoke_training.training.pipelines.stable_diffusion.textual_inversion_sd im
 from invoke_training.training.pipelines.stable_diffusion_xl.finetune_lora_sdxl import (
     run_training as run_finetune_lora_sdxl,
 )
+from invoke_training.training.pipelines.stable_diffusion_xl.textual_inversion_sdxl import (
+    run_training as run_textual_inversion_sdxl,
+)
 
 
 def parse_args():
@@ -42,6 +45,8 @@ def main():
         run_finetune_lora_sdxl(train_config)
     elif train_config.type == "TEXTUAL_INVERSION_SD":
         run_textual_inversion_sd(train_config)
+    elif train_config.type == "TEXTUAL_INVERSION_SDXL":
+        run_textual_inversion_sdxl(train_config)
     else:
         raise ValueError(f"Unexpected pipeline type: '{train_config.type}'.")
 

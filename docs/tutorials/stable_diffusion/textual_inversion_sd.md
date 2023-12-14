@@ -1,3 +1,0 @@
-# Textual Inversion
-
-Coming soon.

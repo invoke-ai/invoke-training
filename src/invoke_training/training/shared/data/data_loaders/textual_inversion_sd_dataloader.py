@@ -19,7 +19,7 @@ from invoke_training.training.shared.data.transforms.textual_inversion_caption_t
 )
 
 
-def _get_preset_ti_caption_templates(preset: typing.Literal["object", "style"]) -> list[str]:
+def get_preset_ti_caption_templates(preset: typing.Literal["object", "style"]) -> list[str]:
     if preset == "object":
         return [
             "a photo of a {}",
@@ -103,7 +103,7 @@ def build_textual_inversion_sd_dataloader(
     if isinstance(config.captions, TextualInversionCaptionTransformConfig):
         caption_templates = config.captions.templates
     elif isinstance(config.captions, TextualInversionPresetCaptionTransformConfig):
-        caption_templates = _get_preset_ti_caption_templates(config.captions.preset)
+        caption_templates = get_preset_ti_caption_templates(config.captions.preset)
     else:
         raise ValueError(f"Unexpected caption config type: '{type(config.captions)}'.")
 

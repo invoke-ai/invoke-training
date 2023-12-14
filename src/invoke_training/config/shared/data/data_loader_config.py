@@ -1,6 +1,6 @@
-from typing import Annotated, Literal, Optional, Union
+from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from invoke_training.config.shared.data.dataset_config import ImageCaptionDatasetConfig, ImageDirDatasetConfig
 from invoke_training.config.shared.data.transform_config import (
@@ -75,14 +75,9 @@ class TextualInversionSDDataLoaderConfig(BaseModel):
     """
 
 
-# All data loaders.
-DataLoaderConfig = Annotated[
-    Union[
-        ImageCaptionSDDataLoaderConfig,
-        ImageCaptionSDXLDataLoaderConfig,
-        DreamboothSDDataLoaderConfig,
-        DreamboothSDXLDataLoaderConfig,
-        TextualInversionSDDataLoaderConfig,
-    ],
-    Field(discriminator="type"),
-]
+class TextualInversionSDXLDataLoaderConfig(TextualInversionSDDataLoaderConfig):
+    type: Literal["TEXTUAL_INVERSION_SDXL_DATA_LOADER"] = "TEXTUAL_INVERSION_SDXL_DATA_LOADER"
+
+    image_transforms: SDXLImageTransformConfig
+    """The image transforms to apply to all images.
+    """

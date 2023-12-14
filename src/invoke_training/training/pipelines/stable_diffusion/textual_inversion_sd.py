@@ -9,15 +9,15 @@ import torch
 import torch.utils.checkpoint
 from accelerate import Accelerator
 from accelerate.utils import set_seed
-from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionPipeline, UNet2DConditionModel
 from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
-from transformers import CLIPTextModel, CLIPTokenizer
+from transformers import CLIPTextModel, CLIPTokenizer, PreTrainedTokenizer
 
 from invoke_training.config.pipelines.textual_inversion_config import TextualInversionSDConfig
 from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import (
     cache_vae_outputs,
     generate_validation_images,
+    load_models,
     train_forward,
 )
 from invoke_training.training.shared.accelerator.accelerator_utils import (
@@ -31,54 +31,6 @@ from invoke_training.training.shared.data.data_loaders.textual_inversion_sd_data
     build_textual_inversion_sd_dataloader,
 )
 from invoke_training.training.shared.optimizer.optimizer_utils import initialize_optimizer
-from invoke_training.training.shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
-
-
-def load_models(
-    config: TextualInversionSDConfig,
-) -> tuple[CLIPTokenizer, DDPMScheduler, CLIPTextModel, AutoencoderKL, UNet2DConditionModel]:
-    """Load all models required for training from disk, transfer them to the target training device.
-
-    Args:
-        config (TextualInversionSDConfig): The LoRA training run config.
-        logger (logging.Logger): A logger.
-
-    Returns:
-        tuple[
-            CLIPTokenizer,
-            DDPMScheduler,
-            CLIPTextModel,
-            AutoencoderKL,
-            UNet2DConditionModel,
-        ]: A tuple of loaded models.
-    """
-    pipeline: StableDiffusionPipeline = load_pipeline(config.model, PipelineVersionEnum.SD)
-
-    # Extract sub-models from the pipeline.
-    tokenizer: CLIPTokenizer = pipeline.tokenizer
-    text_encoder: CLIPTextModel = pipeline.text_encoder
-    vae: AutoencoderKL = pipeline.vae
-    unet: UNet2DConditionModel = pipeline.unet
-    noise_scheduler = DDPMScheduler(
-        beta_start=0.00085,
-        beta_end=0.012,
-        beta_schedule="scaled_linear",
-        num_train_timesteps=1000,
-        clip_sample=False,
-        steps_offset=1,
-    )
-
-    # Disable gradient calculation for model weights to save memory.
-    text_encoder.requires_grad_(False)
-    vae.requires_grad_(False)
-    unet.requires_grad_(False)
-
-    # Put models in 'eval' mode.
-    text_encoder.eval()
-    vae.eval()
-    unet.eval()
-
-    return tokenizer, noise_scheduler, text_encoder, vae, unet
 
 
 def save_ti_embeddings(
@@ -92,15 +44,6 @@ def save_ti_embeddings(
 ):
     """Save a Textual Inversion checkpoint. Old checkpoints are deleted if necessary to respect the checkpoint_tracker
     limits.
-
-    Args:
-        idx (int): The checkpoint index (typically step count or epoch).
-        text_encoder (CLIPTextModel): The text encoder being trained.
-        placeholder_token_ids (list[int]): The placeholder token ids.
-        accelerator (Accelerator): The accelerator context (used to unwrap the text_encoder).
-        placeholder_token (str): The placeholder token string.
-        logger (logging.Logger): Logger.
-        checkpoint_tracker (CheckpointTracker): The checkpoint tracker.
     """
     # Prune checkpoints and get new checkpoint path.
     num_pruned = checkpoint_tracker.prune(1)
@@ -118,9 +61,18 @@ def save_ti_embeddings(
     save_state_dict(learned_embeds_dict, save_path)
 
 
-def _initialize_placeholder_tokens_from_initializer_token(
+def add_tokens_to_tokenizer(placeholder_tokens: list[str], tokenizer: PreTrainedTokenizer):
+    num_added_tokens = tokenizer.add_tokens(placeholder_tokens)
+    if num_added_tokens != len(placeholder_tokens):
+        raise ValueError(
+            f"The tokenizer already contains one of the tokens in '{placeholder_tokens}'. Please pass a different"
+            " 'placeholder_token' that is not already in the tokenizer."
+        )
+
+
+def initialize_placeholder_tokens_from_initializer_token(
     tokenizer: CLIPTokenizer, text_encoder: CLIPTextModel, initializer_token: str, placeholder_tokens: list[str]
-):
+) -> list[int]:
     # Convert the initializer_token and placeholder_token to token ids.
     initializer_token_ids = tokenizer.encode(initializer_token, add_special_tokens=False)
     if len(initializer_token_ids) > 1:
@@ -131,6 +83,10 @@ def _initialize_placeholder_tokens_from_initializer_token(
     initializer_token_id = initializer_token_ids[0]
     placeholder_token_ids = tokenizer.convert_tokens_to_ids(placeholder_tokens)
 
+    # convert_tokens_to_ids returns a `int | list[int]` type, but since we pass in a list it should always return a
+    # list.
+    assert isinstance(placeholder_token_ids, list)
+
     # Initialize the newly-added placeholder token(s) with the embeddings of the initializer token.
     token_embeds = text_encoder.get_input_embeddings().weight.data
     with torch.no_grad():
@@ -140,9 +96,9 @@ def _initialize_placeholder_tokens_from_initializer_token(
     return placeholder_token_ids
 
 
-def _initialize_placeholder_tokens_from_initial_embedding(
+def initialize_placeholder_tokens_from_initial_embedding(
     tokenizer: CLIPTokenizer, text_encoder: CLIPTextModel, initial_embedding_file: str, placeholder_tokens: list[str]
-):
+) -> list[int]:
     base_placeholder_token = placeholder_tokens[0]
 
     state_dict = load_state_dict(initial_embedding_file)
@@ -161,6 +117,10 @@ def _initialize_placeholder_tokens_from_initial_embedding(
 
     placeholder_token_ids = tokenizer.convert_tokens_to_ids(placeholder_tokens)
 
+    # convert_tokens_to_ids returns a `int | list[int]` type, but since we pass in a list it should always return a
+    # list.
+    assert isinstance(placeholder_token_ids, list)
+
     # Initialize the newly-added placeholder token(s) with the loaded embeddings.
     token_embeds = text_encoder.get_input_embeddings().weight.data
     with torch.no_grad():
@@ -168,6 +128,74 @@ def _initialize_placeholder_tokens_from_initial_embedding(
             token_embeds[token_id] = embeddings[i].clone()
 
     return placeholder_token_ids
+
+
+def _initialize_placeholder_tokens(
+    config: TextualInversionSDConfig, tokenizer: CLIPTokenizer, text_encoder: PreTrainedTokenizer
+) -> list[int]:
+    """Prepare the tokenizer and text_encoder for TI training.
+
+    - Generate `num_vectors` placeholder tokens.
+    - Add the placeholder tokens to the tokenizer.
+    - Add new token embeddings to the text_encoder for each of the placeholder tokens.
+    - Initialize the new token embeddings from either an existing token, or an initial TI embedding file.
+    """
+    # Prepare num_vector placeholder tokens.
+    placeholder_tokens = [config.placeholder_token]
+    if config.num_vectors < 1:
+        raise ValueError(f"num_vectors must be >1, but is '{config.num_vectors}'.")
+    # Add dummy placeholder tokens if num_vectors > 1.
+    for i in range(1, config.num_vectors):
+        placeholder_tokens.append(f"{config.placeholder_token}_{i}")
+
+    add_tokens_to_tokenizer(placeholder_tokens, tokenizer)
+    # Resize the token embeddings as we have added new special tokens to the tokenizer.
+    text_encoder.resize_token_embeddings(len(tokenizer))
+
+    if config.initializer_token is not None and config.initial_embedding_file is not None:
+        raise ValueError(
+            "Both 'initializer_token' and 'initial_embedding_file' are non-None. Only one of these fields should be "
+            "set."
+        )
+    elif config.initializer_token is not None:
+        placeholder_token_ids = initialize_placeholder_tokens_from_initializer_token(
+            tokenizer=tokenizer,
+            text_encoder=text_encoder,
+            initializer_token=config.initializer_token,
+            placeholder_tokens=placeholder_tokens,
+        )
+    elif config.initial_embedding_file is not None:
+        placeholder_token_ids = initialize_placeholder_tokens_from_initial_embedding(
+            tokenizer=tokenizer,
+            text_encoder=text_encoder,
+            initial_embedding_file=config.initial_embedding_file,
+            placeholder_tokens=placeholder_tokens,
+        )
+    else:
+        raise ValueError(
+            "Both 'initializer_token' and 'initial_embedding_file' are None. One of these fields must be set."
+        )
+
+    return placeholder_token_ids
+
+
+def restore_original_embeddings(
+    tokenizer: CLIPTokenizer,
+    placeholder_token_ids: list[int],
+    accelerator: Accelerator,
+    text_encoder: CLIPTextModel,
+    orig_embeds_params: torch.Tensor,
+):
+    """Restore the text_encoder embeddings that we are not actively training to make sure they don't change.
+
+    TODO(ryand): Look into whether this is actually necessary if we set requires_grad correctly.
+    """
+    index_no_updates = torch.ones((len(tokenizer),), dtype=torch.bool)
+    index_no_updates[min(placeholder_token_ids) : max(placeholder_token_ids) + 1] = False
+    with torch.no_grad():
+        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[index_no_updates] = orig_embeds_params[
+            index_no_updates
+        ]
 
 
 def run_training(config: TextualInversionSDConfig):  # noqa: C901
@@ -200,46 +228,9 @@ def run_training(config: TextualInversionSDConfig):  # noqa: C901
     logger.info("Loading models.")
     tokenizer, noise_scheduler, text_encoder, vae, unet = load_models(config)
 
-    # Add the placeholder token(s) to the tokenizer.
-    placeholder_tokens = [config.placeholder_token]
-    if config.num_vectors < 1:
-        raise ValueError(f"num_vectors must be >1, but is '{config.num_vectors}'.")
-    # Add dummy placeholder tokens if num_vectors > 1.
-    for i in range(1, config.num_vectors):
-        placeholder_tokens.append(f"{config.placeholder_token}_{i}")
-
-    num_added_tokens = tokenizer.add_tokens(placeholder_tokens)
-    if num_added_tokens != config.num_vectors:
-        raise ValueError(
-            f"The tokenizer already contains the token '{config.placeholder_token}'. Please pass a different"
-            " 'placeholder_token' that is not already in the tokenizer."
-        )
-    # Resize the token embeddings as we have added new special tokens to the tokenizer.
-    text_encoder.resize_token_embeddings(len(tokenizer))
-
-    if config.initializer_token is not None and config.initial_embedding_file is not None:
-        raise ValueError(
-            "Both 'initializer_token' and 'initial_embedding_file' are non-None. Only one of these fields should be "
-            "set."
-        )
-    elif config.initializer_token is not None:
-        placeholder_token_ids = _initialize_placeholder_tokens_from_initializer_token(
-            tokenizer=tokenizer,
-            text_encoder=text_encoder,
-            initializer_token=config.initializer_token,
-            placeholder_tokens=placeholder_tokens,
-        )
-    elif config.initial_embedding_file is not None:
-        placeholder_token_ids = _initialize_placeholder_tokens_from_initial_embedding(
-            tokenizer=tokenizer,
-            text_encoder=text_encoder,
-            initial_embedding_file=config.initial_embedding_file,
-            placeholder_tokens=placeholder_tokens,
-        )
-    else:
-        raise ValueError(
-            "Both 'initializer_token' and 'initial_embedding_file' are None. One of these fields must be set."
-        )
+    placeholder_token_ids = _initialize_placeholder_tokens(
+        config=config, tokenizer=tokenizer, text_encoder=text_encoder
+    )
 
     # All parameters of the VAE, UNet, and text encoder are currently frozen. Just unfreeze the token embeddings in the
     # text encoder.
@@ -293,6 +284,10 @@ def run_training(config: TextualInversionSDConfig):  # noqa: C901
     else:
         vae.to(accelerator.device, dtype=weight_dtype)
 
+    # For mixed precision training, we cast all non-trainable weights (unet, vae) to half-precision as these weights are
+    # only used for inference, keeping weights in full precision is not required.
+    unet.to(accelerator.device, dtype=weight_dtype)
+
     # Initialize the optimizer to only optimize the token embeddings.
     optimizer = initialize_optimizer(config.optimizer, text_encoder.get_input_embeddings().parameters())
 
@@ -324,12 +319,6 @@ def run_training(config: TextualInversionSDConfig):  # noqa: C901
         CLIPTextModel, torch.optim.Optimizer, torch.utils.data.DataLoader, torch.optim.lr_scheduler.LRScheduler
     ] = accelerator.prepare(text_encoder, optimizer, data_loader, lr_scheduler)
     text_encoder, optimizer, data_loader, lr_scheduler = prepared_result
-
-    # For mixed precision training, we cast all non-trainable weights (unet, vae) to half-precision as these weights are
-    # only used for inference, keeping weights in full precision is not required.
-    # TODO(ryand): Re-think when to do this when adding VAE output caching.
-    unet.to(accelerator.device, dtype=weight_dtype)
-    vae.to(accelerator.device, dtype=weight_dtype)
 
     # Calculate the number of epochs and total training steps. A "step" represents a single weight update operation
     # (i.e. takes into account gradient accumulation steps).
@@ -411,19 +400,21 @@ def run_training(config: TextualInversionSDConfig):  # noqa: C901
                 lr_scheduler.step()
                 optimizer.zero_grad(set_to_none=True)
 
-                # Let's make sure we don't update any embedding weights besides the newly added token.
-                index_no_updates = torch.ones((len(tokenizer),), dtype=torch.bool)
-                index_no_updates[min(placeholder_token_ids) : max(placeholder_token_ids) + 1] = False
-                with torch.no_grad():
-                    accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[
-                        index_no_updates
-                    ] = orig_embeds_params[index_no_updates]
+                # Make sure we don't update any embedding weights besides the newly-added token(s).
+                # TODO(ryand): Should we only do this if accelerator.sync_gradients?
+                restore_original_embeddings(
+                    tokenizer=tokenizer,
+                    placeholder_token_ids=placeholder_token_ids,
+                    accelerator=accelerator,
+                    text_encoder=text_encoder,
+                    orig_embeds_params=orig_embeds_params,
+                )
 
             # Checks if the accelerator has performed an optimization step behind the scenes
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1
-                log = {"train_loss": train_loss, "lr": lr_scheduler.get_last_lr()}
+                log = {"train_loss": train_loss, "lr": lr_scheduler.get_last_lr()[0]}
 
                 if config.optimizer.optimizer.optimizer_type == "Prodigy":
                     # TODO(ryand): Test Prodigy logging.
