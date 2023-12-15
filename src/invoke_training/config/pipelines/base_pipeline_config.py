@@ -11,7 +11,12 @@ class BasePipelineConfig(BaseModel):
     type: str
 
     seed: Optional[int] = None
-    """A seed for reproducible training.
+    """A randomization seed for reproducible training. Set to any constant integer for consistent training results. If
+    set to `null`, training will be non-deterministic.
     """
 
     output: TrainingOutputConfig
+    """Configuration for the training run outputs (output directory, log format, checkpoint format, etc.).
+
+    See [`TrainingOutputConfig`][invoke_training.config.shared.training_output_config.TrainingOutputConfig] for details.
+    """

@@ -11,13 +11,13 @@ from invoke_training.config.shared.optimizer.optimizer_config import OptimizerCo
 class TextualInversionTrainingConfig(BasePipelineConfig):
     """The base configuration for any Textual Inversion training run."""
 
-    model: str = "runwayml/stable-diffusion-v1-5"
+    model: str
     """Name or path of the base model to train. Can be in diffusers format, or a single stable diffusion checkpoint
-    file. (E.g. `'runwayml/stable-diffusion-v1-5'`, `'stabilityai/stable-diffusion-xl-base-1.0'`,
-    `'/path/to/local/model.safetensors'`, etc.)
+    file. (E.g. `"runwayml/stable-diffusion-v1-5"`, `"stabilityai/stable-diffusion-xl-base-1.0"`,
+    `"/path/to/local/model.safetensors"`, etc.)
 
     The model architecture must match the training pipeline being run. For example, if running a
-    `TextualInversionSDXLConfig` pipeline, then `model` must refer to an SDXL model.
+    Textual Inversion SDXL pipeline, then `model` must refer to an SDXL model.
     """
 
     # Helpful discussion for understanding how this works at inference time:
@@ -25,7 +25,9 @@ class TextualInversionTrainingConfig(BasePipelineConfig):
     num_vectors: int = 1
     """The number of textual inversion placeholder vectors that will be used to learn the concept.
 
-    TI embedding files with `num_vectors > 1` are not currently supported in [Invoke AI](https://github.com/invoke-ai/InvokeAI).
+    Warning:
+        TI embedding files with `num_vectors > 1` are not currently supported in
+        [Invoke AI](https://github.com/invoke-ai/InvokeAI).
     """
 
     placeholder_token: str
@@ -131,21 +133,42 @@ class TextualInversionTrainingConfig(BasePipelineConfig):
 
 class TextualInversionSDConfig(TextualInversionTrainingConfig):
     type: Literal["TEXTUAL_INVERSION_SD"] = "TEXTUAL_INVERSION_SD"
+    """Must be `TEXTUAL_INVERSION_SD`. This is what differentiates training pipeline types.
+    """
 
     optimizer: OptimizerConfig
-    """The optimizer configuration.
+    """Configuration for the training optimizer (algorithm, learning rate, etc.).
+
+    See [`OptimizerConfig`][invoke_training.config.shared.optimizer.optimizer_config.OptimizerConfig] for details.
     """
 
     data_loader: TextualInversionSDDataLoaderConfig
     """The data configuration.
+
+    See
+    [`TextualInversionSDDataLoaderConfig`][invoke_training.config.shared.data.data_loader_config.TextualInversionSDDataLoaderConfig]
+    for details.
     """
 
 
 class TextualInversionSDXLConfig(TextualInversionTrainingConfig):
     type: Literal["TEXTUAL_INVERSION_SDXL"] = "TEXTUAL_INVERSION_SDXL"
+    """Must be `TEXTUAL_INVERSION_SDXL`. This is what differentiates training pipeline types.
+    """
 
     optimizer: OptimizerConfig
+    """Configuration for the training optimizer (algorithm, learning rate, etc.).
+
+    See [`OptimizerConfig`][invoke_training.config.shared.optimizer.optimizer_config.OptimizerConfig] for details.
+    """
+
     data_loader: TextualInversionSDXLDataLoaderConfig
+    """The data configuration.
+
+    See
+    [`TextualInversionSDXLDataLoaderConfig`][invoke_training.config.shared.data.data_loader_config.TextualInversionSDXLDataLoaderConfig]
+    for details.
+    """
 
     vae_model: Optional[str] = None
     """The name of the Hugging Face Hub VAE model to train against. If set, this will override the VAE bundled with the
