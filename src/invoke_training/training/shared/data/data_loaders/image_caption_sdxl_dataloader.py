@@ -15,7 +15,7 @@ from invoke_training.training.shared.data.datasets.build_dataset import (
 from invoke_training.training.shared.data.datasets.transform_dataset import TransformDataset
 from invoke_training.training.shared.data.transforms.drop_field_transform import DropFieldTransform
 from invoke_training.training.shared.data.transforms.load_cache_transform import LoadCacheTransform
-from invoke_training.training.shared.data.transforms.sdxl_image_transform import SDXLImageTransform
+from invoke_training.training.shared.data.transforms.sd_image_transform import SDImageTransform
 from invoke_training.training.shared.data.transforms.tensor_disk_cache import TensorDiskCache
 
 
@@ -82,7 +82,7 @@ def build_image_caption_sdxl_dataloader(
     all_transforms = []
     if vae_output_cache_dir is None:
         all_transforms.append(
-            SDXLImageTransform(
+            SDImageTransform(
                 resolution=config.image_transforms.resolution,
                 center_crop=config.image_transforms.center_crop,
                 random_flip=config.image_transforms.random_flip,

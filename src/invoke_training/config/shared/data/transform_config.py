@@ -18,21 +18,6 @@ class SDImageTransformConfig(BaseModel):
     """
 
 
-class SDXLImageTransformConfig(BaseModel):
-    resolution: int = 1024
-    """The resolution for input images. All of the images in the dataset will be resized to this (square) resolution.
-    """
-
-    center_crop: bool = True
-    """If True, input images will be center-cropped to resolution.
-    If False, input images will be randomly cropped to resolution.
-    """
-
-    random_flip: bool = False
-    """Whether random flip augmentations should be applied to input images.
-    """
-
-
 class TextualInversionCaptionTransformConfig(BaseModel):
     type: Literal["TEXTUAL_INVERSION_CAPTION_TRANSFORM"] = "TEXTUAL_INVERSION_CAPTION_TRANSFORM"
 

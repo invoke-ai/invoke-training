@@ -30,7 +30,7 @@ def test_build_textual_inversion_sd_dataloader(image_dir):  # noqa: F811
     assert len(data_loader) == 3  # ceil(5 images / batch size 2)
 
     example = next(iter(data_loader))
-    assert set(example.keys()) == {"image", "caption", "id"}
+    assert set(example.keys()) == {"image", "original_size_hw", "crop_top_left_yx", "caption", "id"}
 
     image = example["image"]
     assert image.shape == (2, 3, 512, 512)

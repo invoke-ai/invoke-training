@@ -6,7 +6,7 @@ from invoke_training.config.shared.data.data_loader_config import (
     ImageCaptionSDXLDataLoaderConfig,
 )
 from invoke_training.config.shared.data.dataset_config import HFHubImageCaptionDatasetConfig
-from invoke_training.config.shared.data.transform_config import SDXLImageTransformConfig
+from invoke_training.config.shared.data.transform_config import SDImageTransformConfig
 from invoke_training.training.shared.data.data_loaders.image_caption_sdxl_dataloader import (
     build_image_caption_sdxl_dataloader,
 )
@@ -17,7 +17,7 @@ def test_build_image_caption_sdxl_dataloader():
 
     config = ImageCaptionSDXLDataLoaderConfig(
         dataset=HFHubImageCaptionDatasetConfig(dataset_name="lambdalabs/pokemon-blip-captions"),
-        image_transforms=SDXLImageTransformConfig(resolution=512),
+        image_transforms=SDImageTransformConfig(resolution=512),
     )
     data_loader = build_image_caption_sdxl_dataloader(config, 4)
 

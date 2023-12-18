@@ -23,7 +23,7 @@ def test_build_image_caption_sd_dataloader():
     assert len(data_loader) == math.ceil(833 / 4)
 
     example = next(iter(data_loader))
-    assert set(example.keys()) == {"image", "caption", "id"}
+    assert set(example.keys()) == {"image", "original_size_hw", "crop_top_left_yx", "caption", "id"}
 
     image = example["image"]
     assert image.shape == (4, 3, 512, 512)

@@ -3,7 +3,7 @@ import torch
 from invoke_training.config.shared.data.data_loader_config import TextualInversionSDXLDataLoaderConfig
 from invoke_training.config.shared.data.dataset_config import ImageDirDatasetConfig
 from invoke_training.config.shared.data.transform_config import (
-    SDXLImageTransformConfig,
+    SDImageTransformConfig,
     TextualInversionPresetCaptionTransformConfig,
 )
 from invoke_training.training.shared.data.data_loaders.textual_inversion_sdxl_dataloader import (
@@ -19,7 +19,7 @@ def test_build_textual_inversion_sdxl_dataloader(image_dir):  # noqa: F811
     config = TextualInversionSDXLDataLoaderConfig(
         dataset=ImageDirDatasetConfig(dataset_dir=str(image_dir)),
         captions=TextualInversionPresetCaptionTransformConfig(preset="object"),
-        image_transforms=SDXLImageTransformConfig(resolution=512),
+        image_transforms=SDImageTransformConfig(resolution=512),
     )
     data_loader = build_textual_inversion_sdxl_dataloader(
         config=config,

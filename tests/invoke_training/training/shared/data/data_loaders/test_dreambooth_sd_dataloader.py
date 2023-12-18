@@ -24,7 +24,7 @@ def test_build_dreambooth_sd_dataloader(image_dir):  # noqa: F811
     assert len(data_loader) == 5  # (5 class images + 5 instance images) / batch size 2
 
     example = next(iter(data_loader))
-    assert set(example.keys()) == {"image", "caption", "id", "loss_weight"}
+    assert set(example.keys()) == {"image", "original_size_hw", "crop_top_left_yx", "caption", "id", "loss_weight"}
 
     image = example["image"]
     assert image.shape == (2, 3, 512, 512)
@@ -51,7 +51,7 @@ def test_build_dreambooth_sd_dataloader_no_class_dataset(image_dir):  # noqa: F8
     assert len(data_loader) == 3  # 5 instance images, batch size 2
 
     example = next(iter(data_loader))
-    assert set(example.keys()) == {"image", "caption", "id", "loss_weight"}
+    assert set(example.keys()) == {"image", "original_size_hw", "crop_top_left_yx", "caption", "id", "loss_weight"}
 
     image = example["image"]
     assert image.shape == (2, 3, 512, 512)
