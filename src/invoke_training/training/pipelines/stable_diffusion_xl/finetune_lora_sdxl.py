@@ -94,8 +94,9 @@ def load_models(
     """Load all models required for training, transfer them to the target training device and cast their weight
     dtypes.
     """
-
-    pipeline: StableDiffusionXLPipeline = load_pipeline(config.model, PipelineVersionEnum.SDXL)
+    pipeline: StableDiffusionXLPipeline = load_pipeline(
+        model_name_or_path=config.model, pipeline_version=PipelineVersionEnum.SDXL, variant=config.hf_variant
+    )
 
     # Extract sub-models from the pipeline.
     tokenizer_1: PreTrainedTokenizer = pipeline.tokenizer

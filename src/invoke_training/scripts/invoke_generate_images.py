@@ -27,6 +27,14 @@ def parse_args():
         "'stabilityai/stable-diffusion-xl-base-1.0', '/path/to/realisticVisionV51_v51VAE.safetensors', etc. )",
     )
     parser.add_argument(
+        "-v",
+        "--variant",
+        type=str,
+        required=False,
+        default=None,
+        help="The Hugging Face Hub model variant to use. Only applies if `--model` is a Hugging Face Hub model name.",
+    )
+    parser.add_argument(
         "-l",
         "--lora",
         type=str,
@@ -109,6 +117,7 @@ def main():
     generate_images(
         out_dir=args.out_dir,
         model=args.model,
+        hf_variant=args.variant,
         pipeline_version=PipelineVersionEnum(args.sd_version),
         prompt=args.prompt,
         num_images=args.num_images,
