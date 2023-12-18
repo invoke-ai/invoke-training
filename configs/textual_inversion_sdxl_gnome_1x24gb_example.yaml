@@ -34,7 +34,6 @@ model: stabilityai/stable-diffusion-xl-base-1.0
 num_vectors: 1
 placeholder_token: "bruce_the_gnome"
 initializer_token: "gnome"
-learnable_property: "object"
 cache_vae_outputs: True
 gradient_accumulation_steps: 1
 mixed_precision: fp16

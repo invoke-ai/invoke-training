@@ -9,6 +9,7 @@ theme:
   features:
     - navigation.tabs
     - navigation.indexes
+    - navigation.sections
     - content.code.copy
 
 markdown_extensions:
@@ -37,13 +38,13 @@ nav:
 - Concepts:
   - concepts/index.md
   - concepts/dataset_formats.md
-- Config Reference:
+- YAML Config Reference:
   - reference/config/index.md
   - pipelines:
-    - FinetuneLoRASDConfig: reference/config/pipelines/finetune_lora_sd_config.md
-    - FinetuneLoRASDXLConfig: reference/config/pipelines/finetune_lora_sdxl_config.md
-    - TextualInversionSDConfig: reference/config/pipelines/textual_inversion_sd_config.md
-    - TextualInversionSDXLConfig: reference/config/pipelines/textual_inversion_sdxl_config.md
+    - Finetune LoRA SD Config: reference/config/pipelines/finetune_lora_sd_config.md
+    - Finetune LoRA SDXL Config: reference/config/pipelines/finetune_lora_sdxl_config.md
+    - Textual Inversion SD Config: reference/config/pipelines/textual_inversion_sd_config.md
+    - Textual Inversion SDXL Config: reference/config/pipelines/textual_inversion_sdxl_config.md
   - shared:
     - data:
       - data_loader_config: reference/config/shared/data/data_loader_config.md
@@ -61,9 +62,12 @@ plugins:
 - search
 - mkdocstrings:
     default_handler: python
+    custom_templates: docs/templates
     handlers:
       python:
         options:
+          show_root_heading: false
+          show_root_toc_entry: false
           show_bases: false
           show_source: false
           show_if_no_docstring: true
