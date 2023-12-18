@@ -32,8 +32,8 @@ from invoke_training.training.shared.accelerator.accelerator_utils import (
 )
 from invoke_training.training.shared.checkpoints.checkpoint_tracker import CheckpointTracker
 from invoke_training.training.shared.checkpoints.serialization import save_state_dict
-from invoke_training.training.shared.data.data_loaders.textual_inversion_sdxl_dataloader import (
-    build_textual_inversion_sdxl_dataloader,
+from invoke_training.training.shared.data.data_loaders.textual_inversion_sd_dataloader import (
+    build_textual_inversion_sd_dataloader,
 )
 from invoke_training.training.shared.optimizer.optimizer_utils import initialize_optimizer
 
@@ -210,7 +210,7 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
             # Only the main process should to populate the cache.
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
-            data_loader = build_textual_inversion_sdxl_dataloader(
+            data_loader = build_textual_inversion_sd_dataloader(
                 config=config.data_loader,
                 placeholder_str=config.placeholder_token,
                 batch_size=config.train_batch_size,
@@ -235,7 +235,7 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
     optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
     trainable_models = torch.nn.ModuleDict({"text_encoder_1": text_encoder_1, "text_encoder_2": text_encoder_2})
 
-    data_loader = build_textual_inversion_sdxl_dataloader(
+    data_loader = build_textual_inversion_sd_dataloader(
         config=config.data_loader,
         placeholder_str=config.placeholder_token,
         batch_size=config.train_batch_size,

@@ -60,7 +60,3 @@ class TextualInversionSDDataLoaderConfig(BaseModel):
     dataloader_num_workers: int = 0
     """Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
     """
-
-
-class TextualInversionSDXLDataLoaderConfig(TextualInversionSDDataLoaderConfig):
-    type: Literal["TEXTUAL_INVERSION_SDXL_DATA_LOADER"] = "TEXTUAL_INVERSION_SDXL_DATA_LOADER"
