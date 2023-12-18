@@ -24,7 +24,7 @@ For more installation details, see the [Installation](https://invoke-ai.github.i
 python -m pip install --upgrade pip
 
 # Editable install:
-pip install -e ".[test]" --extra-index-url https://download.pytorch.org/whl/cu118
+pip install ".[test]" --extra-index-url https://download.pytorch.org/whl/cu121
 ```
 
 ## A simple example

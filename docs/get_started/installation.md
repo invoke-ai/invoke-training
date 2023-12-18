@@ -1,5 +1,10 @@
 # Installation
 
+## Requirements
+
+1. Python `>= 3.10` is currently supported. Check your Python version by running `python -V`.
+2. An NVIDIA GPU with >= 8 GB VRAM is recommended for model training.
+
 ## Basic Installation
 1. Clone the repo:
 ```bash
@@ -12,7 +17,7 @@ git clone https://github.com/invoke-ai/invoke-training.git
 python -m pip install --upgrade pip
 
 # Install:
-pip install ".[test]" --extra-index-url https://download.pytorch.org/whl/cu118
+pip install ".[test]" --extra-index-url https://download.pytorch.org/whl/cu121
 ```
 
 ## Developer Installation
@@ -25,7 +30,7 @@ pip install ".[test]" --extra-index-url https://download.pytorch.org/whl/cu118
 python -m pip install --upgrade pip
 
 # Editable install:
-pip install -e ".[test]" --extra-index-url https://download.pytorch.org/whl/cu118
+pip install ".[test]" --extra-index-url https://download.pytorch.org/whl/cu121
 ```
 5. (*Optional*) Install the pre-commit hooks: `pre-commit install`. This will run static analysis tools (ruff) on `git commit`.
 6. (*Optional*) Setup `ruff` in your IDE of choice.
