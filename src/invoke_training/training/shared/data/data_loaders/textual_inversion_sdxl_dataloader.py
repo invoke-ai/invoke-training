@@ -8,7 +8,7 @@ from invoke_training.config.shared.data.transform_config import (
     TextualInversionPresetCaptionTransformConfig,
 )
 from invoke_training.training.shared.data.data_loaders.image_caption_sdxl_dataloader import (
-    sdxl_image_caption_collate_fn,
+    sd_image_caption_collate_fn,
 )
 from invoke_training.training.shared.data.data_loaders.textual_inversion_sd_dataloader import (
     get_preset_ti_caption_templates,
@@ -98,7 +98,7 @@ def build_textual_inversion_sdxl_dataloader(
     return DataLoader(
         dataset,
         shuffle=shuffle,
-        collate_fn=sdxl_image_caption_collate_fn,
+        collate_fn=sd_image_caption_collate_fn,
         batch_size=batch_size,
         num_workers=config.dataloader_num_workers,
     )

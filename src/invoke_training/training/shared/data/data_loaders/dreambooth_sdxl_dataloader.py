@@ -11,7 +11,7 @@ from invoke_training.training.shared.data.data_loaders.dreambooth_sd_dataloader 
     ShuffledRangeSampler,
 )
 from invoke_training.training.shared.data.data_loaders.image_caption_sdxl_dataloader import (
-    sdxl_image_caption_collate_fn,
+    sd_image_caption_collate_fn,
 )
 from invoke_training.training.shared.data.datasets.image_dir_dataset import ImageDirDataset
 from invoke_training.training.shared.data.datasets.transform_dataset import TransformDataset
@@ -120,7 +120,7 @@ def build_dreambooth_sdxl_dataloader(
     if sequential_batching:
         return DataLoader(
             merged_dataset,
-            collate_fn=sdxl_image_caption_collate_fn,
+            collate_fn=sd_image_caption_collate_fn,
             batch_size=batch_size,
             num_workers=data_loader_config.dataloader_num_workers,
             shuffle=shuffle,
@@ -146,7 +146,7 @@ def build_dreambooth_sdxl_dataloader(
     return DataLoader(
         merged_dataset,
         sampler=interleaved_sampler,
-        collate_fn=sdxl_image_caption_collate_fn,
+        collate_fn=sd_image_caption_collate_fn,
         batch_size=batch_size,
         num_workers=data_loader_config.dataloader_num_workers,
     )
