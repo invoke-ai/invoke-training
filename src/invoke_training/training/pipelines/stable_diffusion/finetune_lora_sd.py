@@ -105,6 +105,7 @@ def build_data_loader(
             config=data_loader_config,
             batch_size=batch_size,
             text_encoder_output_cache_dir=text_encoder_output_cache_dir,
+            text_encoder_cache_field_to_output_field={"text_encoder_output": "text_encoder_output"},
             vae_output_cache_dir=vae_output_cache_dir,
             shuffle=shuffle,
         )

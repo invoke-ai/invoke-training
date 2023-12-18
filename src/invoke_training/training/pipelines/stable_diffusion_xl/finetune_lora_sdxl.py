@@ -143,6 +143,10 @@ def build_data_loader(
             config=data_loader_config,
             batch_size=batch_size,
             text_encoder_output_cache_dir=text_encoder_output_cache_dir,
+            text_encoder_cache_field_to_output_field={
+                "prompt_embeds": "prompt_embeds",
+                "pooled_prompt_embeds": "pooled_prompt_embeds",
+            },
             vae_output_cache_dir=vae_output_cache_dir,
             shuffle=shuffle,
         )

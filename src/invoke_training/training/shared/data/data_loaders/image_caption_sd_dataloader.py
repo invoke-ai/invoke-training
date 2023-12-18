@@ -46,6 +46,9 @@ def sd_image_caption_collate_fn(examples):
         out_examples["prompt_embeds"] = torch.stack([example["prompt_embeds"] for example in examples])
         out_examples["pooled_prompt_embeds"] = torch.stack([example["pooled_prompt_embeds"] for example in examples])
 
+    if "text_encoder_output" in examples[0]:
+        out_examples["text_encoder_output"] = torch.stack([example["text_encoder_output"] for example in examples])
+
     if "vae_output" in examples[0]:
         out_examples["vae_output"] = torch.stack([example["vae_output"] for example in examples])
 
@@ -56,6 +59,7 @@ def build_image_caption_sd_dataloader(
     config: ImageCaptionSDDataLoaderConfig,
     batch_size: int,
     text_encoder_output_cache_dir: typing.Optional[str] = None,
+    text_encoder_cache_field_to_output_field: typing.Optional[dict[str, str]] = None,
     vae_output_cache_dir: typing.Optional[str] = None,
     shuffle: bool = True,
 ) -> DataLoader:
@@ -107,15 +111,13 @@ def build_image_caption_sd_dataloader(
         all_transforms.append(DropFieldTransform("image"))
 
     if text_encoder_output_cache_dir is not None:
+        assert text_encoder_cache_field_to_output_field is not None
         text_encoder_cache = TensorDiskCache(text_encoder_output_cache_dir)
         all_transforms.append(
             LoadCacheTransform(
                 cache=text_encoder_cache,
                 cache_key_field="id",
-                cache_field_to_output_field={
-                    "prompt_embeds": "prompt_embeds",
-                    "pooled_prompt_embeds": "pooled_prompt_embeds",
-                },
+                cache_field_to_output_field=text_encoder_cache_field_to_output_field,
             )
         )
 
