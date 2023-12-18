@@ -17,6 +17,10 @@ class TextualInversionTrainingConfig(BasePipelineConfig):
     Textual Inversion SDXL pipeline, then `model` must refer to an SDXL model.
     """
 
+    hf_variant: str | None = "fp16"
+    """The Hugging Face Hub model variant to use. Only applies if `model` is a Hugging Face Hub model name.
+    """
+
     # Helpful discussion for understanding how this works at inference time:
     # https://github.com/huggingface/diffusers/pull/3144#discussion_r1172413509
     num_vectors: int = 1

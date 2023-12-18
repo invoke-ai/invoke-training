@@ -18,6 +18,10 @@ class LoRATrainingConfig(BasePipelineConfig):
     file. (E.g. 'runwayml/stable-diffusion-v1-5', '/path/to/realisticVisionV51_v51VAE.safetensors', etc. )
     """
 
+    hf_variant: str | None = "fp16"
+    """The Hugging Face Hub model variant to use. Only applies if `model` is a Hugging Face Hub model name.
+    """
+
     train_unet: bool = True
     """Whether to add LoRA layers to the UNet model and train it.
     """

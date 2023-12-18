@@ -14,6 +14,7 @@ from invoke_training.training.shared.stable_diffusion.model_loading_utils import
 def generate_images(
     out_dir: str,
     model: str,
+    hf_variant: str | None,
     pipeline_version: PipelineVersionEnum,
     prompt: str,
     num_images: int,
@@ -49,7 +50,7 @@ def generate_images(
             Defaults to False.
     """
 
-    pipeline = load_pipeline(model, pipeline_version)
+    pipeline = load_pipeline(model_name_or_path=model, pipeline_version=pipeline_version, variant=hf_variant)
 
     loras = loras or []
     for lora in loras:

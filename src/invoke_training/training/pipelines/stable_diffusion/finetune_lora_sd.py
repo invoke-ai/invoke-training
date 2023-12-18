@@ -63,7 +63,9 @@ def load_models(
             UNet2DConditionModel,
         ]: A tuple of loaded models.
     """
-    pipeline: StableDiffusionPipeline = load_pipeline(config.model, PipelineVersionEnum.SD)
+    pipeline: StableDiffusionPipeline = load_pipeline(
+        model_name_or_path=config.model, pipeline_version=PipelineVersionEnum.SD, variant=config.hf_variant
+    )
 
     # Extract sub-models from the pipeline.
     tokenizer: CLIPTokenizer = pipeline.tokenizer

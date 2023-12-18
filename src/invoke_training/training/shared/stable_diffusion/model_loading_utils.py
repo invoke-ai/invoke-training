@@ -11,7 +11,7 @@ class PipelineVersionEnum(Enum):
 
 
 def load_pipeline(
-    model_name_or_path: str, pipeline_version: PipelineVersionEnum
+    model_name_or_path: str, pipeline_version: PipelineVersionEnum, variant: str | None = None
 ) -> typing.Union[StableDiffusionPipeline, StableDiffusionXLPipeline]:
     """Load a Stable Diffusion pipeline from disk.
 
@@ -20,6 +20,7 @@ def load_pipeline(
             stable diffusion checkpoint file. (E.g. 'runwayml/stable-diffusion-v1-5',
             'stabilityai/stable-diffusion-xl-base-1.0', '/path/to/realisticVisionV51_v51VAE.safetensors', etc. )
         pipeline_version (PipelineVersionEnum): The pipeline version.
+        variant (str | None): The Hugging Face Hub variant. Only applies if `model_name_or_path` is a HF Hub model name.
 
     Returns:
         typing.Union[StableDiffusionPipeline, StableDiffusionXLPipeline]: The loaded pipeline.
@@ -37,5 +38,6 @@ def load_pipeline(
     return pipeline_class.from_pretrained(
         model_name_or_path,
         safety_checker=None,
+        variant=variant,
         requires_safety_checker=False,
     )
