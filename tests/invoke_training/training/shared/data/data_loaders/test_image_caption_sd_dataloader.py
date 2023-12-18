@@ -2,7 +2,9 @@ import math
 
 import torch
 
-from invoke_training.config.shared.data.data_loader_config import ImageCaptionSDDataLoaderConfig
+from invoke_training.config.shared.data.data_loader_config import (
+    ImageCaptionSDDataLoaderConfig,
+)
 from invoke_training.config.shared.data.dataset_config import HFHubImageCaptionDatasetConfig
 from invoke_training.config.shared.data.transform_config import SDImageTransformConfig
 from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
@@ -12,6 +14,7 @@ from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataload
 
 def test_build_image_caption_sd_dataloader():
     """Smoke test of build_image_caption_sd_dataloader(...)."""
+
     config = ImageCaptionSDDataLoaderConfig(
         dataset=HFHubImageCaptionDatasetConfig(dataset_name="lambdalabs/pokemon-blip-captions"),
         image_transforms=SDImageTransformConfig(resolution=512),
@@ -23,10 +26,18 @@ def test_build_image_caption_sd_dataloader():
     assert len(data_loader) == math.ceil(833 / 4)
 
     example = next(iter(data_loader))
-    assert set(example.keys()) == {"image", "caption", "id"}
+    assert set(example.keys()) == {"image", "id", "caption", "original_size_hw", "crop_top_left_yx"}
 
     image = example["image"]
     assert image.shape == (4, 3, 512, 512)
     assert image.dtype == torch.float32
 
     assert len(example["caption"]) == 4
+
+    original_size_hw = example["original_size_hw"]
+    assert len(original_size_hw) == 4
+    assert len(original_size_hw[0]) == 2
+
+    crop_top_left_yx = example["crop_top_left_yx"]
+    assert len(crop_top_left_yx) == 4
+    assert len(crop_top_left_yx[0]) == 2

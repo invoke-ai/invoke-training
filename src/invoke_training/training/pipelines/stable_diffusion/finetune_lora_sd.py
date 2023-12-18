@@ -105,6 +105,7 @@ def build_data_loader(
             config=data_loader_config,
             batch_size=batch_size,
             text_encoder_output_cache_dir=text_encoder_output_cache_dir,
+            text_encoder_cache_field_to_output_field={"text_encoder_output": "text_encoder_output"},
             vae_output_cache_dir=vae_output_cache_dir,
             shuffle=shuffle,
         )
@@ -113,6 +114,7 @@ def build_data_loader(
             data_loader_config=data_loader_config,
             batch_size=batch_size,
             text_encoder_output_cache_dir=text_encoder_output_cache_dir,
+            text_encoder_cache_field_to_output_field={"text_encoder_output": "text_encoder_output"},
             vae_output_cache_dir=vae_output_cache_dir,
             shuffle=shuffle,
             sequential_batching=sequential_batching,
@@ -158,7 +160,14 @@ def cache_vae_outputs(cache_dir: str, data_loader: DataLoader, vae: AutoencoderK
         latents = latents * vae.config.scaling_factor
         # Split batch before caching.
         for i in range(len(data_batch["id"])):
-            cache.save(data_batch["id"][i], {"vae_output": latents[i]})
+            cache.save(
+                data_batch["id"][i],
+                {
+                    "vae_output": latents[i],
+                    "original_size_hw": data_batch["original_size_hw"][i],
+                    "crop_top_left_yx": data_batch["crop_top_left_yx"][i],
+                },
+            )
 
 
 def generate_validation_images(

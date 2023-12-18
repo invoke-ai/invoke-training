@@ -5,9 +5,7 @@ from pydantic import Field
 from invoke_training.config.pipelines.base_pipeline_config import BasePipelineConfig
 from invoke_training.config.shared.data.data_loader_config import (
     DreamboothSDDataLoaderConfig,
-    DreamboothSDXLDataLoaderConfig,
     ImageCaptionSDDataLoaderConfig,
-    ImageCaptionSDXLDataLoaderConfig,
 )
 from invoke_training.config.shared.optimizer.optimizer_config import OptimizerConfig
 
@@ -146,7 +144,7 @@ class FinetuneLoRASDXLConfig(LoRATrainingConfig):
     type: Literal["FINETUNE_LORA_SDXL"] = "FINETUNE_LORA_SDXL"
     optimizer: OptimizerConfig
     data_loader: Annotated[
-        Union[ImageCaptionSDXLDataLoaderConfig, DreamboothSDXLDataLoaderConfig], Field(discriminator="type")
+        Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig], Field(discriminator="type")
     ]
 
     vae_model: Optional[str] = None

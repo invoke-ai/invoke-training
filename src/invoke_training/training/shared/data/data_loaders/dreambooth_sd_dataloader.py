@@ -8,6 +8,7 @@ from invoke_training.training.shared.data.data_loaders.dreambooth_samplers impor
     SequentialRangeSampler,
     ShuffledRangeSampler,
 )
+from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import sd_image_caption_collate_fn
 from invoke_training.training.shared.data.datasets.image_dir_dataset import ImageDirDataset
 from invoke_training.training.shared.data.datasets.transform_dataset import TransformDataset
 from invoke_training.training.shared.data.transforms.constant_field_transform import ConstantFieldTransform
@@ -21,16 +22,16 @@ def build_dreambooth_sd_dataloader(
     data_loader_config: DreamboothSDDataLoaderConfig,
     batch_size: int,
     text_encoder_output_cache_dir: typing.Optional[str] = None,
+    text_encoder_cache_field_to_output_field: typing.Optional[dict[str, str]] = None,
     vae_output_cache_dir: typing.Optional[str] = None,
     shuffle: bool = True,
     sequential_batching: bool = False,
 ) -> DataLoader:
-    """Construct a DataLoader for a DreamBooth dataset for Stable Diffusion v1/v2.
+    """Construct a DataLoader for a DreamBooth dataset for Stable Diffusion XL.
 
     Args:
         data_loader_config (DreamboothSDDataLoaderConfig):
-        tokenizer (typing.Optional[CLIPTokenizer]):
-        batch_size (int): The DataLoader batch size.
+        batch_size (int):
         text_encoder_output_cache_dir (str, optional): The directory where text encoder outputs are cached and should be
             loaded from.
         vae_output_cache_dir (str, optional): The directory where VAE outputs are cached and should be loaded from. If
@@ -43,7 +44,6 @@ def build_dreambooth_sd_dataloader(
     Returns:
         DataLoader
     """
-
     # 1. Prepare instance dataset
     instance_dataset = ImageDirDataset(data_loader_config.instance_dataset.dataset_dir, id_prefix="instance_")
     instance_dataset = TransformDataset(
@@ -83,19 +83,26 @@ def build_dreambooth_sd_dataloader(
         vae_cache = TensorDiskCache(vae_output_cache_dir)
         all_transforms.append(
             LoadCacheTransform(
-                cache=vae_cache, cache_key_field="id", cache_field_to_output_field={"vae_output": "vae_output"}
+                cache=vae_cache,
+                cache_key_field="id",
+                cache_field_to_output_field={
+                    "vae_output": "vae_output",
+                    "original_size_hw": "original_size_hw",
+                    "crop_top_left_yx": "crop_top_left_yx",
+                },
             )
         )
         # We drop the image to avoid having to either convert from PIL, or handle PIL batch collation.
         all_transforms.append(DropFieldTransform("image"))
 
     if text_encoder_output_cache_dir is not None:
+        assert text_encoder_cache_field_to_output_field is not None
         text_encoder_cache = TensorDiskCache(text_encoder_output_cache_dir)
         all_transforms.append(
             LoadCacheTransform(
                 cache=text_encoder_cache,
                 cache_key_field="id",
-                cache_field_to_output_field={"text_encoder_output": "text_encoder_output"},
+                cache_field_to_output_field=text_encoder_cache_field_to_output_field,
             )
         )
 
@@ -106,6 +113,7 @@ def build_dreambooth_sd_dataloader(
     if sequential_batching:
         return DataLoader(
             merged_dataset,
+            collate_fn=sd_image_caption_collate_fn,
             batch_size=batch_size,
             num_workers=data_loader_config.dataloader_num_workers,
             shuffle=shuffle,
@@ -131,6 +139,7 @@ def build_dreambooth_sd_dataloader(
     return DataLoader(
         merged_dataset,
         sampler=interleaved_sampler,
+        collate_fn=sd_image_caption_collate_fn,
         batch_size=batch_size,
         num_workers=data_loader_config.dataloader_num_workers,
     )

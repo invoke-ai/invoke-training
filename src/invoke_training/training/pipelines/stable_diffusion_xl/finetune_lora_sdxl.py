@@ -20,24 +20,25 @@ from transformers import CLIPPreTrainedModel, CLIPTextModel, PretrainedConfig, P
 
 from invoke_training.config.pipelines.finetune_lora_config import FinetuneLoRASDXLConfig
 from invoke_training.config.shared.data.data_loader_config import (
-    DreamboothSDXLDataLoaderConfig,
-    ImageCaptionSDXLDataLoaderConfig,
+    DreamboothSDDataLoaderConfig,
+    ImageCaptionSDDataLoaderConfig,
 )
 from invoke_training.core.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet,
 )
+from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import cache_vae_outputs
 from invoke_training.training.shared.accelerator.accelerator_utils import (
     get_mixed_precision_dtype,
     initialize_accelerator,
     initialize_logging,
 )
 from invoke_training.training.shared.checkpoints.checkpoint_tracker import CheckpointTracker
-from invoke_training.training.shared.data.data_loaders.dreambooth_sdxl_dataloader import (
-    build_dreambooth_sdxl_dataloader,
+from invoke_training.training.shared.data.data_loaders.dreambooth_sd_dataloader import (
+    build_dreambooth_sd_dataloader,
 )
-from invoke_training.training.shared.data.data_loaders.image_caption_sdxl_dataloader import (
-    build_image_caption_sdxl_dataloader,
+from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
+    build_image_caption_sd_dataloader,
 )
 from invoke_training.training.shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training.training.shared.optimizer.optimizer_utils import initialize_optimizer
@@ -131,26 +132,34 @@ def load_models(
 
 
 def build_data_loader(
-    data_loader_config: Union[ImageCaptionSDXLDataLoaderConfig, DreamboothSDXLDataLoaderConfig],
+    data_loader_config: Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig],
     batch_size: int,
     text_encoder_output_cache_dir: Optional[str] = None,
     vae_output_cache_dir: Optional[str] = None,
     shuffle: bool = True,
     sequential_batching: bool = False,
 ) -> DataLoader:
-    if data_loader_config.type == "IMAGE_CAPTION_SDXL_DATA_LOADER":
-        return build_image_caption_sdxl_dataloader(
+    if data_loader_config.type == "IMAGE_CAPTION_SD_DATA_LOADER":
+        return build_image_caption_sd_dataloader(
             config=data_loader_config,
             batch_size=batch_size,
             text_encoder_output_cache_dir=text_encoder_output_cache_dir,
+            text_encoder_cache_field_to_output_field={
+                "prompt_embeds": "prompt_embeds",
+                "pooled_prompt_embeds": "pooled_prompt_embeds",
+            },
             vae_output_cache_dir=vae_output_cache_dir,
             shuffle=shuffle,
         )
-    elif data_loader_config.type == "DREAMBOOTH_SDXL_DATA_LOADER":
-        return build_dreambooth_sdxl_dataloader(
+    elif data_loader_config.type == "DREAMBOOTH_SD_DATA_LOADER":
+        return build_dreambooth_sd_dataloader(
             data_loader_config=data_loader_config,
             batch_size=batch_size,
             text_encoder_output_cache_dir=text_encoder_output_cache_dir,
+            text_encoder_cache_field_to_output_field={
+                "prompt_embeds": "prompt_embeds",
+                "pooled_prompt_embeds": "pooled_prompt_embeds",
+            },
             vae_output_cache_dir=vae_output_cache_dir,
             shuffle=shuffle,
             sequential_batching=sequential_batching,
@@ -228,25 +237,6 @@ def cache_text_encoder_outputs(
                 "pooled_prompt_embeds": pooled_prompt_embeds[i],
             }
             cache.save(data_batch["id"][i], embeds)
-
-
-def cache_vae_outputs(cache_dir: str, data_loader: DataLoader, vae: AutoencoderKL):
-    """Run the VAE on all images in the dataset and cache the results to disk."""
-    cache = TensorDiskCache(cache_dir)
-
-    for data_batch in tqdm(data_loader):
-        latents = vae.encode(data_batch["image"].to(device=vae.device, dtype=vae.dtype)).latent_dist.sample()
-        latents = latents * vae.config.scaling_factor
-        # Split batch before caching.
-        for i in range(len(data_batch["id"])):
-            cache.save(
-                data_batch["id"][i],
-                {
-                    "vae_output": latents[i],
-                    "original_size_hw": data_batch["original_size_hw"][i],
-                    "crop_top_left_yx": data_batch["crop_top_left_yx"][i],
-                },
-            )
 
 
 def generate_validation_images(

@@ -1,4 +1,4 @@
-import typing
+from typing import Literal, Optional
 
 from torch.utils.data import DataLoader
 
@@ -6,6 +6,9 @@ from invoke_training.config.shared.data.data_loader_config import TextualInversi
 from invoke_training.config.shared.data.transform_config import (
     TextualInversionCaptionTransformConfig,
     TextualInversionPresetCaptionTransformConfig,
+)
+from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
+    sd_image_caption_collate_fn,
 )
 from invoke_training.training.shared.data.datasets.image_dir_dataset import ImageDirDataset
 from invoke_training.training.shared.data.datasets.transform_dataset import TransformDataset
@@ -19,7 +22,7 @@ from invoke_training.training.shared.data.transforms.textual_inversion_caption_t
 )
 
 
-def get_preset_ti_caption_templates(preset: typing.Literal["object", "style"]) -> list[str]:
+def get_preset_ti_caption_templates(preset: Literal["object", "style"]) -> list[str]:
     if preset == "object":
         return [
             "a photo of a {}",
@@ -80,16 +83,14 @@ def build_textual_inversion_sd_dataloader(
     config: TextualInversionSDDataLoaderConfig,
     placeholder_str: str,
     batch_size: int,
-    vae_output_cache_dir: typing.Optional[str] = None,
+    vae_output_cache_dir: Optional[str] = None,
     shuffle: bool = True,
 ) -> DataLoader:
-    """Construct a DataLoader for a Textual Inversion dataset for Stable Diffusion v1/v2..
+    """Construct a DataLoader for a Textual Inversion dataset for Stable Diffusion.
 
     Args:
         config (TextualInversionSDDataLoaderConfig): The dataset config.
         placeholder_str (str): The placeholder string being trained.
-        tokenizer (CLIPTokenizer, option): The tokenizer to apply to the captions. Can be None if
-            `text_encoder_output_cache_dir` is set.
         batch_size (int): The DataLoader batch size.
         vae_output_cache_dir (str, optional): The directory where VAE outputs are cached and should be loaded from. If
             set, then the image augmentation transforms will be skipped, and the image will not be copied to VRAM.
@@ -132,7 +133,13 @@ def build_textual_inversion_sd_dataloader(
         vae_cache = TensorDiskCache(vae_output_cache_dir)
         all_transforms.append(
             LoadCacheTransform(
-                cache=vae_cache, cache_key_field="id", cache_field_to_output_field={"vae_output": "vae_output"}
+                cache=vae_cache,
+                cache_key_field="id",
+                cache_field_to_output_field={
+                    "vae_output": "vae_output",
+                    "original_size_hw": "original_size_hw",
+                    "crop_top_left_yx": "crop_top_left_yx",
+                },
             )
         )
         # We drop the image to avoid having to either convert from PIL, or handle PIL batch collation.
@@ -143,6 +150,7 @@ def build_textual_inversion_sd_dataloader(
     return DataLoader(
         dataset,
         shuffle=shuffle,
+        collate_fn=sd_image_caption_collate_fn,
         batch_size=batch_size,
         num_workers=config.dataloader_num_workers,
     )

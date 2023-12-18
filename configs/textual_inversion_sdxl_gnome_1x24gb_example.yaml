@@ -16,7 +16,7 @@ optimizer:
     optimizer_type: AdamW
 
 data_loader:
-  type: TEXTUAL_INVERSION_SDXL_DATA_LOADER
+  type: TEXTUAL_INVERSION_SD_DATA_LOADER
   dataset:
     type: IMAGE_DIR_DATASET
     dataset_dir: "sample_data/bruce_the_gnome"

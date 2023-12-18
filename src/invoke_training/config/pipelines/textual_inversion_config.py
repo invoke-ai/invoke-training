@@ -1,10 +1,7 @@
 from typing import Literal, Optional
 
 from invoke_training.config.pipelines.base_pipeline_config import BasePipelineConfig
-from invoke_training.config.shared.data.data_loader_config import (
-    TextualInversionSDDataLoaderConfig,
-    TextualInversionSDXLDataLoaderConfig,
-)
+from invoke_training.config.shared.data.data_loader_config import TextualInversionSDDataLoaderConfig
 from invoke_training.config.shared.optimizer.optimizer_config import OptimizerConfig
 
 
@@ -162,11 +159,11 @@ class TextualInversionSDXLConfig(TextualInversionTrainingConfig):
     See [`OptimizerConfig`][invoke_training.config.shared.optimizer.optimizer_config.OptimizerConfig] for details.
     """
 
-    data_loader: TextualInversionSDXLDataLoaderConfig
+    data_loader: TextualInversionSDDataLoaderConfig
     """The data configuration.
 
     See
-    [`TextualInversionSDXLDataLoaderConfig`][invoke_training.config.shared.data.data_loader_config.TextualInversionSDXLDataLoaderConfig]
+    [`TextualInversionSDDataLoaderConfig`][invoke_training.config.shared.data.data_loader_config.TextualInversionSDDataLoaderConfig]
     for details.
     """
 
