@@ -30,7 +30,7 @@ pip install ".[test]" --extra-index-url https://download.pytorch.org/whl/cu121
 python -m pip install --upgrade pip
 
 # Editable install:
-pip install ".[test]" --extra-index-url https://download.pytorch.org/whl/cu121
+pip install -e ".[test]" --extra-index-url https://download.pytorch.org/whl/cu121
 ```
 5. (*Optional*) Install the pre-commit hooks: `pre-commit install`. This will run static analysis tools (ruff) on `git commit`.
 6. (*Optional*) Setup `ruff` in your IDE of choice.
