@@ -27,6 +27,7 @@ from invoke_training.core.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet,
 )
+from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import cache_vae_outputs
 from invoke_training.training.shared.accelerator.accelerator_utils import (
     get_mixed_precision_dtype,
     initialize_accelerator,
@@ -236,25 +237,6 @@ def cache_text_encoder_outputs(
                 "pooled_prompt_embeds": pooled_prompt_embeds[i],
             }
             cache.save(data_batch["id"][i], embeds)
-
-
-def cache_vae_outputs(cache_dir: str, data_loader: DataLoader, vae: AutoencoderKL):
-    """Run the VAE on all images in the dataset and cache the results to disk."""
-    cache = TensorDiskCache(cache_dir)
-
-    for data_batch in tqdm(data_loader):
-        latents = vae.encode(data_batch["image"].to(device=vae.device, dtype=vae.dtype)).latent_dist.sample()
-        latents = latents * vae.config.scaling_factor
-        # Split batch before caching.
-        for i in range(len(data_batch["id"])):
-            cache.save(
-                data_batch["id"][i],
-                {
-                    "vae_output": latents[i],
-                    "original_size_hw": data_batch["original_size_hw"][i],
-                    "crop_top_left_yx": data_batch["crop_top_left_yx"][i],
-                },
-            )
 
 
 def generate_validation_images(
