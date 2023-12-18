@@ -10,7 +10,7 @@ from invoke_training.training.shared.data.data_loaders.dreambooth_sd_dataloader 
     SequentialRangeSampler,
     ShuffledRangeSampler,
 )
-from invoke_training.training.shared.data.data_loaders.image_caption_sdxl_dataloader import (
+from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
     sd_image_caption_collate_fn,
 )
 from invoke_training.training.shared.data.datasets.image_dir_dataset import ImageDirDataset

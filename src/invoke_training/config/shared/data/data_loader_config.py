@@ -22,10 +22,6 @@ class ImageCaptionSDDataLoaderConfig(BaseModel):
     """
 
 
-class ImageCaptionSDXLDataLoaderConfig(ImageCaptionSDDataLoaderConfig):
-    type: Literal["IMAGE_CAPTION_SDXL_DATA_LOADER"] = "IMAGE_CAPTION_SDXL_DATA_LOADER"
-
-
 class DreamboothSDDataLoaderConfig(BaseModel):
     type: Literal["DREAMBOOTH_SD_DATA_LOADER"] = "DREAMBOOTH_SD_DATA_LOADER"
 

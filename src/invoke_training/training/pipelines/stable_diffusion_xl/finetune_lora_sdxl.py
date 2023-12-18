@@ -21,7 +21,7 @@ from transformers import CLIPPreTrainedModel, CLIPTextModel, PretrainedConfig, P
 from invoke_training.config.pipelines.finetune_lora_config import FinetuneLoRASDXLConfig
 from invoke_training.config.shared.data.data_loader_config import (
     DreamboothSDXLDataLoaderConfig,
-    ImageCaptionSDXLDataLoaderConfig,
+    ImageCaptionSDDataLoaderConfig,
 )
 from invoke_training.core.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
@@ -36,8 +36,8 @@ from invoke_training.training.shared.checkpoints.checkpoint_tracker import Check
 from invoke_training.training.shared.data.data_loaders.dreambooth_sdxl_dataloader import (
     build_dreambooth_sdxl_dataloader,
 )
-from invoke_training.training.shared.data.data_loaders.image_caption_sdxl_dataloader import (
-    build_image_caption_sdxl_dataloader,
+from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
+    build_image_caption_sd_dataloader,
 )
 from invoke_training.training.shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training.training.shared.optimizer.optimizer_utils import initialize_optimizer
@@ -131,15 +131,15 @@ def load_models(
 
 
 def build_data_loader(
-    data_loader_config: Union[ImageCaptionSDXLDataLoaderConfig, DreamboothSDXLDataLoaderConfig],
+    data_loader_config: Union[ImageCaptionSDDataLoaderConfig, DreamboothSDXLDataLoaderConfig],
     batch_size: int,
     text_encoder_output_cache_dir: Optional[str] = None,
     vae_output_cache_dir: Optional[str] = None,
     shuffle: bool = True,
     sequential_batching: bool = False,
 ) -> DataLoader:
-    if data_loader_config.type == "IMAGE_CAPTION_SDXL_DATA_LOADER":
-        return build_image_caption_sdxl_dataloader(
+    if data_loader_config.type == "IMAGE_CAPTION_SD_DATA_LOADER":
+        return build_image_caption_sd_dataloader(
             config=data_loader_config,
             batch_size=batch_size,
             text_encoder_output_cache_dir=text_encoder_output_cache_dir,
