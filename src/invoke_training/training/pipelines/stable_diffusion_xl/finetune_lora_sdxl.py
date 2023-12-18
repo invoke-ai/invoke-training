@@ -20,7 +20,7 @@ from transformers import CLIPPreTrainedModel, CLIPTextModel, PretrainedConfig, P
 
 from invoke_training.config.pipelines.finetune_lora_config import FinetuneLoRASDXLConfig
 from invoke_training.config.shared.data.data_loader_config import (
-    DreamboothSDXLDataLoaderConfig,
+    DreamboothSDDataLoaderConfig,
     ImageCaptionSDDataLoaderConfig,
 )
 from invoke_training.core.lora.injection.stable_diffusion import (
@@ -33,8 +33,8 @@ from invoke_training.training.shared.accelerator.accelerator_utils import (
     initialize_logging,
 )
 from invoke_training.training.shared.checkpoints.checkpoint_tracker import CheckpointTracker
-from invoke_training.training.shared.data.data_loaders.dreambooth_sdxl_dataloader import (
-    build_dreambooth_sdxl_dataloader,
+from invoke_training.training.shared.data.data_loaders.dreambooth_sd_dataloader import (
+    build_dreambooth_sd_dataloader,
 )
 from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
     build_image_caption_sd_dataloader,
@@ -131,7 +131,7 @@ def load_models(
 
 
 def build_data_loader(
-    data_loader_config: Union[ImageCaptionSDDataLoaderConfig, DreamboothSDXLDataLoaderConfig],
+    data_loader_config: Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig],
     batch_size: int,
     text_encoder_output_cache_dir: Optional[str] = None,
     vae_output_cache_dir: Optional[str] = None,
@@ -150,11 +150,15 @@ def build_data_loader(
             vae_output_cache_dir=vae_output_cache_dir,
             shuffle=shuffle,
         )
-    elif data_loader_config.type == "DREAMBOOTH_SDXL_DATA_LOADER":
-        return build_dreambooth_sdxl_dataloader(
+    elif data_loader_config.type == "DREAMBOOTH_SD_DATA_LOADER":
+        return build_dreambooth_sd_dataloader(
             data_loader_config=data_loader_config,
             batch_size=batch_size,
             text_encoder_output_cache_dir=text_encoder_output_cache_dir,
+            text_encoder_cache_field_to_output_field={
+                "prompt_embeds": "prompt_embeds",
+                "pooled_prompt_embeds": "pooled_prompt_embeds",
+            },
             vae_output_cache_dir=vae_output_cache_dir,
             shuffle=shuffle,
             sequential_batching=sequential_batching,

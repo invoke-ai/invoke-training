@@ -42,10 +42,6 @@ class DreamboothSDDataLoaderConfig(BaseModel):
     """
 
 
-class DreamboothSDXLDataLoaderConfig(DreamboothSDDataLoaderConfig):
-    type: Literal["DREAMBOOTH_SDXL_DATA_LOADER"] = "DREAMBOOTH_SDXL_DATA_LOADER"
-
-
 class TextualInversionSDDataLoaderConfig(BaseModel):
     type: Literal["TEXTUAL_INVERSION_SD_DATA_LOADER"] = "TEXTUAL_INVERSION_SD_DATA_LOADER"
 
