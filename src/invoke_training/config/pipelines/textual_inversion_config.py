@@ -25,9 +25,13 @@ class TextualInversionTrainingConfig(BasePipelineConfig):
     num_vectors: int = 1
     """The number of textual inversion placeholder vectors that will be used to learn the concept.
 
-    Warning:
-        TI embedding files with `num_vectors > 1` are not currently supported in
-        [Invoke AI](https://github.com/invoke-ai/InvokeAI).
+    Increasing `num_vectors` increases the amount of information that can be encoded in the embedding at the cost of a
+    larger output embedding file and a higher risk of overfitting on small datasets.
+
+    note: Recommendation
+        - Start with `num_vectors = 1` and focus on tuning the other training parameters. Once you are getting good
+        results, experiment with increasing `num_vectors`.
+        - Typical values for `num_vectors` are in the range of 1 to 64.
     """
 
     placeholder_token: str
