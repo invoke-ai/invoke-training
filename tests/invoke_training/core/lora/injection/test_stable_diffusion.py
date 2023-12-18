@@ -12,19 +12,19 @@ from invoke_training.core.lora.injection.stable_diffusion import (
 
 @pytest.mark.loads_model
 @pytest.mark.parametrize(
-    ["model_name", "revision", "expected_num_layers"],
+    ["model_name", "expected_num_layers"],
     [
-        ("runwayml/stable-diffusion-v1-5", "c9ab35ff5f2c362e9e22fbafe278077e196057f0", 192),
-        ("stabilityai/stable-diffusion-xl-base-1.0", "47cd5302d866fa60cf8fb81f0e34d42e38f6100c", 722),
+        ("runwayml/stable-diffusion-v1-5", 192),
+        ("stabilityai/stable-diffusion-xl-base-1.0", 722),
     ],
 )
-def test_inject_lora_into_unet_smoke(model_name: str, revision: str, expected_num_layers: int):
+def test_inject_lora_into_unet_smoke(model_name: str, expected_num_layers: int):
     """Smoke test of inject_lora_into_unet(...)."""
     unet = UNet2DConditionModel.from_pretrained(
         model_name,
         subfolder="unet",
+        variant="fp16",
         local_files_only=True,
-        revision=revision,
     )
     lora_layers = inject_lora_into_unet(unet)
 
@@ -39,19 +39,19 @@ def test_inject_lora_into_unet_smoke(model_name: str, revision: str, expected_nu
 
 @pytest.mark.loads_model
 @pytest.mark.parametrize(
-    ["model_name", "revision", "expected_num_layers"],
+    ["model_name", "expected_num_layers"],
     [
-        ("runwayml/stable-diffusion-v1-5", "c9ab35ff5f2c362e9e22fbafe278077e196057f0", 278),
-        ("stabilityai/stable-diffusion-xl-base-1.0", "47cd5302d866fa60cf8fb81f0e34d42e38f6100c", 788),
+        ("runwayml/stable-diffusion-v1-5", 278),
+        ("stabilityai/stable-diffusion-xl-base-1.0", 788),
     ],
 )
-def test_inject_lora_into_unet_non_attention_layers_smoke(model_name: str, revision: str, expected_num_layers: int):
+def test_inject_lora_into_unet_non_attention_layers_smoke(model_name: str, expected_num_layers: int):
     """Smoke test of inject_lora_into_unet(..., include_non_attention_blocks=True)."""
     unet = UNet2DConditionModel.from_pretrained(
         model_name,
         subfolder="unet",
+        variant="fp16",
         local_files_only=True,
-        revision=revision,
     )
     lora_layers = inject_lora_into_unet(unet, include_non_attention_blocks=True)
 
@@ -80,20 +80,20 @@ def test_inject_lora_into_unet_non_attention_layers_smoke(model_name: str, revis
 
 @pytest.mark.loads_model
 @pytest.mark.parametrize(
-    ["model_name", "revision", "text_encoder_name", "expected_num_layers"],
+    ["model_name", "text_encoder_name", "expected_num_layers"],
     [
-        ("stabilityai/stable-diffusion-xl-base-1.0", "47cd5302d866fa60cf8fb81f0e34d42e38f6100c", "text_encoder", 72),
-        ("stabilityai/stable-diffusion-xl-base-1.0", "47cd5302d866fa60cf8fb81f0e34d42e38f6100c", "text_encoder_2", 192),
-        ("runwayml/stable-diffusion-v1-5", "c9ab35ff5f2c362e9e22fbafe278077e196057f0", "text_encoder", 72),
+        ("stabilityai/stable-diffusion-xl-base-1.0", "text_encoder", 72),
+        ("stabilityai/stable-diffusion-xl-base-1.0", "text_encoder_2", 192),
+        ("runwayml/stable-diffusion-v1-5", "text_encoder", 72),
     ],
 )
-def test_inject_lora_into_clip_text_encoder_smoke(model_name, revision, text_encoder_name, expected_num_layers):
+def test_inject_lora_into_clip_text_encoder_smoke(model_name, text_encoder_name, expected_num_layers):
     """Smoke test of inject_lora_into_clip_text_encoder(...)."""
     text_encoder = CLIPTextModel.from_pretrained(
         model_name,
         subfolder=text_encoder_name,
+        variant="fp16",
         local_files_only=True,
-        revision=revision,
     )
 
     lora_layers = inject_lora_into_clip_text_encoder(text_encoder)
@@ -108,19 +108,19 @@ def test_inject_lora_into_clip_text_encoder_smoke(model_name, revision, text_enc
 @pytest.mark.loads_model
 @pytest.mark.loads_model
 @pytest.mark.parametrize(
-    ["model_name", "revision", "expected_num_layers"],
+    ["model_name", "expected_num_layers"],
     [
-        ("runwayml/stable-diffusion-v1-5", "c9ab35ff5f2c362e9e22fbafe278077e196057f0", 192),
-        ("stabilityai/stable-diffusion-xl-base-1.0", "47cd5302d866fa60cf8fb81f0e34d42e38f6100c", 722),
+        ("runwayml/stable-diffusion-v1-5", 192),
+        ("stabilityai/stable-diffusion-xl-base-1.0", 722),
     ],
 )
-def test_convert_lora_state_dict_to_kohya_format_smoke(model_name: str, revision: str, expected_num_layers: int):
+def test_convert_lora_state_dict_to_kohya_format_smoke(model_name: str, expected_num_layers: int):
     """Smoke test of convert_lora_state_dict_to_kohya_format(...) with full SD 1.5 model."""
     unet = UNet2DConditionModel.from_pretrained(
         model_name,
         subfolder="unet",
+        variant="fp16",
         local_files_only=True,
-        revision=revision,
     )
     lora_layers = inject_lora_into_unet(unet)
     lora_state_dict = lora_layers.get_lora_state_dict()
