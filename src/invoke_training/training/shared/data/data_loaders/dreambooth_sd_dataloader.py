@@ -122,16 +122,16 @@ def build_dreambooth_sd_dataloader(
     # 5. Prepare instance dataset sampler. Note that the instance_dataset comes first in the merged_dataset.
     samplers = []
     if shuffle:
-        samplers.append(SequentialRangeSampler(0, len(instance_dataset)))
-    else:
         samplers.append(ShuffledRangeSampler(0, len(instance_dataset)))
+    else:
+        samplers.append(SequentialRangeSampler(0, len(instance_dataset)))
 
     # 6. Prepare class dataset sampler. Note that the class_dataset comes first in the merged_dataset.
     if class_dataset is not None:
         if shuffle:
-            samplers.append(SequentialRangeSampler(len(instance_dataset), len(instance_dataset) + len(class_dataset)))
-        else:
             samplers.append(ShuffledRangeSampler(len(instance_dataset), len(instance_dataset) + len(class_dataset)))
+        else:
+            samplers.append(SequentialRangeSampler(len(instance_dataset), len(instance_dataset) + len(class_dataset)))
 
     # 7. Interleave instance and class samplers.
     interleaved_sampler = InterleavedSampler(samplers)
