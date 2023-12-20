@@ -27,7 +27,10 @@ class Resolution:
         return (self.height, self.width)
 
     def __eq__(self, other: "Resolution") -> bool:
-        return self.height == other.height and self.width == other.width
+        return self.to_tuple() == other.to_tuple()
+
+    def __lt__(self, other: "Resolution") -> bool:
+        return self.to_tuple() < other.to_tuple()
 
     def __hash__(self):
-        return hash((self.height, self.width))
+        return hash(self.to_tuple())
