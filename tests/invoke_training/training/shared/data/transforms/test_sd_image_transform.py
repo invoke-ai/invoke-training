@@ -5,6 +5,7 @@ import torch
 from PIL import Image
 
 from invoke_training.training.shared.data.transforms.sd_image_transform import SDImageTransform
+from invoke_training.training.shared.data.utils.resolution import Resolution
 
 
 def denormalize_image(img: np.ndarray) -> np.ndarray:
@@ -31,14 +32,14 @@ def test_sd_image_transform_resolution():
     in_image_np = np.ones((256, 128, 3), dtype=np.uint8)
     in_image_pil = Image.fromarray(in_image_np)
 
-    resolution = 512
+    resolution = Resolution(768, 512)
     tf = SDImageTransform(resolution=resolution)
 
     out_example = tf({"image": in_image_pil})
 
     out_image = out_example["image"]
     assert isinstance(out_image, torch.Tensor)
-    assert out_image.shape == (3, resolution, resolution)
+    assert out_image.shape == (3, resolution.height, resolution.width)
 
     original_size_hw = out_example["original_size_hw"]
     assert original_size_hw == (256, 128)
@@ -68,8 +69,8 @@ def test_sd_image_transform_center_crop():
     in_image_np = np.arange(9 * 5 * 3, dtype=np.uint8).reshape((9, 5, 3))
     in_image_pil = Image.fromarray(np.copy(in_image_np))
 
-    # The target resolution is 5x5 (with center cropping).
-    tf = SDImageTransform(resolution=5, center_crop=True)
+    # The target resolution is 3x5 (with center cropping).
+    tf = SDImageTransform(resolution=(3, 5), center_crop=True)
 
     out_example = tf({"image": in_image_pil})
 
@@ -77,8 +78,8 @@ def test_sd_image_transform_center_crop():
     out_image_np = np.array(out_image)
 
     # Verify that the correct region of the image was cropped.
-    assert np.allclose(denormalize_image(out_image_np), in_image_np[2:-2, :, :])
-    assert out_example["crop_top_left_yx"] == (2, 0)
+    assert np.allclose(denormalize_image(out_image_np), in_image_np[3:-3, :, :])
+    assert out_example["crop_top_left_yx"] == (3, 0)
 
 
 def test_sd_image_transform_random_crop():
@@ -87,8 +88,8 @@ def test_sd_image_transform_random_crop():
     in_image_np = np.arange(9 * 5 * 3, dtype=np.uint8).reshape((9, 5, 3))
     in_image_pil = Image.fromarray(np.copy(in_image_np))
 
-    # The target resolution is 5x5 (with random cropping).
-    resolution = 5
+    # The target resolution is 3x5 (with random cropping).
+    resolution = Resolution(3, 5)
     tf = SDImageTransform(resolution=resolution, center_crop=False)
 
     out_example = tf({"image": in_image_pil})
@@ -99,7 +100,8 @@ def test_sd_image_transform_random_crop():
     # Verify that the crop_top_left_yx value is correct.
     crop_y, crop_x = out_example["crop_top_left_yx"]
     assert np.allclose(
-        denormalize_image(out_image_np), in_image_np[crop_y : crop_y + resolution, crop_x : crop_x + resolution, :]
+        denormalize_image(out_image_np),
+        in_image_np[crop_y : crop_y + resolution.height, crop_x : crop_x + resolution.width, :],
     )
 
 
@@ -109,8 +111,8 @@ def test_sd_image_transform_center_crop_flip():
     in_image_np = np.arange(5 * 9 * 3, dtype=np.uint8).reshape((5, 9, 3))
     in_image_pil = Image.fromarray(np.copy(in_image_np))
 
-    # The target resolution is 5x5 (with center cropping and horizontal flipping).
-    tf = SDImageTransform(resolution=5, center_crop=True, random_flip=True)
+    # The target resolution is 5x3 (with center cropping and horizontal flipping).
+    tf = SDImageTransform(resolution=Resolution(5, 3), center_crop=True, random_flip=True)
 
     # Note: We patch random.random() to force a horizontal flip to be applied.
     with unittest.mock.patch("random.random", return_value=0.0):
@@ -121,8 +123,8 @@ def test_sd_image_transform_center_crop_flip():
 
     # Verify that the correct region of the image was cropped/flipped.
     # For this comparison, we flip the in_image_np first, then apply the expected crop.
-    assert np.allclose(denormalize_image(out_image_np), in_image_np[:, ::-1, :][:, 2:-2, :])
-    assert out_example["crop_top_left_yx"] == (0, 2)
+    assert np.allclose(denormalize_image(out_image_np), in_image_np[:, ::-1, :][:, 3:-3, :])
+    assert out_example["crop_top_left_yx"] == (0, 3)
 
 
 def test_sd_image_transform_random_crop_flip():
@@ -131,8 +133,8 @@ def test_sd_image_transform_random_crop_flip():
     in_image_np = np.arange(5 * 9 * 3, dtype=np.uint8).reshape((5, 9, 3))
     in_image_pil = Image.fromarray(np.copy(in_image_np))
 
-    # The target resolution is 5x5 (with random cropping and horizontal flipping).
-    resolution = 5
+    # The target resolution is 5x3 (with random cropping and horizontal flipping).
+    resolution = Resolution(5, 3)
     tf = SDImageTransform(resolution=resolution, center_crop=False, random_flip=True)
 
     # Note: We patch random.random() to force a horizontal flip to be applied.
@@ -147,5 +149,5 @@ def test_sd_image_transform_random_crop_flip():
     crop_y, crop_x = out_example["crop_top_left_yx"]
     assert np.allclose(
         denormalize_image(out_image_np),
-        in_image_np[:, ::-1, :][crop_y : crop_y + resolution, crop_x : crop_x + resolution, :],
+        in_image_np[:, ::-1, :][crop_y : crop_y + resolution.height, crop_x : crop_x + resolution.width, :],
     )
