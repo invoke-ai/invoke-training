@@ -1,16 +1,4 @@
-class Resolution:
-    def __init__(self, height: int, width: int):
-        self.height = height
-        self.width = width
-
-    def aspect_ratio(self):
-        return self.height / self.width
-
-    def __eq__(self, other: "Resolution") -> bool:
-        return self.height == other.height and self.width == other.width
-
-    def __hash__(self):
-        return hash((self.height, self.width))
+from invoke_training.training.shared.data.utils.resolution import Resolution
 
 
 class AspectRatioBucketManager:
