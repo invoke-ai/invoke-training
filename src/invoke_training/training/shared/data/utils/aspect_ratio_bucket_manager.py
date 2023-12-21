@@ -2,7 +2,7 @@ from invoke_training.training.shared.data.utils.resolution import Resolution
 
 
 class AspectRatioBucketManager:
-    def __init__(self, target_resolution: Resolution, start_dim: int, end_dim: int, divisible_by: int) -> None:
+    def __init__(self, target_resolution: int, start_dim: int, end_dim: int, divisible_by: int) -> None:
         self._buckets = list(
             self.build_aspect_ratio_buckets(
                 target_resolution=target_resolution,
@@ -14,13 +14,13 @@ class AspectRatioBucketManager:
 
     @classmethod
     def build_aspect_ratio_buckets(
-        cls, target_resolution: Resolution, start_dim: int, end_dim: int, divisible_by: int
+        cls, target_resolution: int, start_dim: int, end_dim: int, divisible_by: int
     ) -> set[Resolution]:
         """Prepare a set of aspect ratios.
 
         Args:
-            target_resolution (Resolution): The target resolution. All resolutions in the returned set will have <=
-                the number of pixels in this target resolution.
+            target_resolution (Resolution): All resolutions in the returned set will aim to have close to
+                (but <=) `target_resolution * target_resolution` pixels.
             start_dim (int):
             end_dim (int):
             divisible_by (int): All dimensions in the returned set of resolutions will be divisible by `divisible_by`.
@@ -29,15 +29,14 @@ class AspectRatioBucketManager:
             set[tuple[int, int]]: The aspect ratio bucket resolutions.
         """
         # Validate target_resolution.
-        assert target_resolution.height % divisible_by == 0
-        assert target_resolution.width % divisible_by == 0
+        assert target_resolution % divisible_by == 0
 
         # Validate start_dim, end_dim.
         assert start_dim <= end_dim
         assert start_dim % divisible_by == 0
         assert end_dim % divisible_by == 0
 
-        target_size = target_resolution.height * target_resolution.width
+        target_size = target_resolution * target_resolution
 
         buckets = set()
 

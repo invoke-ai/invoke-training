@@ -9,16 +9,15 @@ from invoke_training.training.shared.data.utils.resolution import Resolution
 @pytest.mark.parametrize(
     ["target_resolution", "start_dim", "end_dim", "divisible_by", "should_raise"],
     [
-        (Resolution(1024, 1024), 512, 2048, 64, False),
-        (Resolution(1025, 1024), 512, 2048, 64, True),  # target_resolution[0] not divisible by divisible_by.
-        (Resolution(1024, 1025), 512, 2048, 64, True),  # target_resolution[1] not divisible by divisible_by.
-        (Resolution(1024, 1024), 513, 2048, 64, True),  # start_dim not divisible by divisible_by.
-        (Resolution(1024, 1024), 512, 2049, 64, True),  # end_dim not divisible by divisible_by.
-        (Resolution(1024, 1024), 1024, 512, 64, True),  # start_dim > end_dim.
+        (1024, 512, 2048, 64, False),
+        (1025, 512, 2048, 64, True),  # target_resolution not divisible by divisible_by.
+        (1024, 513, 2048, 64, True),  # start_dim not divisible by divisible_by.
+        (1024, 512, 2049, 64, True),  # end_dim not divisible by divisible_by.
+        (1024, 1024, 512, 64, True),  # start_dim > end_dim.
     ],
 )
 def test_build_aspect_ratio_buckets_input_validation(
-    target_resolution: Resolution, start_dim: int, end_dim: int, divisible_by: int, should_raise: bool
+    target_resolution: int, start_dim: int, end_dim: int, divisible_by: int, should_raise: bool
 ):
     """Test validation of all input params to AspectRatioBucketManager.build_aspect_ratio_buckets(...)."""
     expectation = pytest.raises(AssertionError) if should_raise else nullcontext()
@@ -35,10 +34,10 @@ def test_build_aspect_ratio_buckets_input_validation(
     ["target_resolution", "start_dim", "end_dim", "divisible_by", "expected"],
     [
         # 1 bucket
-        (Resolution(1024, 1024), 1024, 1024, 64, {Resolution(1024, 1024)}),
+        (1024, 1024, 1024, 64, {Resolution(1024, 1024)}),
         # Multiple buckets.
         (
-            Resolution(1024, 1024),
+            1024,
             768,
             1280,
             128,
@@ -53,7 +52,7 @@ def test_build_aspect_ratio_buckets_input_validation(
     ],
 )
 def test_build_aspect_ratio_buckets(
-    target_resolution: Resolution,
+    target_resolution: int,
     start_dim: int,
     end_dim: int,
     divisible_by: int,
@@ -78,9 +77,7 @@ def test_build_aspect_ratio_buckets(
     ],
 )
 def test_get_aspect_ratio_bucket(resolution: Resolution, expected_bucket: Resolution):
-    arbm = AspectRatioBucketManager(
-        target_resolution=Resolution(1024, 1024), start_dim=768, end_dim=1280, divisible_by=128
-    )
+    arbm = AspectRatioBucketManager(target_resolution=1024, start_dim=768, end_dim=1280, divisible_by=128)
 
     nearest_bucket = arbm.get_aspect_ratio_bucket(resolution)
 

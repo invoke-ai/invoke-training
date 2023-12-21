@@ -43,9 +43,7 @@ def test_aspect_ratio_bucket_batch_sampler_from_image_sizes():
     """Test AspectRatioBucketBatchSampler when initialized with AspectRatioBucketBatchSampler.from_image_size(...)."""
     # Configure bucket_manager to have the following aspect ratio buckets:
     # (256, 1024), (256, 768), (512, 512), (768, 256), (1024, 768)
-    bucket_manager = AspectRatioBucketManager(
-        target_resolution=Resolution(512, 512), start_dim=256, end_dim=768, divisible_by=256
-    )
+    bucket_manager = AspectRatioBucketManager(target_resolution=512, start_dim=256, end_dim=768, divisible_by=256)
 
     image_sizes = [
         Resolution(256, 768),  # Bucket 1 (256, 768)
