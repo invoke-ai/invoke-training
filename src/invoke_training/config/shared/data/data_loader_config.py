@@ -70,6 +70,9 @@ class DreamboothSDDataLoaderConfig(BaseModel):
     """
 
     image_transforms: SDImageTransformConfig
+    """The aspect ratio bucketing configuration. If None, aspect ratio bucketing is disabled, and all images will be
+    resized to the same resolution.
+    """
 
     dataloader_num_workers: int = 0
     """Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
@@ -85,6 +88,11 @@ class TextualInversionSDDataLoaderConfig(BaseModel):
 
     image_transforms: SDImageTransformConfig
     """The image transforms to apply to all images.
+    """
+
+    aspect_ratio_buckets: AspectRatioBucketConfig | None = None
+    """The aspect ratio bucketing configuration. If None, aspect ratio bucketing is disabled, and all images will be
+    resized to the same resolution.
     """
 
     shuffle_caption_transform: Optional[ShuffleCaptionTransformConfig] = None

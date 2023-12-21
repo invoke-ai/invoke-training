@@ -18,6 +18,7 @@ from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import
     cache_vae_outputs,
     generate_validation_images,
     load_models,
+    log_aspect_ratio_buckets,
     train_forward,
 )
 from invoke_training.training.shared.accelerator.accelerator_utils import (
@@ -297,6 +298,8 @@ def run_training(config: TextualInversionSDConfig):  # noqa: C901
         batch_size=config.train_batch_size,
         vae_output_cache_dir=vae_output_cache_dir_name,
     )
+
+    log_aspect_ratio_buckets(logger=logger, batch_sampler=data_loader.batch_sampler)
 
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
     # by the number of processes. This scaling logic was copied from the diffusers example training code, but it appears
