@@ -75,6 +75,7 @@ def build_dreambooth_sd_dataloader(
         all_transforms.append(
             SDImageTransform(
                 resolution=data_loader_config.image_transforms.resolution,
+                aspect_ratio_bucket_manager=None,
                 center_crop=data_loader_config.image_transforms.center_crop,
                 random_flip=data_loader_config.image_transforms.random_flip,
             )

@@ -125,6 +125,7 @@ def build_textual_inversion_sd_dataloader(
         all_transforms.append(
             SDImageTransform(
                 resolution=config.image_transforms.resolution,
+                aspect_ratio_bucket_manager=None,
                 center_crop=config.image_transforms.center_crop,
                 random_flip=config.image_transforms.random_flip,
             )

@@ -2,15 +2,18 @@ from invoke_training.training.shared.data.utils.resolution import Resolution
 
 
 class AspectRatioBucketManager:
-    def __init__(self, target_resolution: int, start_dim: int, end_dim: int, divisible_by: int) -> None:
-        self._buckets = list(
-            self.build_aspect_ratio_buckets(
-                target_resolution=target_resolution,
-                start_dim=start_dim,
-                end_dim=end_dim,
-                divisible_by=divisible_by,
-            )
+    def __init__(self, buckets: set[Resolution]):
+        self._buckets = buckets
+
+    @classmethod
+    def from_constraints(cls, target_resolution: int, start_dim: int, end_dim: int, divisible_by: int) -> None:
+        buckets = cls.build_aspect_ratio_buckets(
+            target_resolution=target_resolution,
+            start_dim=start_dim,
+            end_dim=end_dim,
+            divisible_by=divisible_by,
         )
+        return cls(buckets)
 
     @classmethod
     def build_aspect_ratio_buckets(

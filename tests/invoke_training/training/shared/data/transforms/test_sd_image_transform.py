@@ -1,10 +1,12 @@
 import unittest.mock
 
 import numpy as np
+import pytest
 import torch
 from PIL import Image
 
 from invoke_training.training.shared.data.transforms.sd_image_transform import SDImageTransform
+from invoke_training.training.shared.data.utils.aspect_ratio_bucket_manager import AspectRatioBucketManager
 from invoke_training.training.shared.data.utils.resolution import Resolution
 
 
@@ -151,3 +153,36 @@ def test_sd_image_transform_random_crop_flip():
         denormalize_image(out_image_np),
         in_image_np[:, ::-1, :][crop_y : crop_y + resolution.height, crop_x : crop_x + resolution.width, :],
     )
+
+
+def test_sd_image_transform_aspect_ratio_bucket_manager():
+    # Input image is 9 x 5.
+    in_image_np = np.arange(9 * 5 * 3, dtype=np.uint8).reshape((9, 5, 3))
+    in_image_pil = Image.fromarray(np.copy(in_image_np))
+
+    # Initialize SDImageTransform with an AspectRatioBucketManager that has a single 3x5 bucket.
+    aspect_ratio_bucket_manager = AspectRatioBucketManager(buckets={Resolution(3, 5)})
+    tf = SDImageTransform(resolution=None, aspect_ratio_bucket_manager=aspect_ratio_bucket_manager, center_crop=True)
+
+    out_example = tf({"image": in_image_pil})
+
+    out_image = out_example["image"]
+    out_image_np = np.array(out_image)
+
+    # Verify that the correct region of the image was cropped.
+    assert np.allclose(denormalize_image(out_image_np), in_image_np[3:-3, :, :])
+    assert out_example["crop_top_left_yx"] == (3, 0)
+
+
+@pytest.mark.parametrize(
+    ["resolution", "aspect_ratio_bucket_manager"],
+    [
+        (Resolution(512, 512), AspectRatioBucketManager({})),
+        (None, None),
+    ],
+)
+def test_sd_image_transform_resolution_input_validation(
+    resolution: Resolution | None, aspect_ratio_bucket_manager: AspectRatioBucketManager | None
+):
+    with pytest.raises(ValueError):
+        _ = SDImageTransform(resolution=resolution, aspect_ratio_bucket_manager=aspect_ratio_bucket_manager)

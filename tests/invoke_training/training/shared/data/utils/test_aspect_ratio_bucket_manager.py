@@ -77,7 +77,9 @@ def test_build_aspect_ratio_buckets(
     ],
 )
 def test_get_aspect_ratio_bucket(resolution: Resolution, expected_bucket: Resolution):
-    arbm = AspectRatioBucketManager(target_resolution=1024, start_dim=768, end_dim=1280, divisible_by=128)
+    arbm = AspectRatioBucketManager.from_constraints(
+        target_resolution=1024, start_dim=768, end_dim=1280, divisible_by=128
+    )
 
     nearest_bucket = arbm.get_aspect_ratio_bucket(resolution)
 
