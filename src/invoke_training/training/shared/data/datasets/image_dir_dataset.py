@@ -4,6 +4,8 @@ import typing
 import torch.utils.data
 from PIL import Image
 
+from invoke_training.training.shared.data.utils.resolution import Resolution
+
 
 class ImageDirDataset(torch.utils.data.Dataset):
     """A dataset that loads image files from a directory."""
@@ -29,6 +31,20 @@ class ImageDirDataset(torch.utils.data.Dataset):
             image_path = os.path.join(image_dir, image_file)
             if os.path.isfile(image_path) and os.path.splitext(image_path)[1].lower() in image_extensions:
                 self._image_paths.append(image_path)
+
+    def get_image_dimensions(self) -> list[Resolution]:
+        """Get the dimensions of all images in the dataset.
+
+        TODO(ryand): Re-think this approach. For large datasets (e.g. streaming from S3) it doesn't make sense to
+        calculate this dynamically every time.
+        """
+        image_dims: list[Resolution] = []
+        for i in range(len(self._image_paths)):
+            image_path = self._image_paths[i]
+            image = Image.open(image_path)
+            image_dims.append(Resolution(image.height, image.width))
+
+        return image_dims
 
     def __len__(self) -> int:
         return len(self._image_paths)
