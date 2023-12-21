@@ -7,6 +7,7 @@ import pytest
 from PIL import Image
 
 from invoke_training.training.shared.data.datasets.hf_dir_image_caption_dataset import HFDirImageCaptionDataset
+from invoke_training.training.shared.data.utils.resolution import Resolution
 
 
 def create_hf_imagefolder_dataset(tmp_dir: Path, num_images: int):
@@ -94,3 +95,13 @@ def test_hf_dir_image_caption_dataset_getitem(hf_dir_dataset: HFDirImageCaptionD
     assert example["image"].mode == "RGB"
     assert isinstance(example["caption"], str)
     assert example["id"] == 0
+
+
+def test_hf_dir_image_caption_dataset_get_image_dimensions(hf_dir_dataset: HFDirImageCaptionDataset):
+    """Test HFDirImageCaptionDataset.get_image_dimensions()."""
+
+    image_dims = hf_dir_dataset.get_image_dimensions()
+
+    assert len(image_dims) == 5
+    for image_dim in image_dims:
+        assert image_dim == Resolution(128, 128)
