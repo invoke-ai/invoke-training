@@ -4,6 +4,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from invoke_training.config.shared.data.data_loader_config import (
+    AspectRatioBucketConfig,
     ImageCaptionSDDataLoaderConfig,
 )
 from invoke_training.config.shared.data.dataset_config import (
@@ -15,10 +16,14 @@ from invoke_training.training.shared.data.datasets.build_dataset import (
     build_hf_hub_image_caption_dataset,
 )
 from invoke_training.training.shared.data.datasets.transform_dataset import TransformDataset
+from invoke_training.training.shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
+    AspectRatioBucketBatchSampler,
+)
 from invoke_training.training.shared.data.transforms.drop_field_transform import DropFieldTransform
 from invoke_training.training.shared.data.transforms.load_cache_transform import LoadCacheTransform
 from invoke_training.training.shared.data.transforms.sd_image_transform import SDImageTransform
 from invoke_training.training.shared.data.transforms.tensor_disk_cache import TensorDiskCache
+from invoke_training.training.shared.data.utils.aspect_ratio_bucket_manager import AspectRatioBucketManager
 
 
 def sd_image_caption_collate_fn(examples):
@@ -55,6 +60,15 @@ def sd_image_caption_collate_fn(examples):
     return out_examples
 
 
+def build_aspect_ratio_bucket_manager(config: AspectRatioBucketConfig):
+    return AspectRatioBucketManager.from_constraints(
+        target_resolution=config.target_resolution,
+        start_dim=config.start_dim,
+        end_dim=config.end_dim,
+        divisible_by=config.divisible_by,
+    )
+
+
 def build_image_caption_sd_dataloader(
     config: ImageCaptionSDDataLoaderConfig,
     batch_size: int,
@@ -85,12 +99,29 @@ def build_image_caption_sd_dataloader(
     else:
         raise ValueError(f"Unexpected dataset config type: '{type(config.dataset)}'.")
 
+    # Initialize either the fixed target resolution or aspect ratio buckets.
+    if config.aspect_ratio_buckets is None:
+        target_resolution = config.image_transforms.resolution
+        aspect_ratio_bucket_manager = None
+        batch_sampler = None
+    else:
+        target_resolution = None
+        aspect_ratio_bucket_manager = build_aspect_ratio_bucket_manager(config=config.aspect_ratio_buckets)
+        # TODO(ryand): Drill-down the seed parameter rather than hard-coding to 0 here.
+        batch_sampler = AspectRatioBucketBatchSampler.from_image_sizes(
+            bucket_manager=aspect_ratio_bucket_manager,
+            image_sizes=base_dataset.get_image_dimensions(),
+            batch_size=batch_size,
+            shuffle=shuffle,
+            seed=0,
+        )
+
     all_transforms = []
     if vae_output_cache_dir is None:
         all_transforms.append(
             SDImageTransform(
-                resolution=config.image_transforms.resolution,
-                aspect_ratio_bucket_manager=None,
+                resolution=target_resolution,
+                aspect_ratio_bucket_manager=aspect_ratio_bucket_manager,
                 center_crop=config.image_transforms.center_crop,
                 random_flip=config.image_transforms.random_flip,
             )
@@ -124,10 +155,18 @@ def build_image_caption_sd_dataloader(
 
     dataset = TransformDataset(base_dataset, all_transforms)
 
-    return DataLoader(
-        dataset,
-        shuffle=shuffle,
-        collate_fn=sd_image_caption_collate_fn,
-        batch_size=batch_size,
-        num_workers=config.dataloader_num_workers,
-    )
+    if batch_sampler is None:
+        return DataLoader(
+            dataset,
+            shuffle=shuffle,
+            collate_fn=sd_image_caption_collate_fn,
+            batch_size=batch_size,
+            num_workers=config.dataloader_num_workers,
+        )
+    else:
+        return DataLoader(
+            dataset,
+            batch_sampler=batch_sampler,
+            collate_fn=sd_image_caption_collate_fn,
+            num_workers=config.dataloader_num_workers,
+        )

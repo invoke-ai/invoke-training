@@ -37,6 +37,9 @@ from invoke_training.training.shared.data.data_loaders.dreambooth_sd_dataloader 
 from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
     build_image_caption_sd_dataloader,
 )
+from invoke_training.training.shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
+    AspectRatioBucketBatchSampler,
+)
 from invoke_training.training.shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training.training.shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils import save_lora_checkpoint
@@ -282,6 +285,20 @@ def generate_validation_images(
     text_encoder.to(text_encoder_device)
 
 
+def log_aspect_ratio_buckets(logger: logging.Logger, batch_sampler: AspectRatioBucketBatchSampler):
+    if not isinstance(batch_sampler, AspectRatioBucketBatchSampler):
+        return
+
+    log = "Aspect Ratio Buckets:\n"
+    buckets = batch_sampler.get_buckets()
+    bucket_resolutions = sorted(list(buckets.keys()))
+    for bucket_resolution in bucket_resolutions:
+        bucket_images = buckets[bucket_resolution]
+        log += f"  {bucket_resolution.to_tuple()}: {len(bucket_images)}\n"
+
+    logger.info(log)
+
+
 def train_forward(
     config: FinetuneLoRASDConfig,
     data_batch: dict,
@@ -494,6 +511,8 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
         text_encoder_output_cache_dir=text_encoder_output_cache_dir_name,
         vae_output_cache_dir=vae_output_cache_dir_name,
     )
+
+    log_aspect_ratio_buckets(logger=logger, batch_sampler=data_loader.batch_sampler)
 
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
     # by the number of processes. This scaling logic was copied from the diffusers example training code, but it appears

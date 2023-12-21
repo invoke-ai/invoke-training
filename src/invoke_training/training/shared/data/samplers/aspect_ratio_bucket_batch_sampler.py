@@ -1,6 +1,6 @@
+import copy
 import math
 import random
-from collections import defaultdict
 from typing import Iterator
 
 from torch.utils.data import Sampler
@@ -49,13 +49,19 @@ class AspectRatioBucketBatchSampler(Sampler[list[int]]):
         bucket_manager: AspectRatioBucketManager,
         image_sizes: list[Resolution],
     ) -> AspectRatioBuckets:
-        bucket_to_indexes: AspectRatioBuckets = defaultdict(list)
+        bucket_to_indexes: AspectRatioBuckets = dict()
+
+        for bucket_resolution in bucket_manager.buckets:
+            bucket_to_indexes[bucket_resolution] = []
 
         for index, image_size in enumerate(image_sizes):
             aspect_ratio_bucket = bucket_manager.get_aspect_ratio_bucket(image_size)
             bucket_to_indexes[aspect_ratio_bucket].append(index)
 
         return bucket_to_indexes
+
+    def get_buckets(self) -> AspectRatioBuckets:
+        return copy.deepcopy(self._buckets)
 
     def __iter__(self) -> Iterator[list[int]]:
         batches: list[list[int]] = []

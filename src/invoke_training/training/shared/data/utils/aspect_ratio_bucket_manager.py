@@ -3,7 +3,7 @@ from invoke_training.training.shared.data.utils.resolution import Resolution
 
 class AspectRatioBucketManager:
     def __init__(self, buckets: set[Resolution]):
-        self._buckets = buckets
+        self.buckets = buckets
 
     @classmethod
     def from_constraints(cls, target_resolution: int, start_dim: int, end_dim: int, divisible_by: int) -> None:
@@ -56,4 +56,4 @@ class AspectRatioBucketManager:
     def get_aspect_ratio_bucket(self, resolution: Resolution):
         """Get the bucket with the closest aspect ratio to 'resolution'."""
         # Note: If this is ever found to be a bottleneck, there is a clearly-more-efficient implementation using bisect.
-        return min(self._buckets, key=lambda x: abs(x.aspect_ratio() - resolution.aspect_ratio()))
+        return min(self.buckets, key=lambda x: abs(x.aspect_ratio() - resolution.aspect_ratio()))
