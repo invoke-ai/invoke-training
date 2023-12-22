@@ -154,7 +154,7 @@ def build_data_loader(
         )
     elif data_loader_config.type == "DREAMBOOTH_SD_DATA_LOADER":
         return build_dreambooth_sd_dataloader(
-            data_loader_config=data_loader_config,
+            config=data_loader_config,
             batch_size=batch_size,
             text_encoder_output_cache_dir=text_encoder_output_cache_dir,
             text_encoder_cache_field_to_output_field={

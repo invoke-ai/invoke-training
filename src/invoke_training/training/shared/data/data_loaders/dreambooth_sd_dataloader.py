@@ -4,9 +4,17 @@ from torch.utils.data import ConcatDataset, DataLoader
 from torch.utils.data.sampler import RandomSampler, SequentialSampler
 
 from invoke_training.config.shared.data.data_loader_config import DreamboothSDDataLoaderConfig
-from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import sd_image_caption_collate_fn
+from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
+    build_aspect_ratio_bucket_manager,
+    sd_image_caption_collate_fn,
+)
 from invoke_training.training.shared.data.datasets.image_dir_dataset import ImageDirDataset
 from invoke_training.training.shared.data.datasets.transform_dataset import TransformDataset
+from invoke_training.training.shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
+    AspectRatioBucketBatchSampler,
+)
+from invoke_training.training.shared.data.samplers.batch_offset_sampler import BatchOffsetSampler
+from invoke_training.training.shared.data.samplers.concat_sampler import ConcatSampler
 from invoke_training.training.shared.data.samplers.interleaved_sampler import (
     InterleavedSampler,
 )
@@ -19,7 +27,7 @@ from invoke_training.training.shared.data.transforms.tensor_disk_cache import Te
 
 
 def build_dreambooth_sd_dataloader(
-    data_loader_config: DreamboothSDDataLoaderConfig,
+    config: DreamboothSDDataLoaderConfig,
     batch_size: int,
     text_encoder_output_cache_dir: typing.Optional[str] = None,
     text_encoder_cache_field_to_output_field: typing.Optional[dict[str, str]] = None,
@@ -30,7 +38,7 @@ def build_dreambooth_sd_dataloader(
     """Construct a DataLoader for a DreamBooth dataset for Stable Diffusion XL.
 
     Args:
-        data_loader_config (DreamboothSDDataLoaderConfig):
+        config (DreamboothSDDataLoaderConfig):
         batch_size (int):
         text_encoder_output_cache_dir (str, optional): The directory where text encoder outputs are cached and should be
             loaded from.
@@ -44,40 +52,75 @@ def build_dreambooth_sd_dataloader(
     Returns:
         DataLoader
     """
-    # 1. Prepare instance dataset
-    instance_dataset = ImageDirDataset(data_loader_config.instance_dataset.dataset_dir, id_prefix="instance_")
+    # Prepare instance dataset.
+    base_instance_dataset = ImageDirDataset(config.instance_dataset.dataset_dir, id_prefix="instance_")
     instance_dataset = TransformDataset(
-        instance_dataset,
+        base_instance_dataset,
         [
-            ConstantFieldTransform("caption", data_loader_config.instance_caption),
+            ConstantFieldTransform("caption", config.instance_caption),
             ConstantFieldTransform("loss_weight", 1.0),
         ],
     )
     datasets = [instance_dataset]
 
-    # 2. Prepare class dataset.
+    # Prepare class dataset.
+    base_class_dataset = None
     class_dataset = None
-    if data_loader_config.class_dataset is not None:
-        class_dataset = ImageDirDataset(data_loader_config.class_dataset.dataset_dir, id_prefix="class_")
+    if config.class_dataset is not None:
+        base_class_dataset = ImageDirDataset(config.class_dataset.dataset_dir, id_prefix="class_")
         class_dataset = TransformDataset(
-            class_dataset,
+            base_class_dataset,
             [
-                ConstantFieldTransform("caption", data_loader_config.class_caption),
-                ConstantFieldTransform("loss_weight", data_loader_config.class_data_loss_weight),
+                ConstantFieldTransform("caption", config.class_caption),
+                ConstantFieldTransform("loss_weight", config.class_data_loss_weight),
             ],
         )
         datasets.append(class_dataset)
 
-    # 3. Merge instance dataset and class dataset.
+    # Merge instance dataset and class dataset.
     merged_dataset = ConcatDataset(datasets)
+
+    # Initialize either the fixed target resolution or aspect ratio buckets.
+    target_resolution = None
+    aspect_ratio_bucket_manager = None
+    instance_sampler = None
+    class_sampler = None
+    if config.aspect_ratio_buckets is None:
+        target_resolution = config.image_transforms.resolution
+        # TODO(ryand): Provide a seeded generator.
+        instance_sampler = RandomSampler(instance_dataset) if shuffle else SequentialSampler(instance_dataset)
+        if base_class_dataset is not None:
+            class_sampler = RandomSampler(class_dataset) if shuffle else SequentialSampler(class_dataset)
+            class_sampler = OffsetSampler(class_sampler, offset=len(base_instance_dataset))
+    else:
+        aspect_ratio_bucket_manager = build_aspect_ratio_bucket_manager(config=config.aspect_ratio_buckets)
+        # TODO(ryand): Drill-down the seed parameter rather than hard-coding to 0 here.
+        instance_sampler = AspectRatioBucketBatchSampler.from_image_sizes(
+            bucket_manager=aspect_ratio_bucket_manager,
+            image_sizes=base_instance_dataset.get_image_dimensions(),
+            batch_size=batch_size,
+            shuffle=shuffle,
+            seed=0,
+        )
+        if base_class_dataset is not None:
+            class_sampler = AspectRatioBucketBatchSampler.from_image_sizes(
+                bucket_manager=aspect_ratio_bucket_manager,
+                image_sizes=base_class_dataset.get_image_dimensions(),
+                batch_size=batch_size,
+                shuffle=shuffle,
+                seed=0,
+            )
+            class_sampler = BatchOffsetSampler(class_sampler, offset=len(base_instance_dataset))
+
+    # Add transforms to the merged dataset.
     all_transforms = []
     if vae_output_cache_dir is None:
         all_transforms.append(
             SDImageTransform(
-                resolution=data_loader_config.image_transforms.resolution,
-                aspect_ratio_bucket_manager=None,
-                center_crop=data_loader_config.image_transforms.center_crop,
-                random_flip=data_loader_config.image_transforms.random_flip,
+                resolution=target_resolution,
+                aspect_ratio_bucket_manager=aspect_ratio_bucket_manager,
+                center_crop=config.image_transforms.center_crop,
+                random_flip=config.image_transforms.random_flip,
             )
         )
     else:
@@ -109,39 +152,30 @@ def build_dreambooth_sd_dataloader(
 
     merged_dataset = TransformDataset(merged_dataset, all_transforms)
 
-    # 4. If sequential_batching is enabled, return a basic data loader that iterates over examples sequentially (without
-    #    interleaving class and instance examples). This is typically only used when preparing the data cache.
+    # Choose between sequential vs. interleaved merging of the instance and class samplers.
+    # Sequential sampling is typically used to populate a cache, because it guarantees that all examples will be
+    # included in an epoch.
+    samplers = [instance_sampler]
+    if class_sampler is not None:
+        samplers.append(class_sampler)
     if sequential_batching:
+        sampler = ConcatSampler(samplers)
+    else:
+        sampler = InterleavedSampler(samplers)
+
+    if config.aspect_ratio_buckets is None:
         return DataLoader(
             merged_dataset,
+            sampler=sampler,
             collate_fn=sd_image_caption_collate_fn,
             batch_size=batch_size,
-            num_workers=data_loader_config.dataloader_num_workers,
-            shuffle=shuffle,
+            num_workers=config.dataloader_num_workers,
         )
-
-    # 5. Prepare instance dataset sampler. Note that the instance_dataset comes first in the merged_dataset.
-    samplers = []
-    if shuffle:
-        # TODO(ryand): Provide a seeded generator.
-        samplers.append(RandomSampler(instance_dataset))
     else:
-        samplers.append(SequentialSampler(instance_dataset))
-
-    # 6. Prepare class dataset sampler. Note that the class_dataset comes first in the merged_dataset.
-    if class_dataset is not None:
-        if shuffle:
-            samplers.append(OffsetSampler(RandomSampler(class_dataset), offset=len(instance_dataset)))
-        else:
-            samplers.append(OffsetSampler(SequentialSampler(class_dataset), offset=len(instance_dataset)))
-
-    # 7. Interleave instance and class samplers.
-    interleaved_sampler = InterleavedSampler(samplers)
-
-    return DataLoader(
-        merged_dataset,
-        sampler=interleaved_sampler,
-        collate_fn=sd_image_caption_collate_fn,
-        batch_size=batch_size,
-        num_workers=data_loader_config.dataloader_num_workers,
-    )
+        # If config.aspect_ratio_buckets is not None, then we are using a batch sampler.
+        return DataLoader(
+            merged_dataset,
+            batch_sampler=sampler,
+            collate_fn=sd_image_caption_collate_fn,
+            num_workers=config.dataloader_num_workers,
+        )
