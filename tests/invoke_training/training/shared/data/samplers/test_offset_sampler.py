@@ -13,7 +13,7 @@ def test_offset_sampler():
     assert list(offset_sampler) == list(range(10, 15))
 
 
-def test_sequential_range_sampler_len():
+def test_offset_sampler_len():
     """Test the OffsetSampler len() function."""
     sequential_sampler = SequentialSampler([0] * 5)
     offset_sampler = OffsetSampler(sampler=sequential_sampler, offset=10)
