@@ -2,8 +2,10 @@ import typing
 
 from torch.utils.data import Sampler
 
+T_co = typing.TypeVar("T_co", covariant=True)
 
-class InterleavedSampler(Sampler[int]):
+
+class InterleavedSampler(Sampler[T_co]):
     """A meta-Sampler that interleaves multiple samplers.
 
     The length of this sampler is based on the length of the shortest input sampler. All samplers will contribute the
@@ -16,11 +18,11 @@ class InterleavedSampler(Sampler[int]):
         interleaved sampler: AEHBFICGJ
     """
 
-    def __init__(self, samplers: list[Sampler[int]]) -> None:
+    def __init__(self, samplers: list[Sampler[T_co] | typing.Iterable[T_co]]) -> None:
         self._samplers = samplers
         self._min_sampler_len = min([len(s) for s in self._samplers])
 
-    def __iter__(self) -> typing.Iterator[list[int]]:
+    def __iter__(self) -> typing.Iterator[T_co]:
         sampler_iters = [iter(s) for s in self._samplers]
         while True:
             samples = []
