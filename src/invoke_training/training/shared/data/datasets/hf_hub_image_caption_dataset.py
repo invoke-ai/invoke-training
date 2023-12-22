@@ -2,6 +2,9 @@ import typing
 
 import datasets
 import torch.utils.data
+from PIL.Image import Image
+
+from invoke_training.training.shared.data.utils.resolution import Resolution
 
 
 class HFHubImageCaptionDataset(torch.utils.data.Dataset):
@@ -41,6 +44,8 @@ class HFHubImageCaptionDataset(torch.utils.data.Dataset):
                 f"The caption_column='{caption_column}' is not in the set of dataset column names: '{column_names}'."
             )
 
+        self._image_column = image_column
+
         def preprocess(examples):
             images = [image.convert("RGB") for image in examples[image_column]]
             return {
@@ -49,6 +54,20 @@ class HFHubImageCaptionDataset(torch.utils.data.Dataset):
             }
 
         self._hf_dataset = hf_dataset["train"].with_transform(preprocess)
+
+    def get_image_dimensions(self) -> list[Resolution]:
+        """Get the dimensions of all images in the dataset.
+
+        TODO(ryand): Re-think this approach. For large datasets (e.g. streaming from S3) it doesn't make sense to
+        calculate this dynamically every time.
+        """
+        image_dims: list[Resolution] = []
+        for i in range(len(self._hf_dataset)):
+            example = self._hf_dataset[i]
+            image: Image = example[self._image_column]
+            image_dims.append(Resolution(image.height, image.width))
+
+        return image_dims
 
     def __len__(self) -> int:
         """Get the dataset length.

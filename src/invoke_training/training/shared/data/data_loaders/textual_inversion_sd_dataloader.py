@@ -8,10 +8,14 @@ from invoke_training.config.shared.data.transform_config import (
     TextualInversionPresetCaptionTransformConfig,
 )
 from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
+    build_aspect_ratio_bucket_manager,
     sd_image_caption_collate_fn,
 )
 from invoke_training.training.shared.data.datasets.image_dir_dataset import ImageDirDataset
 from invoke_training.training.shared.data.datasets.transform_dataset import TransformDataset
+from invoke_training.training.shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
+    AspectRatioBucketBatchSampler,
+)
 from invoke_training.training.shared.data.transforms.drop_field_transform import DropFieldTransform
 from invoke_training.training.shared.data.transforms.load_cache_transform import LoadCacheTransform
 from invoke_training.training.shared.data.transforms.sd_image_transform import SDImageTransform
@@ -108,6 +112,23 @@ def build_textual_inversion_sd_dataloader(
     else:
         raise ValueError(f"Unexpected caption config type: '{type(config.captions)}'.")
 
+    # Initialize either the fixed target resolution or aspect ratio buckets.
+    if config.aspect_ratio_buckets is None:
+        target_resolution = config.image_transforms.resolution
+        aspect_ratio_bucket_manager = None
+        batch_sampler = None
+    else:
+        target_resolution = None
+        aspect_ratio_bucket_manager = build_aspect_ratio_bucket_manager(config=config.aspect_ratio_buckets)
+        # TODO(ryand): Drill-down the seed parameter rather than hard-coding to 0 here.
+        batch_sampler = AspectRatioBucketBatchSampler.from_image_sizes(
+            bucket_manager=aspect_ratio_bucket_manager,
+            image_sizes=base_dataset.get_image_dimensions(),
+            batch_size=batch_size,
+            shuffle=shuffle,
+            seed=0,
+        )
+
     all_transforms = [
         TextualInversionCaptionTransform(
             field_name="caption",
@@ -124,7 +145,8 @@ def build_textual_inversion_sd_dataloader(
     if vae_output_cache_dir is None:
         all_transforms.append(
             SDImageTransform(
-                resolution=config.image_transforms.resolution,
+                resolution=target_resolution,
+                aspect_ratio_bucket_manager=aspect_ratio_bucket_manager,
                 center_crop=config.image_transforms.center_crop,
                 random_flip=config.image_transforms.random_flip,
             )
@@ -147,10 +169,18 @@ def build_textual_inversion_sd_dataloader(
 
     dataset = TransformDataset(base_dataset, all_transforms)
 
-    return DataLoader(
-        dataset,
-        shuffle=shuffle,
-        collate_fn=sd_image_caption_collate_fn,
-        batch_size=batch_size,
-        num_workers=config.dataloader_num_workers,
-    )
+    if batch_sampler is None:
+        return DataLoader(
+            dataset,
+            shuffle=shuffle,
+            collate_fn=sd_image_caption_collate_fn,
+            batch_size=batch_size,
+            num_workers=config.dataloader_num_workers,
+        )
+    else:
+        return DataLoader(
+            dataset,
+            batch_sampler=batch_sampler,
+            collate_fn=sd_image_caption_collate_fn,
+            num_workers=config.dataloader_num_workers,
+        )

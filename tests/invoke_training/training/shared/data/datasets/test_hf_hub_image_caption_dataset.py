@@ -63,3 +63,13 @@ def test_hf_hub_image_caption_dataset_getitem(hf_hub_dataset: HFHubImageCaptionD
     assert example["image"].mode == "RGB"
     assert isinstance(example["caption"], str)
     assert example["id"] == 0
+
+
+@pytest.mark.loads_model
+def test_hf_hub_image_caption_dataset_get_image_dimensions(hf_hub_dataset: HFHubImageCaptionDataset):
+    """Test HFHubImageCaptionDataset.get_image_dimensions()."""
+
+    image_dims = hf_hub_dataset.get_image_dimensions()
+
+    # This is just a smoke test. We don't currently check that the dimensions are correct.
+    assert len(image_dims) == 833

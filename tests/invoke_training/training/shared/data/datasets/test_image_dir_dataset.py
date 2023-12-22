@@ -20,3 +20,11 @@ def test_image_dir_dataset_getitem(image_dir):  # noqa: F811
     assert isinstance(example["image"], PIL.Image.Image)
     assert example["image"].mode == "RGB"
     assert example["id"] == "0"
+
+
+def test_image_dir_dataset_get_image_dimensions(image_dir):  # noqa: F811
+    dataset = ImageDirDataset(str(image_dir))
+
+    image_dims = dataset.get_image_dimensions()
+
+    assert len(image_dims) == len(dataset)

@@ -1,7 +1,5 @@
 # `TextualInversionSDConfig`
 
-::: invoke_training.config.pipelines.textual_inversion_config.TextualInversionSDConfig
-
 <!-- To control the member order, we first list out the members whose order we care about, then we list the rest. -->
 ::: invoke_training.config.pipelines.textual_inversion_config.TextualInversionSDConfig
     options:

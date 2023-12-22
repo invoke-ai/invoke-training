@@ -5,23 +5,41 @@ from PIL.Image import Image
 from torchvision import transforms
 from torchvision.transforms.functional import crop
 
+from invoke_training.training.shared.data.utils.aspect_ratio_bucket_manager import AspectRatioBucketManager, Resolution
+from invoke_training.training.shared.data.utils.resize import resize_to_cover
+
 
 class SDImageTransform:
-    """A transform that prepares and augments images for Stable Diffusion XL training."""
+    """A transform that prepares and augments images for Stable Diffusion training."""
 
-    def __init__(self, resolution: int, center_crop: bool = True, random_flip: bool = False):
+    def __init__(
+        self,
+        resolution: int | tuple[int, int] | Resolution | None,
+        aspect_ratio_bucket_manager: AspectRatioBucketManager | None = None,
+        center_crop: bool = True,
+        random_flip: bool = False,
+    ):
         """Initialize SDImageTransform.
 
         Args:
-            resolution (int): The image resolution that will be produced (square images are assumed).
+            resolution (Resolution): The image resolution that will be produced. One of `resolution` and
+                `aspect_ratio_bucket_manager` should be non-None.
+            aspect_ratio_bucket_manager (AspectRatioBucketManager): The AspectRatioBucketManager used to determine the
+                target resolution for each image. One of `resolution` and `aspect_ratio_bucket_manager` should be
+                non-None.
             center_crop (bool, optional): If True, crop to the center of the image to achieve the target resolution. If
                 False, crop at a random location.
             random_flip (bool, optional): Whether to apply a random horizontal flip to the images.
         """
-        self._resolution = resolution
-        self._resize_transform = transforms.Resize(resolution, interpolation=transforms.InterpolationMode.BILINEAR)
+        if resolution is not None and aspect_ratio_bucket_manager is not None:
+            raise ValueError("Only one of `resolution` or `aspect_ratio_bucket_manager` should be set.")
+
+        if resolution is None and aspect_ratio_bucket_manager is None:
+            raise ValueError("One of `resolution` or `aspect_ratio_bucket_manager` must be set.")
+
+        self._resolution = Resolution.parse(resolution) if resolution is not None else None
+        self._aspect_ratio_bucket_manager = aspect_ratio_bucket_manager
         self._center_crop_enabled = center_crop
-        self._crop_transform = transforms.CenterCrop(resolution) if center_crop else transforms.RandomCrop(resolution)
         self._random_flip_enabled = random_flip
         self._flip_transform = transforms.RandomHorizontalFlip(p=1.0)
         self._other_transforms = transforms.Compose(
@@ -41,19 +59,26 @@ class SDImageTransform:
 
         original_size_hw = (image.height, image.width)
 
-        # Resize smaller image dimension to `resolution`.
-        image = self._resize_transform(image)
+        # Determine the target image resolution.
+        if self._resolution is not None:
+            resolution = self._resolution
+        else:
+            resolution = self._aspect_ratio_bucket_manager.get_aspect_ratio_bucket(Resolution.parse(original_size_hw))
+
+        # Resize to cover the target resolution while preserving aspect ratio.
+        image = resize_to_cover(image, resolution)
 
         # Apply cropping, and record top left crop position.
         if self._center_crop_enabled:
-            top_left_y = max(0, int(round((image.height - self._resolution) / 2.0)))
-            top_left_x = max(0, int(round((image.width - self._resolution) / 2.0)))
-            image = self._crop_transform(image)
+            top_left_y = max(0, (image.height - resolution.height) // 2)
+            top_left_x = max(0, (image.width - resolution.width) // 2)
         else:
-            top_left_y, top_left_x, h, w = self._crop_transform.get_params(image, (self._resolution, self._resolution))
-            image = crop(image, top_left_y, top_left_x, h, w)
+            crop_transform = transforms.RandomCrop(resolution.to_tuple())
+            top_left_y, top_left_x, h, w = crop_transform.get_params(image, resolution.to_tuple())
+        image = crop(image, top_left_y, top_left_x, resolution.height, resolution.width)
 
         # Apply random flip and update top left crop position accordingly.
+        # TODO(ryand): Use a seed for repeatable results.
         if self._random_flip_enabled and random.random() < 0.5:
             top_left_x = original_size_hw[1] - image.width - top_left_x
             image = self._flip_transform(image)
