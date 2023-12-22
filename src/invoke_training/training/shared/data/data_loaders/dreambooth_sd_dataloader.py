@@ -1,16 +1,16 @@
 import typing
 
 from torch.utils.data import ConcatDataset, DataLoader
+from torch.utils.data.sampler import RandomSampler, SequentialSampler
 
 from invoke_training.config.shared.data.data_loader_config import DreamboothSDDataLoaderConfig
 from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import sd_image_caption_collate_fn
 from invoke_training.training.shared.data.datasets.image_dir_dataset import ImageDirDataset
 from invoke_training.training.shared.data.datasets.transform_dataset import TransformDataset
-from invoke_training.training.shared.data.samplers.dreambooth_samplers import (
+from invoke_training.training.shared.data.samplers.interleaved_sampler import (
     InterleavedSampler,
-    SequentialRangeSampler,
-    ShuffledRangeSampler,
 )
+from invoke_training.training.shared.data.samplers.offset_sampler import OffsetSampler
 from invoke_training.training.shared.data.transforms.constant_field_transform import ConstantFieldTransform
 from invoke_training.training.shared.data.transforms.drop_field_transform import DropFieldTransform
 from invoke_training.training.shared.data.transforms.load_cache_transform import LoadCacheTransform
@@ -123,16 +123,17 @@ def build_dreambooth_sd_dataloader(
     # 5. Prepare instance dataset sampler. Note that the instance_dataset comes first in the merged_dataset.
     samplers = []
     if shuffle:
-        samplers.append(ShuffledRangeSampler(0, len(instance_dataset)))
+        # TODO(ryand): Provide a seeded generator.
+        samplers.append(RandomSampler(instance_dataset))
     else:
-        samplers.append(SequentialRangeSampler(0, len(instance_dataset)))
+        samplers.append(SequentialSampler(instance_dataset))
 
     # 6. Prepare class dataset sampler. Note that the class_dataset comes first in the merged_dataset.
     if class_dataset is not None:
         if shuffle:
-            samplers.append(ShuffledRangeSampler(len(instance_dataset), len(instance_dataset) + len(class_dataset)))
+            samplers.append(OffsetSampler(RandomSampler(class_dataset), offset=len(instance_dataset)))
         else:
-            samplers.append(SequentialRangeSampler(len(instance_dataset), len(instance_dataset) + len(class_dataset)))
+            samplers.append(OffsetSampler(SequentialSampler(class_dataset), offset=len(instance_dataset)))
 
     # 7. Interleave instance and class samplers.
     interleaved_sampler = InterleavedSampler(samplers)
