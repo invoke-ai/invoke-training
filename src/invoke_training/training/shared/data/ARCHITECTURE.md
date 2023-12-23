@@ -5,7 +5,8 @@ Dataset handling is split into 3 layers of abstraction: Datasets, Transforms, an
 
 Datasets implement the [torch.utils.data.Dataset](https://pytorch.org/tutorials/beginner/basics/data_tutorial.html#creating-a-custom-dataset-for-your-files) interface.
 
-Most dataset classes act as an abstraction over a specific dataset format (e.g. `HFHubImageCaptionDataset` and `HFDirImageCaptionDataset`). 
+Most dataset classes act as an abstraction over a specific dataset format.
+ 
 ## Transforms
 
 Transforms are functions applied to data loaded by Datasets. For example, the `SDImageTransform` implements image augmentations for Stable Diffusion training.
