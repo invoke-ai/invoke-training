@@ -52,7 +52,7 @@ class ImageDirDatasetConfig(BaseModel):
 
 
 class HFHubImagePairPreferenceDatasetConfig(BaseModel):
-    type: Literal["HF_HUB_IMAGE_PAIR_PREFERENCE_DATASET"]
+    type: Literal["HF_HUB_IMAGE_PAIR_PREFERENCE_DATASET"] = "HF_HUB_IMAGE_PAIR_PREFERENCE_DATASET"
 
     # TODO(ryand): Fill this out.
 
