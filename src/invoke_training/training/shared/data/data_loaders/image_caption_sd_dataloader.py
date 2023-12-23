@@ -81,8 +81,6 @@ def build_image_caption_sd_dataloader(
 
     Args:
         config (ImageCaptionSDDataLoaderConfig): The dataset config.
-        tokenizer (CLIPTokenizer): The tokenizer to apply to the captions. Can be None if
-            `text_encoder_output_cache_dir` is set.
         batch_size (int): The DataLoader batch size.
         text_encoder_output_cache_dir (str, optional): The directory where text encoder outputs are cached and should be
             loaded from. If set, then the TokenizeTransform will not be applied.

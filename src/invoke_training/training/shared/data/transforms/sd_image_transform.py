@@ -18,6 +18,9 @@ class SDImageTransform:
         aspect_ratio_bucket_manager: AspectRatioBucketManager | None = None,
         center_crop: bool = True,
         random_flip: bool = False,
+        image_field_name: str = "image",
+        orig_size_field_name: str = "original_size_hw",
+        crop_field_name: str = "crop_top_left_yx",
     ):
         """Initialize SDImageTransform.
 
@@ -51,11 +54,15 @@ class SDImageTransform:
             ]
         )
 
+        self._image_field_name = image_field_name
+        self._orig_size_field_name = orig_size_field_name
+        self._crop_field_name = crop_field_name
+
     def __call__(self, data: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:
         # This SDXL image pre-processing logic is adapted from:
         # https://github.com/huggingface/diffusers/blob/7b07f9812a58bfa96c06ed8ffe9e6b584286e2fd/examples/text_to_image/train_text_to_image_lora_sdxl.py#L850-L873
 
-        image: Image = data["image"]
+        image: Image = data[self._image_field_name]
 
         original_size_hw = (image.height, image.width)
 
@@ -88,7 +95,7 @@ class SDImageTransform:
         # Convert image to Tensor and normalize to range [-1.0, 1.0].
         image = self._other_transforms(image)
 
-        data["image"] = image
-        data["original_size_hw"] = original_size_hw
-        data["crop_top_left_yx"] = crop_top_left_yx
+        data[self._image_field_name] = image
+        data[self._orig_size_field_name] = original_size_hw
+        data[self._crop_field_name] = crop_top_left_yx
         return data

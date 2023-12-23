@@ -51,13 +51,13 @@ class ImageDirDatasetConfig(BaseModel):
     """The directory to load images from."""
 
 
+class HFHubImagePairPreferenceDatasetConfig(BaseModel):
+    type: Literal["HF_HUB_IMAGE_PAIR_PREFERENCE_DATASET"]
+
+    # TODO(ryand): Fill this out.
+
+
 # Datasets that produce image-caption pairs.
 ImageCaptionDatasetConfig = Annotated[
     Union[HFDirImageCaptionDatasetConfig, HFHubImageCaptionDatasetConfig], Field(discriminator="type")
-]
-
-# All datasets.
-DatasetConfig = Annotated[
-    Union[HFDirImageCaptionDatasetConfig, HFHubImageCaptionDatasetConfig, ImageDirDatasetConfig],
-    Field(discriminator="type"),
 ]

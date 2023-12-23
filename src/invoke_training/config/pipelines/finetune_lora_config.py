@@ -6,6 +6,7 @@ from invoke_training.config.pipelines.base_pipeline_config import BasePipelineCo
 from invoke_training.config.shared.data.data_loader_config import (
     DreamboothSDDataLoaderConfig,
     ImageCaptionSDDataLoaderConfig,
+    ImagePairPreferenceSDDataLoaderConfig,
 )
 from invoke_training.config.shared.optimizer.optimizer_config import OptimizerConfig
 
@@ -156,3 +157,9 @@ class FinetuneLoRASDXLConfig(LoRATrainingConfig):
     model (specified by the `model` parameter). This config option is provided for SDXL models, because SDXL shipped
     with a VAE that produces NaNs in fp16 mode, so it is common to replace this VAE with a fixed version.
     """
+
+
+class DirectPreferenceOptimizationLoRASDConfig(LoRATrainingConfig):
+    type: Literal["DIRECT_PREFERENCE_OPTIMIZATION_LORA_SD"] = "DIRECT_PREFERENCE_OPTIMIZATION_LORA_SD"
+    optimizer: OptimizerConfig
+    data_loader: ImagePairPreferenceSDDataLoaderConfig
