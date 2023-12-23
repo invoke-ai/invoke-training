@@ -130,12 +130,12 @@ def test_hf_hub_image_caption_dataset_bad_image_column():
         )
 
 
-def test_hf_hub_image_caption_dataset_bad_caption_column(hf_imagefolder_dir: Path):
+def test_hf_hub_image_caption_dataset_bad_caption_column():
     """Test that a ValueError is raised if HFImageCaptionDataset is initialized with a `caption_column` that does not
     exist.
     """
     with pytest.raises(ValueError):
-        _ = HFImageCaptionDataset.from_dir(
+        _ = HFImageCaptionDataset.from_hub(
             "lambdalabs/pokemon-blip-captions",
             hf_load_dataset_kwargs={"revision": "8b762e1dac1b31d60e01ee8f08a9d8a232b59e17"},
             caption_column="does_not_exist",
