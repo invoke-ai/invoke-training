@@ -7,23 +7,23 @@ seed: 1
 output:
   base_output_dir: output/dpo
 
-# optimizer:
-#   learning_rate: 1e-4
-#   lr_warmup_steps: 200
-#   lr_scheduler: cosine
-
-#   optimizer:
-#     optimizer_type: AdamW
-#     weight_decay: 1e-2
-
 optimizer:
-  learning_rate: 1.0
+  learning_rate: 1e-4
+  lr_warmup_steps: 200
+  lr_scheduler: cosine
 
   optimizer:
-    optimizer_type: Prodigy
-    weight_decay: 0.01
-    use_bias_correction: True
-    safeguard_warmup: True
+    optimizer_type: AdamW
+    weight_decay: 1e-2
+
+# optimizer:
+#   learning_rate: 1.0
+
+#   optimizer:
+#     optimizer_type: Prodigy
+#     weight_decay: 0.01
+#     use_bias_correction: True
+#     safeguard_warmup: True
 
 
 data_loader:

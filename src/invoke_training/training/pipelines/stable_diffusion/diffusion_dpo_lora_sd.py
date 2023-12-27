@@ -1,3 +1,4 @@
+import copy
 import json
 import math
 import os
@@ -46,14 +47,15 @@ def train_forward_dpo_without_reference_model(  # noqa: C901
     tokenizer: CLIPTokenizer,
     text_encoder: CLIPTextModel,
     unet: UNet2DConditionModel,
+    ref_text_encoder: CLIPTextModel,
+    ref_unet: UNet2DConditionModel,
     weight_dtype: torch.dtype,
 ) -> torch.Tensor:
     """Run the forward training pass for a single data_batch.
 
-    This forward pass implements a simplified image preference loss based loosely on the Diffusion-DPO loss, but it does
-    not require a reference model. Rather than use a frozen reference model, this formulation expects to be applied in
-    conjunction with LoRA weight regularization to limit deviation from the initial model. This approach has the
-    advantage of lower memory requirements during training.
+    This forward pass is based on 'Diffusion Model Alignment Using Direct Preference Optimization'
+    (https://arxiv.org/pdf/2311.12908.pdf). See the "Pseudocode for Training Objective" Appendix section for a helpful
+    reference.
 
     Returns:
         torch.Tensor: Loss
@@ -62,6 +64,32 @@ def train_forward_dpo_without_reference_model(  # noqa: C901
 
     # Concatenate image_0 and image_1 images into a single image batch.
     images = torch.concat((data_batch["image_0"], data_batch["image_1"]))
+
+    # Re-order images so that the 'images' batch contains all preferred (winner) images followed by all (loser) images.
+    # TODO: Handle caption filtering. Should this all be done in the data loader instead?
+    w_indices = []
+    l_indices = []
+    prefer_0 = data_batch["prefer_0"]
+    prefer_1 = data_batch["prefer_1"]
+    for i in range(batch_size):
+        if prefer_0[i] and prefer_1[i]:
+            raise ValueError("Encountered image pair with prefer_0=True and prefer_1=True.")
+        elif prefer_0[i] and not prefer_1[i]:
+            w_indices.append(i)
+            l_indices.append(i + batch_size)
+        elif not prefer_0[i] and prefer_1[i]:
+            w_indices.append(i + batch_size)
+            l_indices.append(i)
+        elif not prefer_0[i] and not prefer_1[i]:
+            # Skip pairs with no preference.
+            pass
+    if len(w_indices) == 0:
+        # Return if all images were filtered due to no-preference.
+        return 0.0
+    images = images[w_indices + l_indices]
+
+    # Update batch_size in case image pairs were filtered due to no-preference.
+    batch_size = images.shape[0] // 2
 
     # Convert images to latent space.
     # The VAE output may have been cached and included in the data_batch. If not, we calculate it here.
@@ -72,7 +100,7 @@ def train_forward_dpo_without_reference_model(  # noqa: C901
 
     # Sample noise that we'll add to the latents.
     # We want to use the same noise for the winning and losing example in each pair, so we generate noise for the
-    # image_0 latents and then repeat it.
+    # winning latents and then repeat it.
     noise = torch.randn_like(latents[:batch_size])
     noise = noise.repeat((2, 1, 1, 1))
 
@@ -84,13 +112,15 @@ def train_forward_dpo_without_reference_model(  # noqa: C901
     # diffusion process).
     noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
 
-    # Get the text embedding for conditioning.
+    # Get the text embedding for conditioning (for both the text_encoder and ref_text_encoder).
     # The text_encoder_output may have been cached and included in the data_batch. If not, we calculate it here.
     encoder_hidden_states = data_batch.get("text_encoder_output", None)
     if encoder_hidden_states is None:
         caption_token_ids = tokenize_captions(tokenizer, data_batch["caption"]).to(text_encoder.device)
         encoder_hidden_states = text_encoder(caption_token_ids)[0].to(dtype=weight_dtype)
+        ref_encoder_hidden_states = ref_text_encoder(caption_token_ids)[0].to(dtype=weight_dtype)
     encoder_hidden_states = encoder_hidden_states.repeat((2, 1, 1))
+    ref_encoder_hidden_states = ref_encoder_hidden_states.repeat((2, 1, 1))
 
     # Get the target for loss depending on the prediction type.
     if config.prediction_type is not None:
@@ -104,38 +134,36 @@ def train_forward_dpo_without_reference_model(  # noqa: C901
         raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
 
     # Predict the noise residual.
-    model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
+    ref_model_pred: torch.Tensor = ref_unet(noisy_latents, timesteps, ref_encoder_hidden_states).sample
+    model_pred: torch.Tensor = unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
-    loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="none")
     if "loss_weight" in data_batch:
         raise NotImplementedError("loss_weight is not yet supported.")
 
-    # Prepare image loss weights based on prefer_0 and prefer_1 fields. Images are weighted as follows:
-    # - preferred:     +1.0
-    # - non-preferred: -1.0
-    # - no-preference:  0.0
-    image_weights = [0.0] * batch_size * 2
-    prefer_0 = data_batch["prefer_0"]
-    prefer_1 = data_batch["prefer_1"]
-    for i in range(batch_size):
-        if prefer_0[i] and prefer_1[i]:
-            raise ValueError("Encountered image pair with prefer_0=True and prefer_1=True.")
-        elif prefer_0[i] and not prefer_1[i]:
-            image_weights[i] = 1.0
-            image_weights[i + batch_size] = -1.0
-        elif not prefer_0[i] and prefer_1[i]:
-            image_weights[i] = -1.0
-            image_weights[i + batch_size] = 1.0
-        elif not prefer_0[i] and not prefer_1[i]:
-            # Leave weights as 0.0.
-            pass
-    image_weights = torch.Tensor(image_weights).to(device=loss.device, dtype=loss.dtype)
+    target = target.float()
+    w_target = target[:batch_size]
+    l_target = target[batch_size:]
+    model_w_pred = model_pred[:batch_size]
+    model_l_pred = model_pred[batch_size:]
+    ref_w_pred = ref_model_pred[:batch_size]
+    ref_l_pred = ref_model_pred[batch_size:]
 
-    # Mean-reduce the loss along all dimensions except for the batch dimension.
-    loss = loss.mean([1, 2, 3])
-    # Apply per-example weights.
-    loss = loss * image_weights
-    return loss.mean()
+    # The pseudo-code from the paper uses `.norm().pow(2)` to calculate the errors. We take the mean over all pixels by
+    # using `mse_loss(...)` instead. This helps keep the learning rate stable across different image resolutions. It
+    # also means that the the recommended settings for beta from the paper are not correct.
+    # > model_w_err = (model_w_pred - target).norm().pow(2)
+    # > model_l_err = (model_l_pred - target).norm().pow(2)
+    # > ref_w_err = (ref_w_pred - target).norm().pow(2)
+    # > ref_l_err = (ref_l_pred - target).norm().pow(2)
+    model_w_err = torch.nn.functional.mse_loss(model_w_pred, w_target)
+    model_l_err = torch.nn.functional.mse_loss(model_l_pred, l_target)
+    ref_w_err = torch.nn.functional.mse_loss(ref_w_pred, w_target)
+    ref_l_err = torch.nn.functional.mse_loss(ref_l_pred, l_target)
+    w_diff = model_w_err - ref_w_err
+    l_diff = model_l_err - ref_l_err
+    inside_term = -1 * config.beta * (w_diff - l_diff)
+    loss = -1 * torch.nn.functional.logsigmoid(inside_term)
+    return loss
 
 
 def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C901
@@ -175,11 +203,14 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
 
     logger.info("Loading models.")
     tokenizer, noise_scheduler, text_encoder, vae, unet = load_models(config)
+    ref_text_encoder = copy.deepcopy(text_encoder)
+    ref_unet = copy.deepcopy(unet)
 
     if config.xformers:
         import xformers  # noqa: F401
 
         unet.enable_xformers_memory_efficient_attention()
+        ref_unet.enable_xformers_memory_efficient_attention()
         vae.enable_xformers_memory_efficient_attention()
 
     # Prepare text encoder output cache.
@@ -205,6 +236,7 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
         accelerator.wait_for_everyone()
     else:
         text_encoder.to(accelerator.device, dtype=weight_dtype)
+        ref_text_encoder.to(accelerator.device, dtype=weight_dtype)
 
     # Prepare VAE output cache.
     vae_output_cache_dir_name = None
@@ -238,6 +270,7 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
         vae.to(accelerator.device, dtype=weight_dtype)
 
     unet.to(accelerator.device, dtype=weight_dtype)
+    ref_unet.to(accelerator.device, dtype=weight_dtype)
 
     lora_layers = torch.nn.ModuleDict()
     trainable_param_groups = []
@@ -370,14 +403,16 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
         for data_batch in data_loader:
             with accelerator.accumulate(lora_layers):
                 loss = train_forward_dpo_without_reference_model(
-                    config,
-                    data_batch,
-                    vae,
-                    noise_scheduler,
-                    tokenizer,
-                    text_encoder,
-                    unet,
-                    weight_dtype,
+                    config=config,
+                    data_batch=data_batch,
+                    vae=vae,
+                    noise_scheduler=noise_scheduler,
+                    tokenizer=tokenizer,
+                    text_encoder=text_encoder,
+                    unet=unet,
+                    ref_text_encoder=ref_text_encoder,
+                    ref_unet=ref_unet,
+                    weight_dtype=weight_dtype,
                 )
 
                 # Gather the losses across all processes for logging (if we use distributed training).
