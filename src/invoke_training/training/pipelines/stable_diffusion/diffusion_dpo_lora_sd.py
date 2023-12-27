@@ -3,21 +3,17 @@ import math
 import os
 import tempfile
 import time
-from typing import Optional, Union
 
 import torch
 import torch.utils.data
 from accelerate.utils import set_seed
 from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel
 from diffusers.optimization import get_scheduler
-from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 
-from invoke_training.config.pipelines.finetune_lora_config import FinetuneLoRASDConfig
-from invoke_training.config.shared.data.data_loader_config import (
-    DreamboothSDDataLoaderConfig,
-    ImageCaptionSDDataLoaderConfig,
+from invoke_training.config.pipelines.finetune_lora_config import (
+    DirectPreferenceOptimizationLoRASDConfig,
 )
 from invoke_training.core.lora.injection.stable_diffusion import (
     inject_lora_into_clip_text_encoder,
@@ -25,10 +21,8 @@ from invoke_training.core.lora.injection.stable_diffusion import (
 )
 from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import (
     cache_text_encoder_outputs,
-    cache_vae_outputs,
     generate_validation_images,
     load_models,
-    log_aspect_ratio_buckets,
 )
 from invoke_training.training.shared.accelerator.accelerator_utils import (
     get_mixed_precision_dtype,
@@ -36,48 +30,16 @@ from invoke_training.training.shared.accelerator.accelerator_utils import (
     initialize_logging,
 )
 from invoke_training.training.shared.checkpoints.checkpoint_tracker import CheckpointTracker
-from invoke_training.training.shared.data.data_loaders.dreambooth_sd_dataloader import build_dreambooth_sd_dataloader
-from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
-    build_image_caption_sd_dataloader,
+from invoke_training.training.shared.data.data_loaders.image_pair_preference_sd_dataloader import (
+    build_image_pair_preference_sd_dataloader,
 )
 from invoke_training.training.shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils import save_lora_checkpoint
 from invoke_training.training.shared.stable_diffusion.tokenize_captions import tokenize_captions
 
 
-def build_data_loader(
-    data_loader_config: Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig],
-    batch_size: int,
-    text_encoder_output_cache_dir: Optional[str] = None,
-    vae_output_cache_dir: Optional[str] = None,
-    shuffle: bool = True,
-    sequential_batching: bool = False,
-) -> DataLoader:
-    if data_loader_config.type == "IMAGE_CAPTION_SD_DATA_LOADER":
-        return build_image_caption_sd_dataloader(
-            config=data_loader_config,
-            batch_size=batch_size,
-            text_encoder_output_cache_dir=text_encoder_output_cache_dir,
-            text_encoder_cache_field_to_output_field={"text_encoder_output": "text_encoder_output"},
-            vae_output_cache_dir=vae_output_cache_dir,
-            shuffle=shuffle,
-        )
-    elif data_loader_config.type == "DREAMBOOTH_SD_DATA_LOADER":
-        return build_dreambooth_sd_dataloader(
-            config=data_loader_config,
-            batch_size=batch_size,
-            text_encoder_output_cache_dir=text_encoder_output_cache_dir,
-            text_encoder_cache_field_to_output_field={"text_encoder_output": "text_encoder_output"},
-            vae_output_cache_dir=vae_output_cache_dir,
-            shuffle=shuffle,
-            sequential_batching=sequential_batching,
-        )
-    else:
-        raise ValueError(f"Unsupported data loader config type: '{data_loader_config.type}'.")
-
-
 def train_forward(
-    config: FinetuneLoRASDConfig,
+    config: DirectPreferenceOptimizationLoRASDConfig,
     data_batch: dict,
     vae: AutoencoderKL,
     noise_scheduler: DDPMScheduler,
@@ -145,7 +107,7 @@ def train_forward(
     return loss.mean()
 
 
-def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
+def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     # TODO(ryan): Update this check to work with single-file SD checkpoints.
     # check_base_model_version(
@@ -216,29 +178,31 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
     # Prepare VAE output cache.
     vae_output_cache_dir_name = None
     if config.cache_vae_outputs:
-        if config.data_loader.image_transforms.random_flip:
-            raise ValueError("'cache_vae_outputs' cannot be True if 'random_flip' is True.")
-        if not config.data_loader.image_transforms.center_crop:
-            raise ValueError("'cache_vae_outputs' cannot be True if 'center_crop' is False.")
+        raise NotImplementedError("VAE caching is not implemented for Diffusion-DPO training yet.")
+        # if config.data_loader.image_transforms.random_flip:
+        #     raise ValueError("'cache_vae_outputs' cannot be True if 'random_flip' is True.")
+        # if not config.data_loader.image_transforms.center_crop:
+        #     raise ValueError("'cache_vae_outputs' cannot be True if 'center_crop' is False.")
 
-        # We use a temporary directory for the cache. The directory will automatically be cleaned up when
-        # tmp_vae_output_cache_dir is destroyed.
-        tmp_vae_output_cache_dir = tempfile.TemporaryDirectory()
-        vae_output_cache_dir_name = tmp_vae_output_cache_dir.name
-        if accelerator.is_local_main_process:
-            # Only the main process should populate the cache.
-            logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
-            vae.to(accelerator.device, dtype=weight_dtype)
-            data_loader = build_data_loader(
-                data_loader_config=config.data_loader,
-                batch_size=config.train_batch_size,
-                shuffle=False,
-                sequential_batching=True,
-            )
-            cache_vae_outputs(vae_output_cache_dir_name, data_loader, vae)
-        # Move the VAE back to the CPU, because it is not needed for training.
-        vae.to("cpu")
-        accelerator.wait_for_everyone()
+        # # We use a temporary directory for the cache. The directory will automatically be cleaned up when
+        # # tmp_vae_output_cache_dir is destroyed.
+        # tmp_vae_output_cache_dir = tempfile.TemporaryDirectory()
+        # vae_output_cache_dir_name = tmp_vae_output_cache_dir.name
+        # if accelerator.is_local_main_process:
+        #     # Only the main process should populate the cache.
+        #     logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
+        #     vae.to(accelerator.device, dtype=weight_dtype)
+
+        #     data_loader = build_data_loader(
+        #         data_loader_config=config.data_loader,
+        #         batch_size=config.train_batch_size,
+        #         shuffle=False,
+        #         sequential_batching=True,
+        #     )
+        #     cache_vae_outputs(vae_output_cache_dir_name, data_loader, vae)
+        # # Move the VAE back to the CPU, because it is not needed for training.
+        # vae.to("cpu")
+        # accelerator.wait_for_everyone()
     else:
         vae.to(accelerator.device, dtype=weight_dtype)
 
@@ -282,14 +246,14 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
 
     optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
 
-    data_loader = build_data_loader(
-        data_loader_config=config.data_loader,
+    data_loader = build_image_pair_preference_sd_dataloader(
+        config=config.data_loader,
         batch_size=config.train_batch_size,
         text_encoder_output_cache_dir=text_encoder_output_cache_dir_name,
+        text_encoder_cache_field_to_output_field={"text_encoder_output": "text_encoder_output"},
         vae_output_cache_dir=vae_output_cache_dir_name,
+        shuffle=True,
     )
-
-    log_aspect_ratio_buckets(logger=logger, batch_sampler=data_loader.batch_sampler)
 
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
     # by the number of processes. This scaling logic was copied from the diffusers example training code, but it appears
