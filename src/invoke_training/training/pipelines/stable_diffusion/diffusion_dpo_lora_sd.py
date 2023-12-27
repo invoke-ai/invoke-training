@@ -38,7 +38,7 @@ from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils impo
 from invoke_training.training.shared.stable_diffusion.tokenize_captions import tokenize_captions
 
 
-def train_forward(
+def train_forward_dpo_without_reference_model(  # noqa: C901
     config: DirectPreferenceOptimizationLoRASDConfig,
     data_batch: dict,
     vae: AutoencoderKL,
@@ -50,28 +50,35 @@ def train_forward(
 ) -> torch.Tensor:
     """Run the forward training pass for a single data_batch.
 
+    This forward pass implements a simplified image preference loss based loosely on the Diffusion-DPO loss, but it does
+    not require a reference model. Rather than use a frozen reference model, this formulation expects to be applied in
+    conjunction with LoRA weight regularization to limit deviation from the initial model. This approach has the
+    advantage of lower memory requirements during training.
+
     Returns:
         torch.Tensor: Loss
     """
+    batch_size = data_batch["image_0"].shape[0]
+
+    # Concatenate image_0 and image_1 images into a single image batch.
+    images = torch.concat((data_batch["image_0"], data_batch["image_1"]))
+
     # Convert images to latent space.
     # The VAE output may have been cached and included in the data_batch. If not, we calculate it here.
     latents = data_batch.get("vae_output", None)
     if latents is None:
-        latents = vae.encode(data_batch["image"].to(dtype=weight_dtype)).latent_dist.sample()
+        latents = vae.encode(images.to(dtype=weight_dtype)).latent_dist.sample()
         latents = latents * vae.config.scaling_factor
 
     # Sample noise that we'll add to the latents.
-    noise = torch.randn_like(latents)
+    # We want to use the same noise for the winning and losing example in each pair, so we generate noise for the
+    # image_0 latents and then repeat it.
+    noise = torch.randn_like(latents[:batch_size])
+    noise = noise.repeat((2, 1, 1, 1))
 
-    batch_size = latents.shape[0]
-    # Sample a random timestep for each image.
-    timesteps = torch.randint(
-        0,
-        noise_scheduler.config.num_train_timesteps,
-        (batch_size,),
-        device=latents.device,
-    )
-    timesteps = timesteps.long()
+    # Sample a random timestep for each image **pair**.
+    timesteps = torch.randint(0, noise_scheduler.config.num_train_timesteps, (batch_size,), device=latents.device)
+    timesteps = timesteps.repeat((2,)).long()
 
     # Add noise to the latents according to the noise magnitude at each timestep (this is the forward
     # diffusion process).
@@ -100,10 +107,32 @@ def train_forward(
 
     loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="none")
     if "loss_weight" in data_batch:
-        # Mean-reduce the loss along all dimensions except for the batch dimension.
-        loss = loss.mean([1, 2, 3])
-        # Apply per-example weights.
-        loss = loss * data_batch["loss_weight"]
+        raise NotImplementedError("loss_weight is not yet supported.")
+
+    # Prepare image loss weights based on prefer_0 and prefer_1 fields. Images are weighted as follows:
+    # - preferred:     +1.0
+    # - non-preferred: -1.0
+    # - no-preference:  0.0
+    image_weights = [0.0] * batch_size * 2
+    prefer_0 = data_batch["prefer_0"]
+    prefer_1 = data_batch["prefer_1"]
+    for i in range(batch_size):
+        if prefer_0[i] and prefer_1[i]:
+            raise ValueError("Encountered image pair with prefer_0=True and prefer_1=True.")
+        elif prefer_0[i] and not prefer_1[i]:
+            image_weights[i] = 1.0
+            image_weights[i + batch_size] = -1.0
+        elif not prefer_0[i] and prefer_1[i]:
+            image_weights[i] = -1.0
+            image_weights[i + batch_size] = 1.0
+        elif not prefer_0[i] and not prefer_1[i]:
+            # Leave weights as 0.0.
+            pass
+
+    # Mean-reduce the loss along all dimensions except for the batch dimension.
+    loss = loss.mean([1, 2, 3])
+    # Apply per-example weights.
+    loss = loss * data_batch["loss_weight"]
     return loss.mean()
 
 
@@ -338,7 +367,7 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
         train_loss = 0.0
         for data_batch in data_loader:
             with accelerator.accumulate(lora_layers):
-                loss = train_forward(
+                loss = train_forward_dpo_without_reference_model(
                     config,
                     data_batch,
                     vae,
