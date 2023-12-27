@@ -90,6 +90,7 @@ def train_forward_dpo_without_reference_model(  # noqa: C901
     if encoder_hidden_states is None:
         caption_token_ids = tokenize_captions(tokenizer, data_batch["caption"]).to(text_encoder.device)
         encoder_hidden_states = text_encoder(caption_token_ids)[0].to(dtype=weight_dtype)
+    encoder_hidden_states = encoder_hidden_states.repeat((2, 1, 1))
 
     # Get the target for loss depending on the prediction type.
     if config.prediction_type is not None:
@@ -128,11 +129,12 @@ def train_forward_dpo_without_reference_model(  # noqa: C901
         elif not prefer_0[i] and not prefer_1[i]:
             # Leave weights as 0.0.
             pass
+    image_weights = torch.Tensor(image_weights).to(device=loss.device, dtype=loss.dtype)
 
     # Mean-reduce the loss along all dimensions except for the batch dimension.
     loss = loss.mean([1, 2, 3])
     # Apply per-example weights.
-    loss = loss * data_batch["loss_weight"]
+    loss = loss * image_weights
     return loss.mean()
 
 
