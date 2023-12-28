@@ -164,13 +164,9 @@ class DirectPreferenceOptimizationLoRASDConfig(LoRATrainingConfig):
     optimizer: OptimizerConfig
     data_loader: ImagePairPreferenceSDDataLoaderConfig
 
-    beta: float = 10000.0
-    """The beta parameter, as defined in (https://arxiv.org/pdf/2311.12908.pdf). Note that this implementation uses
-    `mse_loss(...)` rather than `.norm().pow(2)` to calculate the model prediction errors. This allows learning rates to
-    be stable across different image sizes, but also means that the recommended beta values from the paper are not
-    scaled properly.
+    beta: float = 5000.0
+    """The beta parameter, as defined in (https://arxiv.org/pdf/2311.12908.pdf). Larger beta values increase the
+    KL-Divergence penalty, discouraging divergence from the reference model weights.
 
-    Larger beta values increase the KL-Divergence penalty, discouraging divergence from the reference model weights.
-
-    TODO: Tune the default value.
+    Typical values for `beta` are in the range [1000.0, 10000.0].
     """
