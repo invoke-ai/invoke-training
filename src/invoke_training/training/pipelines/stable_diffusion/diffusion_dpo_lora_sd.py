@@ -65,28 +65,20 @@ def train_forward_dpo_without_reference_model(  # noqa: C901
     # Concatenate image_0 and image_1 images into a single image batch.
     images = torch.concat((data_batch["image_0"], data_batch["image_1"]))
 
-    # Re-order images so that the 'images' batch contains all preferred (winner) images followed by all (loser) images.
+    # Re-order images so that the 'images' batch contains all winner images followed by all loser images.
     w_indices = []
     l_indices = []
-    example_weights = []
     prefer_0 = data_batch["prefer_0"]
     prefer_1 = data_batch["prefer_1"]
     for i in range(batch_size):
-        if prefer_0[i] and prefer_1[i]:
-            raise ValueError("Encountered image pair with prefer_0=True and prefer_1=True.")
-        elif prefer_0[i] and not prefer_1[i]:
+        if prefer_0[i] and not prefer_1[i]:
             w_indices.append(i)
             l_indices.append(i + batch_size)
-            example_weights.append(1.0)
         elif not prefer_0[i] and prefer_1[i]:
             w_indices.append(i + batch_size)
             l_indices.append(i)
-            example_weights.append(1.0)
-        elif not prefer_0[i] and not prefer_1[i]:
-            w_indices.append(i)
-            l_indices.append(i + batch_size)
-            example_weights.append(0.0)  # Ignore examples with no preference.
-    example_weights = torch.Tensor(example_weights).to(device=images.device, dtype=images.dtype)
+        else:
+            raise ValueError(f"Encountered image pair with prefer_0={prefer_0[i]} and prefer_1={prefer_1[i]}.")
     images = images[w_indices + l_indices]
 
     # Update batch_size in case image pairs were filtered due to no-preference.
@@ -156,18 +148,10 @@ def train_forward_dpo_without_reference_model(  # noqa: C901
     # > model_l_err = (model_l_pred - target).norm().pow(2)
     # > ref_w_err = (ref_w_pred - target).norm().pow(2)
     # > ref_l_err = (ref_l_pred - target).norm().pow(2)
-    def mse_loss_with_example_weights(pred: torch.Tensor, target: torch.Tensor, weights: torch.Tensor):
-        err = torch.nn.functional.mse_loss(pred, target, reduction="none")
-        # Mean-reduce the loss along all dimensions except for the batch dimension.
-        err = err.mean([1, 2, 3])
-        # Apply per-example weights.
-        err = err * weights
-        return err.mean()
-
-    model_w_err = mse_loss_with_example_weights(model_w_pred, w_target, example_weights)
-    model_l_err = mse_loss_with_example_weights(model_l_pred, l_target, example_weights)
-    ref_w_err = mse_loss_with_example_weights(ref_w_pred, w_target, example_weights)
-    ref_l_err = mse_loss_with_example_weights(ref_l_pred, l_target, example_weights)
+    model_w_err = torch.nn.functional.mse_loss(model_w_pred, w_target)
+    model_l_err = torch.nn.functional.mse_loss(model_l_pred, l_target)
+    ref_w_err = torch.nn.functional.mse_loss(ref_w_pred, w_target)
+    ref_l_err = torch.nn.functional.mse_loss(ref_l_pred, l_target)
 
     w_diff = model_w_err - ref_w_err
     l_diff = model_l_err - ref_l_err

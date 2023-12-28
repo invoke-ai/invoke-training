@@ -16,6 +16,7 @@ class HFImagePairPreferenceDataset(torch.utils.data.Dataset):
     def __init__(
         self,
         hf_dataset,
+        skip_no_preference=True,
         split: str = "train",
         image_0_column: str = "jpg_0",
         label_0_column: str = "label_0",
@@ -23,11 +24,24 @@ class HFImagePairPreferenceDataset(torch.utils.data.Dataset):
         label_1_column: str = "jpg_1",
         caption_column: str = "caption",
     ):
+        """
+        Args:
+            skip_no_preference (bool, optional): If True, skip image pairs without a preference.
+        """
         column_names = hf_dataset[split].column_names
 
         for col_name in [image_0_column, label_0_column, image_1_column, label_1_column, caption_column]:
             if col_name not in column_names:
                 raise ValueError(f"Column '{col_name}' is not in the set of dataset column names: '{column_names}'.")
+
+        eps = 0.0001
+
+        if skip_no_preference:
+            # Filter to only include pairs with a clear preference.
+            def filter(example: dict[str, typing.Any]) -> bool:
+                return abs(example["label_0"] - example["label_1"]) > eps
+
+            hf_dataset = hf_dataset.filter(filter)
 
         def preprocess(examples):
             image_0_list = [Image.open(io.BytesIO(image)).convert("RGB") for image in examples[image_0_column]]
@@ -35,7 +49,6 @@ class HFImagePairPreferenceDataset(torch.utils.data.Dataset):
 
             image_0_is_better = []
             image_1_is_better = []
-            eps = 0.0001
             for label_0, label_1 in zip(examples["label_0"], examples["label_1"]):
                 if (label_0 - label_1) > eps:
                     # Label 0 is better.
@@ -64,6 +77,7 @@ class HFImagePairPreferenceDataset(torch.utils.data.Dataset):
     def from_hub(
         cls,
         dataset_name: str,
+        skip_no_preference: bool = True,
         split: str = "train",
         hf_load_dataset_kwargs: typing.Optional[dict[str, typing.Any]] = None,
     ):
@@ -82,7 +96,7 @@ class HFImagePairPreferenceDataset(torch.utils.data.Dataset):
         hf_load_dataset_kwargs = hf_load_dataset_kwargs or {}
         hf_dataset = datasets.load_dataset(dataset_name, **hf_load_dataset_kwargs)
 
-        return cls(hf_dataset=hf_dataset, split=split)
+        return cls(hf_dataset=hf_dataset, skip_no_preference=skip_no_preference, split=split)
 
     def __len__(self) -> int:
         """Get the dataset length.
