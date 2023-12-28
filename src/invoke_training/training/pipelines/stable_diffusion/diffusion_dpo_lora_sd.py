@@ -66,9 +66,9 @@ def train_forward_dpo_without_reference_model(  # noqa: C901
     images = torch.concat((data_batch["image_0"], data_batch["image_1"]))
 
     # Re-order images so that the 'images' batch contains all preferred (winner) images followed by all (loser) images.
-    # TODO: Handle caption filtering. Should this all be done in the data loader instead?
     w_indices = []
     l_indices = []
+    example_weights = []
     prefer_0 = data_batch["prefer_0"]
     prefer_1 = data_batch["prefer_1"]
     for i in range(batch_size):
@@ -77,15 +77,16 @@ def train_forward_dpo_without_reference_model(  # noqa: C901
         elif prefer_0[i] and not prefer_1[i]:
             w_indices.append(i)
             l_indices.append(i + batch_size)
+            example_weights.append(1.0)
         elif not prefer_0[i] and prefer_1[i]:
             w_indices.append(i + batch_size)
             l_indices.append(i)
+            example_weights.append(1.0)
         elif not prefer_0[i] and not prefer_1[i]:
-            # Skip pairs with no preference.
-            pass
-    if len(w_indices) == 0:
-        # Return if all images were filtered due to no-preference.
-        return 0.0
+            w_indices.append(i)
+            l_indices.append(i + batch_size)
+            example_weights.append(0.0)  # Ignore examples with no preference.
+    example_weights = torch.Tensor(example_weights).to(device=images.device, dtype=images.dtype)
     images = images[w_indices + l_indices]
 
     # Update batch_size in case image pairs were filtered due to no-preference.
@@ -148,17 +149,26 @@ def train_forward_dpo_without_reference_model(  # noqa: C901
     ref_w_pred = ref_model_pred[:batch_size]
     ref_l_pred = ref_model_pred[batch_size:]
 
-    # The pseudo-code from the paper uses `.norm().pow(2)` to calculate the errors. We take the mean over all pixels by
-    # using `mse_loss(...)` instead. This helps keep the learning rate stable across different image resolutions. It
-    # also means that the the recommended settings for beta from the paper are not correct.
+    # The pseudo-code from the paper uses `.norm().pow(2)` to calculate the errors. We take the mean over all pixels
+    # rather than the sum over all pixels instead. This helps keep the learning rate stable across different image
+    # resolutions. It also means that the the recommended settings for beta from the paper are not correct.
     # > model_w_err = (model_w_pred - target).norm().pow(2)
     # > model_l_err = (model_l_pred - target).norm().pow(2)
     # > ref_w_err = (ref_w_pred - target).norm().pow(2)
     # > ref_l_err = (ref_l_pred - target).norm().pow(2)
-    model_w_err = torch.nn.functional.mse_loss(model_w_pred, w_target)
-    model_l_err = torch.nn.functional.mse_loss(model_l_pred, l_target)
-    ref_w_err = torch.nn.functional.mse_loss(ref_w_pred, w_target)
-    ref_l_err = torch.nn.functional.mse_loss(ref_l_pred, l_target)
+    def mse_loss_with_example_weights(pred: torch.Tensor, target: torch.Tensor, weights: torch.Tensor):
+        err = torch.nn.functional.mse_loss(pred, target, reduction="none")
+        # Mean-reduce the loss along all dimensions except for the batch dimension.
+        err = err.mean([1, 2, 3])
+        # Apply per-example weights.
+        err = err * weights
+        return err.mean()
+
+    model_w_err = mse_loss_with_example_weights(model_w_pred, w_target, example_weights)
+    model_l_err = mse_loss_with_example_weights(model_l_pred, l_target, example_weights)
+    ref_w_err = mse_loss_with_example_weights(ref_w_pred, w_target, example_weights)
+    ref_l_err = mse_loss_with_example_weights(ref_l_pred, l_target, example_weights)
+
     w_diff = model_w_err - ref_w_err
     l_diff = model_l_err - ref_l_err
     inside_term = -1 * config.beta * (w_diff - l_diff)
