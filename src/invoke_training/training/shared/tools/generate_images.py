@@ -16,8 +16,9 @@ def generate_images(
     model: str,
     hf_variant: str | None,
     pipeline_version: PipelineVersionEnum,
-    prompt: str,
-    num_images: int,
+    prompts: list[str],
+    set_size: int,
+    num_sets: int,
     height: int,
     width: int,
     loras: Optional[list[tuple[Path, float]]] = None,
@@ -35,7 +36,8 @@ def generate_images(
         model (str): The name or path of the diffusers pipeline to generate with.
         sd_version (PipelineVersionEnum): The model version.
         prompt (str): The prompt to generate images with.
-        num_images (int): The number of images to generate.
+        set_size (int): The number of images in a 'set' for a given prompt.
+        num_sets (int): The number of 'sets' to generate for each prompt.
         height (int): The output image height in pixels (recommended to match the resolution that the model was trained
             with).
         width (int): The output image width in pixels (recommended to match the resolution that the model was trained
@@ -75,14 +77,20 @@ def generate_images(
 
     os.makedirs(out_dir)
 
-    with torch.no_grad():
-        for i in tqdm(range(num_images)):
-            image = pipeline(
-                prompt,
-                num_inference_steps=30,
-                generator=generator,
-                height=height,
-                width=width,
-            ).images[0]
+    total_images = num_sets * len(prompts) * set_size
+    with torch.no_grad(), tqdm(total=total_images) as pbar:
+        for prompt_idx in range(len(prompts)):
+            for set_idx in range(num_sets):
+                set_dir = os.path.join(out_dir, f"prompt-{prompt_idx:0>4}", f"set-{set_idx:0>4}")
+                os.makedirs(set_dir)
+                for image_idx in range(set_size):
+                    image = pipeline(
+                        prompts[prompt_idx],
+                        num_inference_steps=30,
+                        generator=generator,
+                        height=height,
+                        width=width,
+                    ).images[0]
 
-            image.save(os.path.join(out_dir, f"{i:0>4}.jpg"))
+                    image.save(os.path.join(set_dir, f"_image-{image_idx}.jpg"))
+                    pbar.update(1)

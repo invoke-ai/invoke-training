@@ -54,14 +54,16 @@ def parse_args():
         required=True,
         help="The Stable Diffusion version. One of: ['SD', 'SDXL'].",
     )
-    parser.add_argument("-p", "--prompt", type=str, required=True, help="The prompt to use for image generation.")
+
+    # One of --prompt or --prompt-file.
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("-p", "--prompt", type=str, help="The prompt to use for image generation.")
+    group.add_argument("--prompt-file", type=str, help="A file containing prompts. One per line.")
+
     parser.add_argument(
-        "-n",
-        "--num-images",
-        type=int,
-        required=True,
-        help="The number of images to generate.",
+        "--set-size", type=int, default=1, help="The number of images generated in each 'set' for a given prompt."
     )
+    parser.add_argument("--num-sets", type=int, default=1, help="The number of 'sets' to generate for each prompt.")
     parser.add_argument(
         "--height",
         type=int,
@@ -108,19 +110,30 @@ def parse_lora_args(lora_args: list[str] | None) -> list[tuple[Path, int]]:
     return loras
 
 
+def parse_prompt_file(prompt_file: str) -> list[str]:
+    with open(prompt_file) as f:
+        return f.readlines()
+
+
 def main():
     args = parse_args()
 
     loras = parse_lora_args(args.lora)
 
-    print(f"Generating {args.num_images} images in '{args.out_dir}'.")
+    if args.prompt:
+        prompts = [args.prompt]
+    else:
+        prompts = parse_prompt_file(args.prompt_file)
+
+    print(f"Generating {args.num_sets} sets of {args.set_size} images for {len(prompts)} prompts in '{args.out_dir}'.")
     generate_images(
         out_dir=args.out_dir,
         model=args.model,
         hf_variant=args.variant,
         pipeline_version=PipelineVersionEnum(args.sd_version),
-        prompt=args.prompt,
-        num_images=args.num_images,
+        prompts=prompts,
+        set_size=args.set_size,
+        num_sets=args.num_sets,
         height=args.height,
         width=args.width,
         loras=loras,
