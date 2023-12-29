@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 from typing import Optional
@@ -77,12 +78,15 @@ def generate_images(
 
     os.makedirs(out_dir)
 
+    metadata = []
+
     total_images = num_sets * len(prompts) * set_size
     with torch.no_grad(), tqdm(total=total_images) as pbar:
         for prompt_idx in range(len(prompts)):
             for set_idx in range(num_sets):
                 set_dir = os.path.join(out_dir, f"prompt-{prompt_idx:0>4}", f"set-{set_idx:0>4}")
                 os.makedirs(set_dir)
+                set_metadata_dict = {"prompt": prompts[prompt_idx]}
                 for image_idx in range(set_size):
                     image = pipeline(
                         prompts[prompt_idx],
@@ -92,5 +96,14 @@ def generate_images(
                         width=width,
                     ).images[0]
 
-                    image.save(os.path.join(set_dir, f"_image-{image_idx}.jpg"))
+                    image_path = os.path.join(set_dir, f"image-{image_idx}.jpg")
+                    image.save(image_path)
+                    set_metadata_dict[f"image_{image_idx}"] = os.path.relpath(image_path, start=out_dir)
+                    set_metadata_dict[f"prefer_{image_idx}"] = False
                     pbar.update(1)
+                metadata.append(set_metadata_dict)
+
+    with open(os.path.join(out_dir, "metadata.jsonl"), "w") as f:
+        for m in metadata:
+            json.dump(m, f)
+            f.write("\n")

@@ -112,7 +112,9 @@ def parse_lora_args(lora_args: list[str] | None) -> list[tuple[Path, int]]:
 
 def parse_prompt_file(prompt_file: str) -> list[str]:
     with open(prompt_file) as f:
-        return f.readlines()
+        prompts = f.readlines()
+
+    return [p.strip() for p in prompts]
 
 
 def main():
