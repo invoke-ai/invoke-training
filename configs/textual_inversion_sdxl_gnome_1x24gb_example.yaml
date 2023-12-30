@@ -31,6 +31,7 @@ data_loader:
 
 # General
 model: stabilityai/stable-diffusion-xl-base-1.0
+vae_model: madebyollin/sdxl-vae-fp16-fix
 num_vectors: 1
 placeholder_token: "bruce_the_gnome"
 initializer_token: "gnome"
