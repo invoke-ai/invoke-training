@@ -1,11 +1,12 @@
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from invoke_training.config.shared.data.dataset_config import (
     HFHubImagePairPreferenceDatasetConfig,
     ImageCaptionDatasetConfig,
     ImageDirDatasetConfig,
+    ImagePairPreferenceDatasetConfig,
 )
 from invoke_training.config.shared.data.transform_config import (
     SDImageTransformConfig,
@@ -116,7 +117,9 @@ class TextualInversionSDDataLoaderConfig(BaseModel):
 class ImagePairPreferenceSDDataLoaderConfig(BaseModel):
     type: Literal["IMAGE_PAIR_PREFERENCE_SD_DATA_LOADER"] = "IMAGE_PAIR_PREFERENCE_SD_DATA_LOADER"
 
-    dataset: HFHubImagePairPreferenceDatasetConfig
+    dataset: Annotated[
+        Union[HFHubImagePairPreferenceDatasetConfig, ImagePairPreferenceDatasetConfig], Field(discriminator="type")
+    ]
 
     image_transforms: SDImageTransformConfig
 

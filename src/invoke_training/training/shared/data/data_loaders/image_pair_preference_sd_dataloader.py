@@ -7,6 +7,7 @@ from invoke_training.config.shared.data.data_loader_config import ImagePairPrefe
 from invoke_training.training.shared.data.datasets.build_dataset import (
     build_hf_image_pair_preference_dataset,
 )
+from invoke_training.training.shared.data.datasets.image_pair_preference_dataset import ImagePairPreferenceDataset
 from invoke_training.training.shared.data.datasets.transform_dataset import TransformDataset
 from invoke_training.training.shared.data.transforms.load_cache_transform import LoadCacheTransform
 from invoke_training.training.shared.data.transforms.sd_image_transform import SDImageTransform
@@ -68,7 +69,12 @@ def build_image_pair_preference_sd_dataloader(
     Returns:
         DataLoader
     """
-    base_dataset = build_hf_image_pair_preference_dataset(config=config.dataset)
+    if config.dataset.type == "HF_HUB_IMAGE_PAIR_PREFERENCE_DATASET":
+        base_dataset = build_hf_image_pair_preference_dataset(config=config.dataset)
+    elif config.dataset.type == "IMAGE_PAIR_PREFERENCE_DATASET":
+        base_dataset = ImagePairPreferenceDataset(dataset_dir=config.dataset.dataset_dir)
+    else:
+        raise ValueError(f"Unexpected dataset config type: '{type(config.dataset)}'.")
 
     target_resolution = config.image_transforms.resolution
 
