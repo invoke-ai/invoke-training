@@ -1,8 +1,8 @@
-import json
-
 import numpy as np
 import PIL.Image
 import pytest
+
+from invoke_training.training.shared.data.datasets.image_pair_preference_dataset import ImagePairPreferenceDataset
 
 
 @pytest.fixture(scope="session")
@@ -56,9 +56,6 @@ def image_pair_preference_dir(tmp_path_factory: pytest.TempPathFactory):
 
             metadata.append(set_metadata_dict)
 
-    with open(tmp_dir / "metadata.jsonl", "w") as f:
-        for m in metadata:
-            json.dump(m, f)
-            f.write("\n")
+    ImagePairPreferenceDataset.save_metadata(metadata=metadata, dataset_dir=tmp_dir)
 
     return tmp_dir

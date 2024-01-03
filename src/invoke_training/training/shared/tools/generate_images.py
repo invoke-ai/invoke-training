@@ -1,4 +1,3 @@
-import json
 import os
 from pathlib import Path
 from typing import Optional
@@ -6,6 +5,7 @@ from typing import Optional
 import torch
 from tqdm import tqdm
 
+from invoke_training.training.shared.data.datasets.image_pair_preference_dataset import ImagePairPreferenceDataset
 from invoke_training.training.shared.stable_diffusion.model_loading_utils import (
     PipelineVersionEnum,
     load_pipeline,
@@ -103,7 +103,4 @@ def generate_images(
                     pbar.update(1)
                 metadata.append(set_metadata_dict)
 
-    with open(os.path.join(out_dir, "metadata.jsonl"), "w") as f:
-        for m in metadata:
-            json.dump(m, f)
-            f.write("\n")
+    ImagePairPreferenceDataset.save_metadata(metadata=metadata, dataset_dir=out_dir)

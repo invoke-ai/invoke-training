@@ -1,6 +1,7 @@
 import json
 import os
 import typing
+from pathlib import Path
 
 import torch.utils.data
 from PIL import Image
@@ -11,11 +12,29 @@ class ImagePairPreferenceDataset(torch.utils.data.Dataset):
         super().__init__()
         self._dataset_dir = dataset_dir
 
-        # Load metadata from metadata.jsonl.
-        self._metadata: list[dict[str, typing.Any]] = []
-        with open(os.path.join(self._dataset_dir, "metadata.jsonl")) as f:
+        self._metadata = self.load_metadata(self._dataset_dir)
+
+    @classmethod
+    def load_metadata(cls, dataset_dir: Path | str) -> list[dict[str, typing.Any]]:
+        """Load the dataset metadata from metadata.jsonl."""
+        metadata: list[dict[str, typing.Any]] = []
+        with open(Path(dataset_dir) / "metadata.jsonl") as f:
             while (line := f.readline()) != "":
-                self._metadata.append(json.loads(line))
+                metadata.append(json.loads(line))
+        return metadata
+
+    @classmethod
+    def save_metadata(
+        cls, metadata: list[dict[str, typing.Any]], dataset_dir: str | Path, metadata_file: str = "metadata.jsonl"
+    ) -> Path:
+        """Load the dataset metadata from metadata.jsonl."""
+        metadata_path = Path(dataset_dir) / metadata_file
+        with open(metadata_path, "w") as f:
+            for m in metadata:
+                json.dump(m, f)
+                f.write("\n")
+
+        return metadata_path
 
     def __len__(self) -> int:
         return len(self._metadata)
