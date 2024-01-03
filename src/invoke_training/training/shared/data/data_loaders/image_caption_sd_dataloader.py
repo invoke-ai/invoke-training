@@ -95,7 +95,7 @@ def build_image_caption_sd_dataloader(
     if isinstance(config.dataset, HFHubImageCaptionDatasetConfig):
         base_dataset = build_hf_hub_image_caption_dataset(config.dataset)
     elif isinstance(config.dataset, HFDirImageCaptionDatasetConfig):
-        base_dataset = build_hf_dir_image_caption_dataset(config)
+        base_dataset = build_hf_dir_image_caption_dataset(config.dataset)
     else:
         raise ValueError(f"Unexpected dataset config type: '{type(config.dataset)}'.")
 
