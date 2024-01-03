@@ -64,28 +64,54 @@ def inject_lora_into_clip_text_encoder(text_encoder: CLIPTextModel, prefix: str 
     return lora_layers
 
 
-def convert_lora_state_dict_to_kohya_format(
-    state_dict: typing.Dict[str, torch.Tensor],
+def convert_invoke_to_kohya_lora_state_dict(
+    invoke_state_dict: typing.Dict[str, torch.Tensor],
 ) -> typing.Dict[str, torch.Tensor]:
     """Convert a Stable Diffusion LoRA state_dict from internal invoke-training format to kohya_ss format.
 
     Args:
-        state_dict (typing.Dict[str, torch.Tensor]): LoRA layer state_dict in invoke-training format.
+        invoke_state_dict (typing.Dict[str, torch.Tensor]): LoRA layer state_dict in invoke-training format.
 
     Raises:
-        ValueError: If state_dict contains unexpected keys.
+        ValueError: If invoke_state_dict contains unexpected keys.
         RuntimeError: If two input keys map to the same output kohya_ss key.
 
     Returns:
         typing.Dict[str, torch.Tensor]: LoRA layer state_dict in kohya_ss format.
     """
-    new_state_dict = {}
+    invoke_to_kohya = build_invoke_to_kohya_key_map(invoke_state_dict)
+
+    kohya_state_dict = {}
+    for key, val in invoke_state_dict.items():
+        kohya_key = invoke_to_kohya[key]
+        kohya_state_dict[kohya_key] = val
+
+    return kohya_state_dict
+
+
+def convert_kohya_to_invoke_lora_state_dict(
+    invoke_state_dict: typing.Dict[str, torch.Tensor], kohya_state_dict: typing.Dict[str, torch.Tensor]
+) -> typing.Dict[str, torch.Tensor]:
+    invoke_to_kohya = build_invoke_to_kohya_key_map(invoke_state_dict)
+    kohya_to_invoke = {v: k for k, v in invoke_to_kohya.items()}
+
+    invoke_state_dict = {}
+    for key, val in kohya_state_dict.items():
+        invoke_key = kohya_to_invoke[key]
+        invoke_state_dict[invoke_key] = val
+
+    return invoke_state_dict
+
+
+def build_invoke_to_kohya_key_map(invoke_state_dict: typing.Dict[str, torch.Tensor]) -> typing.Dict[str, str]:
+    all_kohya_keys = set()
+    invoke_to_kohya = {}
 
     # The following logic converts state_dict keys from the internal invoke-training format to kohya_ss format.
     # Example conversion:
     # from: 'lora_unet.down_blocks.0.attentions.0.transformer_blocks.0.attn1.to_q._down.weight'
     # to:   'lora_unet_down_blocks_0_attentions_0_transformer_blocks_0_attn1_to_q.lora_down.weight'
-    for key, val in state_dict.items():
+    for key in invoke_state_dict:
         if key.endswith("._up.weight"):
             key_start = key.removesuffix("._up.weight")
             key_end = ".lora_up.weight"
@@ -98,11 +124,12 @@ def convert_lora_state_dict_to_kohya_format(
         else:
             raise ValueError(f"Unexpected key in state_dict: '{key}'.")
 
-        new_key = key_start.replace(".", "_") + key_end
+        kohya_key = key_start.replace(".", "_") + key_end
 
-        if new_key in new_state_dict:
-            raise RuntimeError("Multiple input keys map to the same kohya_ss key: '{new_key}'.")
+        if kohya_key in all_kohya_keys:
+            raise RuntimeError(f"Multiple input keys map to the same kohya_ss key: '{kohya_key}'.")
+        all_kohya_keys.add(kohya_key)
 
-        new_state_dict[new_key] = val
+        invoke_to_kohya[key] = kohya_key
 
-    return new_state_dict
+    return invoke_to_kohya

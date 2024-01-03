@@ -4,7 +4,7 @@ from diffusers.models import UNet2DConditionModel
 from transformers import CLIPTextModel
 
 from invoke_training.core.lora.injection.stable_diffusion import (
-    convert_lora_state_dict_to_kohya_format,
+    convert_invoke_to_kohya_lora_state_dict,
     inject_lora_into_clip_text_encoder,
     inject_lora_into_unet,
 )
@@ -114,8 +114,8 @@ def test_inject_lora_into_clip_text_encoder_smoke(model_name, text_encoder_name,
         ("stabilityai/stable-diffusion-xl-base-1.0", 722),
     ],
 )
-def test_convert_lora_state_dict_to_kohya_format_smoke(model_name: str, expected_num_layers: int):
-    """Smoke test of convert_lora_state_dict_to_kohya_format(...) with full SD 1.5 model."""
+def test_convert_invoke_to_kohya_lora_state_dict_smoke(model_name: str, expected_num_layers: int):
+    """Smoke test of convert_invoke_to_kohya_lora_state_dict(...) with full SD 1.5 model."""
     unet = UNet2DConditionModel.from_pretrained(
         model_name,
         subfolder="unet",
@@ -124,7 +124,7 @@ def test_convert_lora_state_dict_to_kohya_format_smoke(model_name: str, expected
     )
     lora_layers = inject_lora_into_unet(unet)
     lora_state_dict = lora_layers.get_lora_state_dict()
-    kohya_state_dict = convert_lora_state_dict_to_kohya_format(lora_state_dict)
+    kohya_state_dict = convert_invoke_to_kohya_lora_state_dict(lora_state_dict)
 
     # These assertions are based on a manual check of the injected layers and comparison against the behaviour of
     # kohya_ss. They are included here to force another manual review after any future breaking change.
@@ -134,8 +134,8 @@ def test_convert_lora_state_dict_to_kohya_format_smoke(model_name: str, expected
         assert key.endswith((".lora_down.weight", ".lora_up.weight", ".alpha"))
 
 
-def test_convert_lora_state_dict_to_kohya_format():
-    """Basic test of convert_lora_state_dict_to_kohya_format(...)."""
+def test_convert_invoke_to_kohya_lora_state_dict():
+    """Basic test of convert_invoke_to_kohya_lora_state_dict(...)."""
     down_weight = torch.Tensor(4, 2)
     up_weight = torch.Tensor(2, 4)
     alpha = torch.Tensor([1.0])
@@ -145,7 +145,7 @@ def test_convert_lora_state_dict_to_kohya_format():
         "lora_unet.down_blocks.0.attentions.0.transformer_blocks.0.attn1.to_q.alpha": alpha,
     }
 
-    out_state_dict = convert_lora_state_dict_to_kohya_format(in_state_dict)
+    out_state_dict = convert_invoke_to_kohya_lora_state_dict(in_state_dict)
 
     expected_out_state_dict = {
         "lora_unet_down_blocks_0_attentions_0_transformer_blocks_0_attn1_to_q.lora_down.weight": down_weight,
@@ -156,8 +156,8 @@ def test_convert_lora_state_dict_to_kohya_format():
     assert out_state_dict == expected_out_state_dict
 
 
-def test_convert_lora_state_dict_to_kohya_format_unexpected_key():
-    """Test that convert_lora_state_dict_to_kohya_format(...) raises an exception if it receives an unexpected
+def test_convert_invoke_to_kohya_lora_state_dict_unexpected_key():
+    """Test that convert_invoke_to_kohya_lora_state_dict(...) raises an exception if it receives an unexpected
     key.
     """
     in_state_dict = {
@@ -165,11 +165,11 @@ def test_convert_lora_state_dict_to_kohya_format_unexpected_key():
     }
 
     with pytest.raises(ValueError):
-        _ = convert_lora_state_dict_to_kohya_format(in_state_dict)
+        _ = convert_invoke_to_kohya_lora_state_dict(in_state_dict)
 
 
-def test_convert_lora_state_dict_to_kohya_format_conflicting_keys():
-    """Test that convert_lora_state_dict_to_kohya_format(...) raises an exception if multiple keys map to the same
+def test_convert_invoke_to_kohya_lora_state_dict_conflicting_keys():
+    """Test that convert_invoke_to_kohya_lora_state_dict(...) raises an exception if multiple keys map to the same
     output key.
     """
     # Note: There are differences in the '.' and '_' characters of these keys, but they both map to the same output
@@ -180,4 +180,4 @@ def test_convert_lora_state_dict_to_kohya_format_conflicting_keys():
     }
 
     with pytest.raises(RuntimeError):
-        _ = convert_lora_state_dict_to_kohya_format(in_state_dict)
+        _ = convert_invoke_to_kohya_lora_state_dict(in_state_dict)

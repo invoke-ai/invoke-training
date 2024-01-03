@@ -3,7 +3,7 @@ import logging
 import torch
 
 from invoke_training.core.lora.injection.stable_diffusion import (
-    convert_lora_state_dict_to_kohya_format,
+    convert_invoke_to_kohya_lora_state_dict,
 )
 from invoke_training.training.shared.checkpoints.checkpoint_tracker import CheckpointTracker
 from invoke_training.training.shared.checkpoints.serialization import save_state_dict
@@ -33,7 +33,7 @@ def save_lora_checkpoint(
     state_dict = {}
     for model_lora_layers in lora_layers.values():
         model_state_dict = model_lora_layers.get_lora_state_dict()
-        model_kohya_state_dict = convert_lora_state_dict_to_kohya_format(model_state_dict)
+        model_kohya_state_dict = convert_invoke_to_kohya_lora_state_dict(model_state_dict)
         state_dict.update(model_kohya_state_dict)
 
     save_state_dict(state_dict, save_path)
