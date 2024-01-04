@@ -93,14 +93,12 @@ def convert_kohya_to_invoke_lora_state_dict(
     invoke_state_dict: typing.Dict[str, torch.Tensor], kohya_state_dict: typing.Dict[str, torch.Tensor]
 ) -> typing.Dict[str, torch.Tensor]:
     invoke_to_kohya = build_invoke_to_kohya_key_map(invoke_state_dict)
-    kohya_to_invoke = {v: k for k, v in invoke_to_kohya.items()}
 
-    invoke_state_dict = {}
-    for key, val in kohya_state_dict.items():
-        invoke_key = kohya_to_invoke[key]
-        invoke_state_dict[invoke_key] = val
+    new_invoke_state_dict = {}
+    for key in invoke_state_dict:
+        new_invoke_state_dict[key] = kohya_state_dict[invoke_to_kohya[key]]
 
-    return invoke_state_dict
+    return new_invoke_state_dict
 
 
 def build_invoke_to_kohya_key_map(invoke_state_dict: typing.Dict[str, torch.Tensor]) -> typing.Dict[str, str]:

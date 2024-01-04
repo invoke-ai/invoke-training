@@ -23,6 +23,9 @@ class LoRATrainingConfig(BasePipelineConfig):
     """The Hugging Face Hub model variant to use. Only applies if `model` is a Hugging Face Hub model name.
     """
 
+    initial_lora_file: str | None = None
+    """The LoRA checkpoint file to initialize the LoRA weights from."""
+
     train_unet: bool = True
     """Whether to add LoRA layers to the UNet model and train it.
     """

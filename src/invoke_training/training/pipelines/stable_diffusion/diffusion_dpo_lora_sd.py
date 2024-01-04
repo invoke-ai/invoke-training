@@ -35,7 +35,10 @@ from invoke_training.training.shared.data.data_loaders.image_pair_preference_sd_
     build_image_pair_preference_sd_dataloader,
 )
 from invoke_training.training.shared.optimizer.optimizer_utils import initialize_optimizer
-from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils import save_lora_checkpoint
+from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils import (
+    load_lora_checkpoint,
+    save_lora_checkpoint,
+)
 from invoke_training.training.shared.stable_diffusion.tokenize_captions import tokenize_captions
 
 
@@ -284,6 +287,9 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
         if config.text_encoder_learning_rate is not None:
             text_encoder_param_group["lr"] = config.text_encoder_learning_rate
         trainable_param_groups.append(text_encoder_param_group)
+
+    if config.initial_lora_file is not None:
+        load_lora_checkpoint(lora_layers=lora_layers, lora_path=config.initial_lora_file)
 
     if config.gradient_checkpointing:
         unet.enable_gradient_checkpointing()
