@@ -15,7 +15,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "accelerate~=0.21.0",
+    "accelerate~=0.25.0",
     "datasets~=2.14.3",
     "diffusers~=0.25.0",
     "numpy",
