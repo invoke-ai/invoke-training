@@ -17,9 +17,10 @@ classifiers = [
 dependencies = [
     "accelerate~=0.21.0",
     "datasets~=2.14.3",
-    "diffusers~=0.24.0",
+    "diffusers~=0.25.0",
     "numpy",
     "omegaconf",
+    "peft~=0.7.0",
     "Pillow",
     "prodigyopt",
     "pydantic",
@@ -29,7 +30,7 @@ dependencies = [
     "torch>=2.1.2",
     "torchvision",
     "tqdm",
-    "transformers~=4.35.0",
+    "transformers~=4.36.0",
     "xformers>=0.0.23",
 ]
 
