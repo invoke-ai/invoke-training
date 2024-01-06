@@ -1,3 +1,4 @@
+import itertools
 import json
 import logging
 import math
@@ -7,6 +8,7 @@ import time
 from typing import Optional, Union
 
 import numpy as np
+import peft
 import torch
 import torch.utils.data
 from accelerate import Accelerator
@@ -23,10 +25,6 @@ from invoke_training.config.shared.data.data_loader_config import (
     DreamboothSDDataLoaderConfig,
     ImageCaptionSDDataLoaderConfig,
 )
-from invoke_training.core.lora.injection.stable_diffusion import (
-    inject_lora_into_clip_text_encoder,
-    inject_lora_into_unet,
-)
 from invoke_training.training.shared.accelerator.accelerator_utils import (
     get_mixed_precision_dtype,
     initialize_accelerator,
@@ -42,9 +40,33 @@ from invoke_training.training.shared.data.samplers.aspect_ratio_bucket_batch_sam
 )
 from invoke_training.training.shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training.training.shared.optimizer.optimizer_utils import initialize_optimizer
-from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils import save_lora_checkpoint
+from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils import (
+    save_peft_lora_checkpoint,
+)
 from invoke_training.training.shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
 from invoke_training.training.shared.stable_diffusion.tokenize_captions import tokenize_captions
+
+# Copied from https://github.com/huggingface/peft/blob/8665e2b5719faa4e4b91749ddec09442927b53e0/examples/stable_diffusion/train_dreambooth.py#L49C1-L65C87
+# TODO(ryand): Confirm that this is the set of modules that we want to use.
+UNET_TARGET_MODULES = [
+    "to_q",
+    "to_k",
+    "to_v",
+    "proj",
+    "proj_in",
+    "proj_out",
+    "conv",
+    "conv1",
+    "conv2",
+    "conv_shortcut",
+    "to_out.0",
+    "time_emb_proj",
+    "ff.net.2",
+]
+TEXT_ENCODER_TARGET_MODULES = ["fc1", "fc2", "q_proj", "k_proj", "v_proj", "out_proj"]
+# Module lists copied from diffusers training script:
+# UNET_TARGET_MODULES = ["to_k", "to_q", "to_v", "to_out.0"]
+# TEXT_ENCODER_TARGET_MODULES = ["q_proj", "k_proj", "v_proj", "out_proj"]
 
 
 def load_models(
@@ -409,6 +431,8 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
     if config.xformers:
         import xformers  # noqa: F401
 
+        # TODO(ryand): There is a known issue if xformers is enabled when training in mixed precision where xformers
+        # will fail because Q, K, V have different dtypes.
         unet.enable_xformers_memory_efficient_attention()
         vae.enable_xformers_memory_efficient_attention()
 
@@ -467,24 +491,46 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
 
     unet.to(accelerator.device, dtype=weight_dtype)
 
-    lora_layers = torch.nn.ModuleDict()
+    # Add LoRA layers to the model.
     trainable_param_groups = []
+    all_trainable_params = []
     if config.train_unet:
-        lora_layers["unet"] = inject_lora_into_unet(
-            unet, config.train_unet_non_attention_blocks, lora_rank_dim=config.lora_rank_dim
+        unet_lora_config = peft.LoraConfig(
+            r=config.lora_rank_dim,
+            # TODO(ryand): Diffusers uses lora_alpha=config.lora_rank_dim. Is that preferred?
+            lora_alpha=1.0,
+            target_modules=UNET_TARGET_MODULES,
         )
-        unet_param_group = {"params": lora_layers["unet"].parameters()}
+        unet = peft.get_peft_model(unet, unet_lora_config)
+        unet.print_trainable_parameters()
+        unet_param_group = {"params": unet.parameters()}
         if config.unet_learning_rate is not None:
             unet_param_group["lr"] = config.unet_learning_rate
         trainable_param_groups.append(unet_param_group)
+        unet.train()
+        # Note: PeftModel.parameters() returns only the trainable LoRA params.
+        all_trainable_params = itertools.chain(all_trainable_params, unet.parameters())
+
     if config.train_text_encoder:
-        lora_layers["text_encoder"] = inject_lora_into_clip_text_encoder(
-            text_encoder, lora_rank_dim=config.lora_rank_dim
+        text_encoder_lora_config = peft.LoraConfig(
+            r=config.lora_rank_dim,
+            lora_alpha=1.0,
+            # init_lora_weights="gaussian",
+            target_modules=TEXT_ENCODER_TARGET_MODULES,
         )
-        text_encoder_param_group = {"params": lora_layers["text_encoder"].parameters()}
+        text_encoder = peft.get_peft_model(text_encoder, text_encoder_lora_config)
+        text_encoder.print_trainable_parameters()
+        text_encoder_param_group = {"params": text_encoder.parameters()}
         if config.text_encoder_learning_rate is not None:
             text_encoder_param_group["lr"] = config.text_encoder_learning_rate
         trainable_param_groups.append(text_encoder_param_group)
+        text_encoder.train()
+        # Note: PeftModel.parameters() returns only the trainable LoRA params.
+        all_trainable_params = itertools.chain(all_trainable_params, text_encoder.parameters())
+
+    # Make sure all trainable params are in float32.
+    for param in all_trainable_params:
+        param.data = param.to(torch.float32)
 
     if config.gradient_checkpointing:
         unet.enable_gradient_checkpointing()
@@ -529,21 +575,19 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
     prepared_result: tuple[
         UNet2DConditionModel,
         CLIPTextModel,
-        torch.nn.ModuleDict,
         torch.optim.Optimizer,
         torch.utils.data.DataLoader,
         torch.optim.lr_scheduler.LRScheduler,
     ] = accelerator.prepare(
         unet,
         text_encoder,
-        lora_layers,
         optimizer,
         data_loader,
         lr_scheduler,
         # Disable automatic device placement for text_encoder if the text encoder outputs were cached.
-        device_placement=[True, not config.cache_text_encoder_outputs, True, True, True, True],
+        device_placement=[True, not config.cache_text_encoder_outputs, True, True, True],
     )
-    unet, text_encoder, lora_layers, optimizer, data_loader, lr_scheduler = prepared_result
+    unet, text_encoder, optimizer, data_loader, lr_scheduler = prepared_result
 
     # Calculate the number of epochs and total training steps. A "step" represents a single weight update operation
     # (i.e. takes into account gradient accumulation steps).
@@ -560,14 +604,12 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
     epoch_checkpoint_tracker = CheckpointTracker(
         base_dir=out_dir,
         prefix="checkpoint_epoch",
-        extension=f".{config.output.save_model_as}",
         max_checkpoints=config.max_checkpoints,
     )
 
     step_checkpoint_tracker = CheckpointTracker(
         base_dir=out_dir,
         prefix="checkpoint_step",
-        extension=f".{config.output.save_model_as}",
         max_checkpoints=config.max_checkpoints,
     )
 
@@ -592,11 +634,9 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
     progress_bar.set_description("Steps")
 
     for epoch in range(first_epoch, num_train_epochs):
-        lora_layers.train()
-
         train_loss = 0.0
         for data_batch in data_loader:
-            with accelerator.accumulate(lora_layers):
+            with accelerator.accumulate(unet, text_encoder):
                 loss = train_forward(
                     config,
                     data_batch,
@@ -616,8 +656,7 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
                 # Backpropagate.
                 accelerator.backward(loss)
                 if accelerator.sync_gradients and config.max_grad_norm is not None:
-                    params_to_clip = lora_layers.parameters()
-                    accelerator.clip_grad_norm_(params_to_clip, config.max_grad_norm)
+                    accelerator.clip_grad_norm_(all_trainable_params, config.max_grad_norm)
                 optimizer.step()
                 lr_scheduler.step()
                 optimizer.zero_grad(set_to_none=True)
@@ -646,7 +685,14 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
                 if config.save_every_n_steps is not None and (global_step + 1) % config.save_every_n_steps == 0:
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
-                        save_lora_checkpoint(global_step + 1, lora_layers, logger, step_checkpoint_tracker)
+                        save_peft_lora_checkpoint(
+                            idx=global_step + 1,
+                            unet=accelerator.unwrap_model(unet) if config.train_unet else None,
+                            text_encoder=accelerator.unwrap_model(text_encoder) if config.train_text_encoder else None,
+                            text_encoder_2=None,
+                            logger=logger,
+                            checkpoint_tracker=step_checkpoint_tracker,
+                        )
 
             logs = {
                 "step_loss": loss.detach().item(),
@@ -660,8 +706,15 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
         # Save a checkpoint every n epochs.
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
             if accelerator.is_main_process:
-                save_lora_checkpoint(epoch + 1, lora_layers, logger, epoch_checkpoint_tracker)
                 accelerator.wait_for_everyone()
+                save_peft_lora_checkpoint(
+                    idx=epoch + 1,
+                    unet=accelerator.unwrap_model(unet) if config.train_unet else None,
+                    text_encoder=accelerator.unwrap_model(text_encoder) if config.train_text_encoder else None,
+                    text_encoder_2=None,
+                    logger=logger,
+                    checkpoint_tracker=epoch_checkpoint_tracker,
+                )
 
         # Generate validation images every n epochs.
         if len(config.validation_prompts) > 0 and (epoch + 1) % config.validate_every_n_epochs == 0:

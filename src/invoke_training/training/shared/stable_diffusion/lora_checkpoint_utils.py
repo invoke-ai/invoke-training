@@ -1,5 +1,7 @@
 import logging
+import os
 
+import peft
 import torch
 
 from invoke_training.core.lora.injection.stable_diffusion import (
@@ -39,3 +41,33 @@ def save_lora_checkpoint(
     save_state_dict(state_dict, save_path)
     # accelerator.save_state(save_path)
     logger.info(f"Saved state to '{save_path}'.")
+
+
+UNET_PEFT_FILE_NAME = "unet_lora"
+TEXT_ENCODER_PEFT_FILE_NAME = "text_encoder_lora"
+TEXT_ENCODER_2_PEFT_FILE_NAME = "text_encoder_2_lora"
+
+
+def save_peft_lora_checkpoint(
+    idx: int,
+    unet: peft.PeftModel | None,
+    text_encoder: peft.PeftModel | None,
+    text_encoder_2: peft.PeftModel | None,
+    logger: logging.Logger,
+    checkpoint_tracker: CheckpointTracker,
+):
+    # Prune checkpoints and get new checkpoint path.
+    num_pruned = checkpoint_tracker.prune(1)
+    if num_pruned > 0:
+        logger.info(f"Pruned {num_pruned} checkpoint(s).")
+    save_path = checkpoint_tracker.get_path(idx)
+
+    files_and_models: list[tuple[str, peft.PeftModel | None]] = [
+        (UNET_PEFT_FILE_NAME, unet),
+        (TEXT_ENCODER_PEFT_FILE_NAME, text_encoder),
+        (TEXT_ENCODER_2_PEFT_FILE_NAME, text_encoder_2),
+    ]
+
+    for file_name, peft_model in files_and_models:
+        if peft_model is not None:
+            peft_model.save_pretrained(os.path.join(save_path, file_name))
