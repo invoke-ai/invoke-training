@@ -16,7 +16,7 @@ from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionXLPipeline, U
 from diffusers.optimization import get_scheduler
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
-from transformers import CLIPPreTrainedModel, CLIPTextModel, PretrainedConfig, PreTrainedTokenizer
+from transformers import CLIPPreTrainedModel, CLIPTextModel, PreTrainedTokenizer
 
 from invoke_training.config.pipelines.finetune_lora_config import FinetuneLoRASDXLConfig
 from invoke_training.config.shared.data.data_loader_config import (
@@ -45,39 +45,6 @@ from invoke_training.training.shared.optimizer.optimizer_utils import initialize
 from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils import save_lora_checkpoint
 from invoke_training.training.shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
 from invoke_training.training.shared.stable_diffusion.tokenize_captions import tokenize_captions
-
-
-def _import_model_class_for_model(pretrained_model_name_or_path: str, subfolder: str = "", revision: str = "main"):
-    """Lookup the model class in a diffusers model config, import the class, and return it. This function is useful when
-    loading models that could be one of many possible classes.
-
-    Args:
-        pretrained_model_name_or_path (str): The diffusers model name/path.
-        subfolder (str, optional): The model subfolder.
-        revision (str, optional): The diffusers model revision.
-
-
-    Raises:
-        ValueError: If the detected model class is not recognize.
-
-    Returns:
-        type: The model class.
-    """
-    text_encoder_config = PretrainedConfig.from_pretrained(
-        pretrained_model_name_or_path, subfolder=subfolder, revision=revision
-    )
-    model_class = text_encoder_config.architectures[0]
-
-    if model_class == "CLIPTextModel":
-        from transformers import CLIPTextModel
-
-        return CLIPTextModel
-    elif model_class == "CLIPTextModelWithProjection":
-        from transformers import CLIPTextModelWithProjection
-
-        return CLIPTextModelWithProjection
-    else:
-        raise ValueError(f"{model_class} is not supported.")
 
 
 def load_models(
