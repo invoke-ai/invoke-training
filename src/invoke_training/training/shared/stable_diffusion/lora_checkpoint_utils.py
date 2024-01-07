@@ -1,8 +1,10 @@
 import logging
-import os
+from pathlib import Path
 
 import peft
 import torch
+from diffusers import UNet2DConditionModel
+from transformers import CLIPTextModel
 
 from invoke_training.core.lora.injection.stable_diffusion import (
     convert_lora_state_dict_to_kohya_format,
@@ -43,16 +45,77 @@ def save_lora_checkpoint(
     logger.info(f"Saved state to '{save_path}'.")
 
 
-UNET_PEFT_FILE_NAME = "unet_lora"
-TEXT_ENCODER_PEFT_FILE_NAME = "text_encoder_lora"
-TEXT_ENCODER_2_PEFT_FILE_NAME = "text_encoder_2_lora"
+SD_PEFT_UNET_KEY = "unet"
+SD_PEFT_TEXT_ENCODER_KEY = "text_encoder"
+
+# SDXL_PEFT_UNET_KEY = "unet"
+# SDXL_PEFT_TEXT_ENCODER_1_KEY = "text_encoder_1"
+# SDXL_PEFT_TEXT_ENCODER_2_KEY = "text_encoder_2"
 
 
-def save_peft_lora_checkpoint(
+def save_multi_model_peft_checkpoint(checkpoint_dir: Path, models: dict[str, peft.PeftModel]):
+    """Save a dict of PeftModels to a checkpoint directory.
+
+    The `models` dict keys are used as the subdirectories for each individual model.
+
+    `load_multi_model_peft_checkpoint(...)` can be used to load the resultant checkpoint.
+    """
+    for model_key, peft_model in models.items():
+        assert isinstance(peft_model, peft.PeftModel)
+        peft_model.save_pretrained(str(checkpoint_dir / model_key))
+
+
+def load_multi_model_peft_checkpoint(
+    checkpoint_dir: Path,
+    models: dict[str, torch.nn.Module],
+    is_trainable: bool = False,
+    raise_if_subdir_missing: bool = True,
+) -> dict[str, torch.nn.Module]:
+    """Load a multi-model PEFT checkpoint that was saved with `save_multi_model_peft_checkpoint(...)`."""
+    assert checkpoint_dir.exists()
+
+    out_models = {}
+    for model_key, model in models:
+        dir_path: Path = checkpoint_dir / model_key
+        if dir_path.exists():
+            out_models[model_key] = peft.PeftModel.from_pretrained(model, dir_path, is_trainable=is_trainable)
+        else:
+            if raise_if_subdir_missing:
+                raise ValueError(f"'{dir_path}' does not exist.")
+            else:
+                # Pass through the model unchanged.
+                out_models[model_key] = model
+
+    return out_models
+
+
+def save_sd_peft_checkpoint(checkpoint_dir: Path, unet: peft.PeftModel | None, text_encoder: peft.PeftModel | None):
+    models = {}
+    if unet is not None:
+        models[SD_PEFT_UNET_KEY] = unet
+    if text_encoder is not None:
+        models[SD_PEFT_TEXT_ENCODER_KEY] = text_encoder
+
+    save_multi_model_peft_checkpoint(checkpoint_dir=checkpoint_dir, models=models)
+
+
+def load_sd_peft_checkpoint(
+    checkpoint_dir: Path, unet: UNet2DConditionModel, text_encoder: CLIPTextModel, is_trainable: bool = False
+):
+    models = load_multi_model_peft_checkpoint(
+        checkpoint_dir=checkpoint_dir,
+        models={SD_PEFT_UNET_KEY: unet, SD_PEFT_TEXT_ENCODER_KEY: text_encoder},
+        is_trainable=is_trainable,
+        raise_if_subdir_missing=False,
+    )
+
+    return models[SD_PEFT_UNET_KEY], models[SD_PEFT_TEXT_ENCODER_KEY]
+
+
+def save_sd_lora_checkpoint(
     idx: int,
     unet: peft.PeftModel | None,
     text_encoder: peft.PeftModel | None,
-    text_encoder_2: peft.PeftModel | None,
     logger: logging.Logger,
     checkpoint_tracker: CheckpointTracker,
 ):
@@ -62,12 +125,55 @@ def save_peft_lora_checkpoint(
         logger.info(f"Pruned {num_pruned} checkpoint(s).")
     save_path = checkpoint_tracker.get_path(idx)
 
-    files_and_models: list[tuple[str, peft.PeftModel | None]] = [
-        (UNET_PEFT_FILE_NAME, unet),
-        (TEXT_ENCODER_PEFT_FILE_NAME, text_encoder),
-        (TEXT_ENCODER_2_PEFT_FILE_NAME, text_encoder_2),
-    ]
+    save_sd_peft_checkpoint(Path(save_path), unet=unet, text_encoder=text_encoder)
 
-    for file_name, peft_model in files_and_models:
-        if peft_model is not None:
-            peft_model.save_pretrained(os.path.join(save_path, file_name))
+
+# This implementation is based on
+# https://github.com/huggingface/peft/blob/8665e2b5719faa4e4b91749ddec09442927b53e0/examples/lora_dreambooth/convert_peft_sd_lora_to_kohya_ss.py#L20
+def _convert_peft_state_dict_to_kohya_state_dict(
+    lora_config: peft.LoraConfig,
+    peft_state_dict: dict[str, torch.Tensor],
+    prefix: str,
+    dtype: torch.dtype,
+) -> dict[str, torch.Tensor]:
+    kohya_ss_state_dict = {}
+    for peft_key, weight in peft_state_dict.items():
+        kohya_key = peft_key.replace("base_model.model", prefix)
+        kohya_key = kohya_key.replace("lora_A", "lora_down")
+        kohya_key = kohya_key.replace("lora_B", "lora_up")
+        kohya_key = kohya_key.replace(".", "_", kohya_key.count(".") - 2)
+        kohya_ss_state_dict[kohya_key] = weight.to(dtype)
+
+        # Set alpha parameter
+        if "lora_down" in kohya_key:
+            alpha_key = f'{kohya_key.split(".")[0]}.alpha'
+            kohya_ss_state_dict[alpha_key] = torch.tensor(lora_config.lora_alpha).to(dtype)
+
+    return kohya_ss_state_dict
+
+
+def convert_sd_peft_checkpoint_to_kohya_state_dict(
+    in_checkpoint_dir: Path,
+    out_checkpoint_file: Path,
+    dtype: torch.dtype = torch.float32,
+) -> dict[str, torch.Tensor]:
+    """Convert SD v1 PEFT models to a Kohya-format LoRA state dict."""
+    kohya_state_dict = {}
+    for kohya_prefix, peft_model_key in [("lora_unet", SD_PEFT_UNET_KEY), ("lora_te", SD_PEFT_TEXT_ENCODER_KEY)]:
+        peft_model_dir = in_checkpoint_dir / peft_model_key
+
+        if peft_model_dir.exists():
+            # Note: This logic to load the LoraConfig and weights directly is based on how it is done here:
+            # https://github.com/huggingface/peft/blob/8665e2b5719faa4e4b91749ddec09442927b53e0/src/peft/peft_model.py#L672-L689
+            # This may need to be updated in the future to support other adapter types (LoKr, LoHa, etc.).
+            # Also, I could see this interface breaking in the future.
+            lora_config = peft.LoraConfig.from_pretrained(peft_model_dir)
+            lora_weights = peft.utils.load_peft_weights(peft_model_dir, device="cpu")
+
+            kohya_state_dict.update(
+                _convert_peft_state_dict_to_kohya_state_dict(
+                    lora_config=lora_config, peft_state_dict=lora_weights, prefix=kohya_prefix, dtype=dtype
+                )
+            )
+
+    save_state_dict(kohya_state_dict, out_checkpoint_file)

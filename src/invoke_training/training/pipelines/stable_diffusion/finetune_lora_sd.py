@@ -41,7 +41,7 @@ from invoke_training.training.shared.data.samplers.aspect_ratio_bucket_batch_sam
 from invoke_training.training.shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training.training.shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils import (
-    save_peft_lora_checkpoint,
+    save_sd_lora_checkpoint,
 )
 from invoke_training.training.shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
 from invoke_training.training.shared.stable_diffusion.tokenize_captions import tokenize_captions
@@ -685,11 +685,10 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
                 if config.save_every_n_steps is not None and (global_step + 1) % config.save_every_n_steps == 0:
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
-                        save_peft_lora_checkpoint(
+                        save_sd_lora_checkpoint(
                             idx=global_step + 1,
                             unet=accelerator.unwrap_model(unet) if config.train_unet else None,
                             text_encoder=accelerator.unwrap_model(text_encoder) if config.train_text_encoder else None,
-                            text_encoder_2=None,
                             logger=logger,
                             checkpoint_tracker=step_checkpoint_tracker,
                         )
@@ -707,11 +706,10 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
             if accelerator.is_main_process:
                 accelerator.wait_for_everyone()
-                save_peft_lora_checkpoint(
+                save_sd_lora_checkpoint(
                     idx=epoch + 1,
                     unet=accelerator.unwrap_model(unet) if config.train_unet else None,
                     text_encoder=accelerator.unwrap_model(text_encoder) if config.train_text_encoder else None,
-                    text_encoder_2=None,
                     logger=logger,
                     checkpoint_tracker=epoch_checkpoint_tracker,
                 )
