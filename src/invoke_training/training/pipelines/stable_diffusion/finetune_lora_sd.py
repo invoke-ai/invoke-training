@@ -540,6 +540,7 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
                 param.data = param.to(torch.float32)
 
     if config.gradient_checkpointing:
+        # We want to enable gradient checkpointing in the UNet regardless of whether it is being trained.
         unet.enable_gradient_checkpointing()
         # unet must be in train() mode for gradient checkpointing to take effect.
         # At the time of writing, the unet dropout probabilities default to 0, so putting the unet in train mode does
@@ -547,13 +548,17 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
         unet.train()
         if config.train_text_encoder:
             text_encoder.gradient_checkpointing_enable()
-            # text_encoder must be in train() mode for gradient checkpointing to take effect.
-            # At the time of writing, the text_encoder dropout probabilities default to 0, so putting the text_encoder
-            # in train mode does not change its forward behavior.
+
+            # The text encoder must be in train() mode for gradient checkpointing to take effect. This should
+            # already be the case, since we are training the text_encoder, but we do it explicitly to make it clear
+            # that this is required.
+            # At the time of writing, the text encoder dropout probabilities default to 0, so putting the text
+            # encoders in train mode does not change their forward behavior.
             text_encoder.train()
 
-            # Set requires_grad = True on the first parameters of the text encoder. Without this, the text encoder LoRA
-            # would have 0 gradients, and so would not get trained.
+            # Set requires_grad = True on the first parameters of the text encoders. Without this, the text encoder
+            # LoRA weights would have 0 gradients, and so would not get trained. Note that the set of
+            # trainable_param_groups has already been populated - the embeddings will not be trained.
             text_encoder.text_model.embeddings.requires_grad_(True)
 
     optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
