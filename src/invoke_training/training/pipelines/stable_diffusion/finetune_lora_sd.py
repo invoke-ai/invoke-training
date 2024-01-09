@@ -5,6 +5,7 @@ import math
 import os
 import tempfile
 import time
+from pathlib import Path
 from typing import Optional, Union
 
 import numpy as np
@@ -40,9 +41,7 @@ from invoke_training.training.shared.data.samplers.aspect_ratio_bucket_batch_sam
 )
 from invoke_training.training.shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training.training.shared.optimizer.optimizer_utils import initialize_optimizer
-from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils import (
-    save_sd_lora_checkpoint,
-)
+from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils import save_sd_peft_checkpoint
 from invoke_training.training.shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
 from invoke_training.training.shared.stable_diffusion.tokenize_captions import tokenize_captions
 
@@ -117,6 +116,22 @@ def load_models(
     unet.eval()
 
     return tokenizer, noise_scheduler, text_encoder, vae, unet
+
+
+def save_sd_lora_checkpoint(
+    idx: int,
+    unet: peft.PeftModel | None,
+    text_encoder: peft.PeftModel | None,
+    logger: logging.Logger,
+    checkpoint_tracker: CheckpointTracker,
+):
+    # Prune checkpoints and get new checkpoint path.
+    num_pruned = checkpoint_tracker.prune(1)
+    if num_pruned > 0:
+        logger.info(f"Pruned {num_pruned} checkpoint(s).")
+    save_path = checkpoint_tracker.get_path(idx)
+
+    save_sd_peft_checkpoint(Path(save_path), unet=unet, text_encoder=text_encoder)
 
 
 def build_data_loader(
