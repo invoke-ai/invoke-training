@@ -500,7 +500,6 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
         peft_model.print_trainable_parameters()
 
         # Populate `trainable_param_groups`, to be passed to the optimizer.
-        # Note: PeftModel.parameters() returns only the trainable LoRA params.
         param_group = {"params": list(filter(lambda p: p.requires_grad, peft_model.parameters()))}
         if lr is not None:
             param_group["lr"] = lr
