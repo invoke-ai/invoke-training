@@ -238,11 +238,12 @@ def run_training(config: TextualInversionSDConfig):  # noqa: C901
     text_encoder.text_model.embeddings.token_embedding.requires_grad_(True)
 
     if config.gradient_checkpointing:
+        # We want to enable gradient checkpointing in the UNet regardless of whether it is being trained.
+        unet.enable_gradient_checkpointing()
         # unet must be in train() mode for gradient checkpointing to take effect.
         # At the time of writing, the unet dropout probabilities default to 0, so putting the unet in train mode does
         # not change its forward behavior.
         unet.train()
-        unet.enable_gradient_checkpointing()
 
         # The text_encoder will be put in .train() mode later, so we don't need to worry about that here.
         # Note: There are some weird interactions gradient checkpointing and requires_grad_() when training a

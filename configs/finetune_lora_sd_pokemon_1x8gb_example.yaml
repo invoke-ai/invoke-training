@@ -10,7 +10,7 @@
 type: FINETUNE_LORA_SD
 seed: 1
 output:
-  base_output_dir: output/
+  base_output_dir: output/finetune_lora_sd_pokemon/
 
 optimizer:
   learning_rate: 1.0
@@ -28,12 +28,13 @@ data_loader:
     dataset_name: lambdalabs/pokemon-blip-captions
   image_transforms:
     resolution: 512
+  dataloader_num_workers: 4
 
 # General
 model: runwayml/stable-diffusion-v1-5
 gradient_accumulation_steps: 1
 mixed_precision: fp16
-xformers: True
+xformers: False
 gradient_checkpointing: True
 # Dataset size is 833. Set max_train_steps to train for 2 epochs.
 # ceil(833 / 4) * 3

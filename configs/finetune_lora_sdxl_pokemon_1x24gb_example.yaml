@@ -9,7 +9,7 @@
 type: FINETUNE_LORA_SDXL
 seed: 1
 output:
-  base_output_dir: output/
+  base_output_dir: output/finetune_lora_sdxl_pokemon/
 
 optimizer:
   learning_rate: 1.0
@@ -33,7 +33,7 @@ model: stabilityai/stable-diffusion-xl-base-1.0
 vae_model: madebyollin/sdxl-vae-fp16-fix
 gradient_accumulation_steps: 1
 mixed_precision: fp16
-xformers: True
+xformers: False
 gradient_checkpointing: True
 # Dataset size is 833. Set max_train_steps to train for 2 epochs.
 # ceil(833 / 6) * 2
