@@ -48,7 +48,7 @@ def main():
         in_checkpoint_dir=in_checkpoint_dir, out_checkpoint_file=out_checkpoint_file, dtype=dtype
     )
 
-    print(f"Save kohya checkpoint to '{out_checkpoint_file}'.")
+    print(f"Saved kohya checkpoint to '{out_checkpoint_file}'.")
 
 
 if __name__ == "__main__":
