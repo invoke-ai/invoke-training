@@ -491,9 +491,30 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
 
     unet.to(accelerator.device, dtype=weight_dtype)
 
+    # Add LoRA layers to the models being trained.
+    trainable_param_groups = []
+    all_trainable_models: list[peft.PeftModel] = []
+
+    def inject_lora_layers(model, lora_config: peft.LoraConfig, lr: float | None = None) -> peft.PeftModel:
+        peft_model = peft.get_peft_model(model, lora_config)
+        peft_model.print_trainable_parameters()
+
+        # Populate `trainable_param_groups`, to be passed to the optimizer.
+        # Note: PeftModel.parameters() returns only the trainable LoRA params.
+        param_group = {"params": list(filter(lambda p: p.requires_grad, peft_model.parameters()))}
+        if lr is not None:
+            param_group["lr"] = lr
+        trainable_param_groups.append(param_group)
+
+        # Populate all_trainable_models.
+        all_trainable_models.append(peft_model)
+
+        peft_model.train()
+
+        return peft_model
+
     # Add LoRA layers to the model.
     trainable_param_groups = []
-    all_trainable_params = []
     if config.train_unet:
         unet_lora_config = peft.LoraConfig(
             r=config.lora_rank_dim,
@@ -501,15 +522,7 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
             lora_alpha=1.0,
             target_modules=UNET_TARGET_MODULES,
         )
-        unet = peft.get_peft_model(unet, unet_lora_config)
-        unet.print_trainable_parameters()
-        unet_param_group = {"params": unet.parameters()}
-        if config.unet_learning_rate is not None:
-            unet_param_group["lr"] = config.unet_learning_rate
-        trainable_param_groups.append(unet_param_group)
-        unet.train()
-        # Note: PeftModel.parameters() returns only the trainable LoRA params.
-        all_trainable_params = itertools.chain(all_trainable_params, unet.parameters())
+        unet = inject_lora_layers(unet, unet_lora_config, lr=config.unet_learning_rate)
 
     if config.train_text_encoder:
         text_encoder_lora_config = peft.LoraConfig(
@@ -518,19 +531,13 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
             # init_lora_weights="gaussian",
             target_modules=TEXT_ENCODER_TARGET_MODULES,
         )
-        text_encoder = peft.get_peft_model(text_encoder, text_encoder_lora_config)
-        text_encoder.print_trainable_parameters()
-        text_encoder_param_group = {"params": text_encoder.parameters()}
-        if config.text_encoder_learning_rate is not None:
-            text_encoder_param_group["lr"] = config.text_encoder_learning_rate
-        trainable_param_groups.append(text_encoder_param_group)
-        text_encoder.train()
-        # Note: PeftModel.parameters() returns only the trainable LoRA params.
-        all_trainable_params = itertools.chain(all_trainable_params, text_encoder.parameters())
+        text_encoder = inject_lora_layers(text_encoder, text_encoder_lora_config, lr=config.text_encoder_learning_rate)
 
     # Make sure all trainable params are in float32.
-    for param in all_trainable_params:
-        param.data = param.to(torch.float32)
+    for trainable_model in all_trainable_models:
+        for param in trainable_model.parameters():
+            if param.requires_grad:
+                param.data = param.to(torch.float32)
 
     if config.gradient_checkpointing:
         unet.enable_gradient_checkpointing()
@@ -656,7 +663,8 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
                 # Backpropagate.
                 accelerator.backward(loss)
                 if accelerator.sync_gradients and config.max_grad_norm is not None:
-                    accelerator.clip_grad_norm_(all_trainable_params, config.max_grad_norm)
+                    params_to_clip = itertools.chain.from_iterable([m.parameters() for m in all_trainable_models])
+                    accelerator.clip_grad_norm_(params_to_clip, config.max_grad_norm)
                 optimizer.step()
                 lr_scheduler.step()
                 optimizer.zero_grad(set_to_none=True)
