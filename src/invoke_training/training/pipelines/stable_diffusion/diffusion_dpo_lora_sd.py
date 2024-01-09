@@ -42,7 +42,7 @@ from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils impo
 from invoke_training.training.shared.stable_diffusion.tokenize_captions import tokenize_captions
 
 
-def train_forward_dpo_without_reference_model(  # noqa: C901
+def train_forward_dpo(  # noqa: C901
     config: DirectPreferenceOptimizationLoRASDConfig,
     data_batch: dict,
     vae: AutoencoderKL,
@@ -402,7 +402,7 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
         train_loss = 0.0
         for data_batch in data_loader:
             with accelerator.accumulate(lora_layers):
-                loss = train_forward_dpo_without_reference_model(
+                loss = train_forward_dpo(
                     config=config,
                     data_batch=data_batch,
                     vae=vae,
