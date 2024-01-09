@@ -37,7 +37,7 @@ cache_text_encoder_outputs: True
 enable_cpu_offload_during_validation: True
 gradient_accumulation_steps: 4
 mixed_precision: fp16
-xformers: True
+xformers: False
 gradient_checkpointing: True
 # Dataset size is 833. Set max_train_steps to train for 2 epochs.
 # ceil(833 / 4) * 3

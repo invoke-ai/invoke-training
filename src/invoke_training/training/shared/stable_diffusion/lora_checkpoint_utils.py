@@ -48,9 +48,9 @@ def save_lora_checkpoint(
 SD_PEFT_UNET_KEY = "unet"
 SD_PEFT_TEXT_ENCODER_KEY = "text_encoder"
 
-# SDXL_PEFT_UNET_KEY = "unet"
-# SDXL_PEFT_TEXT_ENCODER_1_KEY = "text_encoder_1"
-# SDXL_PEFT_TEXT_ENCODER_2_KEY = "text_encoder_2"
+SDXL_PEFT_UNET_KEY = "unet"
+SDXL_PEFT_TEXT_ENCODER_1_KEY = "text_encoder_1"
+SDXL_PEFT_TEXT_ENCODER_2_KEY = "text_encoder_2"
 
 
 def save_multi_model_peft_checkpoint(checkpoint_dir: Path, models: dict[str, peft.PeftModel]):
@@ -112,6 +112,44 @@ def load_sd_peft_checkpoint(
     return models[SD_PEFT_UNET_KEY], models[SD_PEFT_TEXT_ENCODER_KEY]
 
 
+def save_sdxl_peft_checkpoint(
+    checkpoint_dir: Path,
+    unet: peft.PeftModel | None,
+    text_encoder_1: peft.PeftModel | None,
+    text_encoder_2: peft.PeftModel | None,
+):
+    models = {}
+    if unet is not None:
+        models[SDXL_PEFT_UNET_KEY] = unet
+    if text_encoder_1 is not None:
+        models[SDXL_PEFT_TEXT_ENCODER_1_KEY] = text_encoder_1
+    if text_encoder_2 is not None:
+        models[SDXL_PEFT_TEXT_ENCODER_2_KEY] = text_encoder_2
+
+    save_multi_model_peft_checkpoint(checkpoint_dir=checkpoint_dir, models=models)
+
+
+def load_sdxl_peft_checkpoint(
+    checkpoint_dir: Path,
+    unet: UNet2DConditionModel,
+    text_encoder_1: CLIPTextModel,
+    text_encoder_2: CLIPTextModel,
+    is_trainable: bool = False,
+):
+    models = load_multi_model_peft_checkpoint(
+        checkpoint_dir=checkpoint_dir,
+        models={
+            SDXL_PEFT_UNET_KEY: unet,
+            SDXL_PEFT_TEXT_ENCODER_1_KEY: text_encoder_1,
+            SDXL_PEFT_TEXT_ENCODER_2_KEY: text_encoder_2,
+        },
+        is_trainable=is_trainable,
+        raise_if_subdir_missing=False,
+    )
+
+    return models[SDXL_PEFT_UNET_KEY], models[SDXL_PEFT_TEXT_ENCODER_1_KEY], models[SDXL_PEFT_TEXT_ENCODER_2_KEY]
+
+
 def save_sd_lora_checkpoint(
     idx: int,
     unet: peft.PeftModel | None,
@@ -126,6 +164,23 @@ def save_sd_lora_checkpoint(
     save_path = checkpoint_tracker.get_path(idx)
 
     save_sd_peft_checkpoint(Path(save_path), unet=unet, text_encoder=text_encoder)
+
+
+def save_sdxl_lora_checkpoint(
+    idx: int,
+    unet: peft.PeftModel | None,
+    text_encoder_1: peft.PeftModel | None,
+    text_encoder_2: peft.PeftModel | None,
+    logger: logging.Logger,
+    checkpoint_tracker: CheckpointTracker,
+):
+    # Prune checkpoints and get new checkpoint path.
+    num_pruned = checkpoint_tracker.prune(1)
+    if num_pruned > 0:
+        logger.info(f"Pruned {num_pruned} checkpoint(s).")
+    save_path = checkpoint_tracker.get_path(idx)
+
+    save_sdxl_peft_checkpoint(Path(save_path), unet=unet, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2)
 
 
 # This implementation is based on
