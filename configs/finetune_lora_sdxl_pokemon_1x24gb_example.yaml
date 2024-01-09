@@ -9,7 +9,7 @@
 type: FINETUNE_LORA_SDXL
 seed: 1
 output:
-  base_output_dir: output/
+  base_output_dir: output/finetune_lora_sdxl_pokemon/
 
 optimizer:
   learning_rate: 1.0
