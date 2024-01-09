@@ -5,6 +5,7 @@ import math
 import os
 import tempfile
 import time
+from pathlib import Path
 from typing import Optional, Union
 
 import numpy as np
@@ -40,9 +41,7 @@ from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataload
 )
 from invoke_training.training.shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training.training.shared.optimizer.optimizer_utils import initialize_optimizer
-from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils import (
-    save_sdxl_lora_checkpoint,
-)
+from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils import save_sdxl_peft_checkpoint
 from invoke_training.training.shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
 from invoke_training.training.shared.stable_diffusion.tokenize_captions import tokenize_captions
 
@@ -119,6 +118,23 @@ def load_models(
     unet.eval()
 
     return tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet
+
+
+def save_sdxl_lora_checkpoint(
+    idx: int,
+    unet: peft.PeftModel | None,
+    text_encoder_1: peft.PeftModel | None,
+    text_encoder_2: peft.PeftModel | None,
+    logger: logging.Logger,
+    checkpoint_tracker: CheckpointTracker,
+):
+    # Prune checkpoints and get new checkpoint path.
+    num_pruned = checkpoint_tracker.prune(1)
+    if num_pruned > 0:
+        logger.info(f"Pruned {num_pruned} checkpoint(s).")
+    save_path = checkpoint_tracker.get_path(idx)
+
+    save_sdxl_peft_checkpoint(Path(save_path), unet=unet, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2)
 
 
 def build_data_loader(
@@ -544,7 +560,6 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         peft_model.print_trainable_parameters()
 
         # Populate `trainable_param_groups`, to be passed to the optimizer.
-        # Note: PeftModel.parameters() returns only the trainable LoRA params.
         param_group = {"params": list(filter(lambda p: p.requires_grad, peft_model.parameters()))}
         if lr is not None:
             param_group["lr"] = lr

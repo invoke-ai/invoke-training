@@ -9,7 +9,9 @@ from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils impo
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Convert a Stable Diffusion LoRA checkpoint to kohya format.")
+    parser = argparse.ArgumentParser(
+        description="Convert a Stable Diffusion LoRA checkpoint in PEFT format to kohya format."
+    )
     parser.add_argument(
         "--src-ckpt-dir",
         type=str,

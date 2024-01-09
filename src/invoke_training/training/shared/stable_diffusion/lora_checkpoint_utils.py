@@ -1,4 +1,3 @@
-import logging
 from pathlib import Path
 
 import peft
@@ -6,7 +5,6 @@ import torch
 from diffusers import UNet2DConditionModel
 from transformers import CLIPTextModel
 
-from invoke_training.training.shared.checkpoints.checkpoint_tracker import CheckpointTracker
 from invoke_training.training.shared.checkpoints.serialization import save_state_dict
 
 SD_PEFT_UNET_KEY = "unet"
@@ -112,39 +110,6 @@ def load_sdxl_peft_checkpoint(
     )
 
     return models[SDXL_PEFT_UNET_KEY], models[SDXL_PEFT_TEXT_ENCODER_1_KEY], models[SDXL_PEFT_TEXT_ENCODER_2_KEY]
-
-
-def save_sd_lora_checkpoint(
-    idx: int,
-    unet: peft.PeftModel | None,
-    text_encoder: peft.PeftModel | None,
-    logger: logging.Logger,
-    checkpoint_tracker: CheckpointTracker,
-):
-    # Prune checkpoints and get new checkpoint path.
-    num_pruned = checkpoint_tracker.prune(1)
-    if num_pruned > 0:
-        logger.info(f"Pruned {num_pruned} checkpoint(s).")
-    save_path = checkpoint_tracker.get_path(idx)
-
-    save_sd_peft_checkpoint(Path(save_path), unet=unet, text_encoder=text_encoder)
-
-
-def save_sdxl_lora_checkpoint(
-    idx: int,
-    unet: peft.PeftModel | None,
-    text_encoder_1: peft.PeftModel | None,
-    text_encoder_2: peft.PeftModel | None,
-    logger: logging.Logger,
-    checkpoint_tracker: CheckpointTracker,
-):
-    # Prune checkpoints and get new checkpoint path.
-    num_pruned = checkpoint_tracker.prune(1)
-    if num_pruned > 0:
-        logger.info(f"Pruned {num_pruned} checkpoint(s).")
-    save_path = checkpoint_tracker.get_path(idx)
-
-    save_sdxl_peft_checkpoint(Path(save_path), unet=unet, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2)
 
 
 # This implementation is based on
