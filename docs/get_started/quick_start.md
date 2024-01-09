@@ -27,15 +27,25 @@ Monitor the training process with Tensorboard by running `tensorboard --logdir o
 ![Screenshot of the Tensorboard UI showing validation images.](../images/tensorboard_val_images_screenshot.png)
 *Validation images in the Tensorboard UI.*
 
-### 5. InvokeAI
+### 5. Select a checkpoint
 Select a checkpoint based on the quality of the generated images. In this short training run, there are only 3 checkpoints to choose from. As an example, we'll use the **Epoch 2** checkpoint.
+
+Internally, `invoke-training` stores the LoRA checkpoints in [PEFT format](https://huggingface.co/docs/peft/v0.7.1/en/package_reference/peft_model#peft.PeftModel.save_pretrained). We will convert the selected checkpoint to 'Kohya' format, because it has more widespread support across various UIs:
+```bash
+# Note: You will have to replace the timestamp in the checkpoint path.
+python src/invoke_training/scripts/convert_sd_lora_to_kohya_format.py \
+  --src-ckpt-dir output/finetune_lora_sd_pokemon/1691088769.5694647/checkpoint_epoch-00000002 \
+  --dst-ckpt-file output/finetune_lora_sd_pokemon/1691088769.5694647/checkpoint_epoch-00000002_kohya.safetensors
+```
+
+### 5. InvokeAI
 
 If you haven't already, setup [InvokeAI](https://github.com/invoke-ai/InvokeAI) by following its documentation.
 
 Copy your selected LoRA checkpoint into your `${INVOKEAI_ROOT}/autoimport/lora` directory. For example:
 ```bash
 # Note: You will have to replace the timestamp in the checkpoint path.
-cp output/1691088769.5694647/checkpoint_epoch-00000002.safetensors ${INVOKEAI_ROOT}/autoimport/lora/pokemon_epoch-00000002.safetensors
+cp output/finetune_lora_sd_pokemon/1691088769.5694647/checkpoint_epoch-00000002_kohya.safetensors ${INVOKEAI_ROOT}/autoimport/lora/pokemon_epoch-00000002.safetensors
 ```
 
 You can now use your trained Pokemon LoRA in the InvokeAI UI! 🎉
