@@ -1,6 +1,6 @@
 # (Experimental) Diffusion DPO - SD
 
-tip: Experimental
+!!! tip "Experimental"
     The Diffusion Direct Preference Optimization training pipeline is still experimental. Support may be dropped at any time.
 
 This tutorial walks through some initial experiments around using Diffusion Direct Preference Optimization (DPO) ([paper](https://arxiv.org/abs/2311.12908)) to train Stable Diffusion LoRA models.
@@ -8,7 +8,7 @@ This tutorial walks through some initial experiments around using Diffusion Dire
 
 ## Experiment 1: `pickapic_v2` LoRA Training
 
-The Diffusion-DPO paper does full model fine-tuning on the [pickapic_v2](https://huggingface.co/datasets/yuvalkirstain/pickapic_v2) dataset, which consists of roughly 1M AI-generated image pairs with preference annotations. In this experiment, we attempt to fine-tune a Stable Diffusion LoRA model using a small subset of the pickapi_v2 dataset.
+The Diffusion-DPO paper does full model fine-tuning on the [pickapic_v2](https://huggingface.co/datasets/yuvalkirstain/pickapic_v2) dataset, which consists of roughly 1M AI-generated image pairs with preference annotations. In this experiment, we attempt to fine-tune a Stable Diffusion LoRA model using a small subset of the pickapic_v2 dataset.
 
 Run this experiment with the following command:
 ```bash
@@ -31,9 +31,7 @@ As a second experiment, we attempt the following workflow:
 3. Annotate the preferred image from each pair.
 4. Apply Diffusion-DPO to the preference-annotated pairs to further fine-tune the LoRA model.
 
-The steps are documented from memory below, but they have not been tested much.
-
-TODO(ryand): Work through these steps again and add some results to this page.
+Note: The steps listed below are pretty rough. They are included primarily for reference for someone looking to resume this line of work in the future.
 
 ### 1. Train a style LoRA
 

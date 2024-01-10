@@ -13,6 +13,7 @@ theme:
     - content.code.copy
 
 markdown_extensions:
+  - admonition
   - sane_lists
   - pymdownx.highlight:
       anchor_linenums: true
