@@ -8,7 +8,7 @@ This tutorial walks through some initial experiments around using Diffusion Dire
 
 ## Experiment 1: `pickapic_v2` LoRA Training
 
-The Diffusion-DPO paper does full model fine-tuning on the [pickapic_v2](https://huggingface.co/datasets/yuvalkirstain/pickapic_v2) dataset, which consists of roughly 1M AI-generated image pairs with preference annotations. In this experiment, we attempt to fine-tune a Stable Diffusion LoRA model using a subset of the pickapi_v2 dataset.
+The Diffusion-DPO paper does full model fine-tuning on the [pickapic_v2](https://huggingface.co/datasets/yuvalkirstain/pickapic_v2) dataset, which consists of roughly 1M AI-generated image pairs with preference annotations. In this experiment, we attempt to fine-tune a Stable Diffusion LoRA model using a small subset of the pickapi_v2 dataset.
 
 Run this experiment with the following command:
 ```bash
@@ -44,6 +44,15 @@ invoke-train -c configs/finetune_lora_sd_pokemon_1x8gb_example.yaml
 ### 2. Generate images
 
 Prepare ~100 relevant prompts that will be used to generate training data with the freshly-trained LoRA model. Add the prompts to a `.txt` file - one prompt per line.
+
+Example prompts:
+```txt
+a cute orange pokemon character with pointy ears
+a drawing of a purple fish
+a cartoon blob with a smile on its face
+a drawing of a snail with big eyes
+...
+```
 
 ```bash
 # Convert the LoRA checkpoint of interest to Kohya format.

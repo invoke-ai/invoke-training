@@ -27,10 +27,10 @@ data_loader:
 
 # General
 model: runwayml/stable-diffusion-v1-5
-initial_lora_file: path/to/lora_dir
+initial_lora: output/finetune_lora_sd_pokemon/1704824279.2765746/checkpoint_epoch-00000003
 gradient_accumulation_steps: 2
 mixed_precision: fp16
-xformers: True
+xformers: False
 gradient_checkpointing: True
 max_train_steps: 5000
 save_every_n_epochs: 10

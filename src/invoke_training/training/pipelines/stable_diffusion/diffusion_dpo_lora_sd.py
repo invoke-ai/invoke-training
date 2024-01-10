@@ -37,6 +37,7 @@ from invoke_training.training.shared.optimizer.optimizer_utils import initialize
 from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils import (
     TEXT_ENCODER_TARGET_MODULES,
     UNET_TARGET_MODULES,
+    load_sd_peft_checkpoint,
 )
 from invoke_training.training.shared.stable_diffusion.tokenize_captions import tokenize_captions
 
@@ -217,6 +218,7 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
         # TODO(ryand): Think about how to better check if it is safe to cache the text encoder outputs. Currently, there
         # are a number of configurations that would cause variation in the text encoder outputs and should not be used
         # with caching.
+        # TODO(ryand): This check does not make sense when config.initial_lora is set.
         if config.train_text_encoder:
             raise ValueError("'cache_text_encoder_outputs' and 'train_text_encoder' cannot both be True.")
 
@@ -274,52 +276,61 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
     trainable_param_groups = []
     all_trainable_models: list[peft.PeftModel] = []
 
-    def inject_lora_layers(model, lora_config: peft.LoraConfig, lr: float | None = None) -> peft.PeftModel:
-        peft_model = peft.get_peft_model(model, lora_config)
-        peft_model.print_trainable_parameters()
+    # Add LoRA layers to the model.
+    trainable_param_groups = []
+    if config.initial_lora is not None:
+        unet, text_encoder = load_sd_peft_checkpoint(
+            checkpoint_dir=config.initial_lora, unet=unet, text_encoder=text_encoder, is_trainable=True
+        )
+        ref_unet, ref_text_encoder = load_sd_peft_checkpoint(
+            checkpoint_dir=config.initial_lora, unet=ref_unet, text_encoder=ref_text_encoder, is_trainable=False
+        )
+    else:
+        if config.train_unet:
+            unet_lora_config = peft.LoraConfig(
+                r=config.lora_rank_dim,
+                # TODO(ryand): Diffusers uses lora_alpha=config.lora_rank_dim. Is that preferred?
+                lora_alpha=1.0,
+                target_modules=UNET_TARGET_MODULES,
+            )
+            unet = peft.get_peft_model(unet, unet_lora_config)
+
+        if config.train_text_encoder:
+            text_encoder_lora_config = peft.LoraConfig(
+                r=config.lora_rank_dim,
+                lora_alpha=1.0,
+                # init_lora_weights="gaussian",
+                target_modules=TEXT_ENCODER_TARGET_MODULES,
+            )
+            text_encoder = peft.get_peft_model(text_encoder, text_encoder_lora_config)
+
+    def prep_peft_model(model, lr: float | None = None):
+        if not isinstance(model, peft.PeftModel):
+            return False
+
+        model.print_trainable_parameters()
 
         # Populate `trainable_param_groups`, to be passed to the optimizer.
-        param_group = {"params": list(filter(lambda p: p.requires_grad, peft_model.parameters()))}
+        param_group = {"params": list(filter(lambda p: p.requires_grad, model.parameters()))}
         if lr is not None:
             param_group["lr"] = lr
         trainable_param_groups.append(param_group)
 
         # Populate all_trainable_models.
-        all_trainable_models.append(peft_model)
+        all_trainable_models.append(model)
 
-        peft_model.train()
+        model.train()
 
-        return peft_model
+        return True
 
-    # Add LoRA layers to the model.
-    trainable_param_groups = []
-    if config.train_unet:
-        unet_lora_config = peft.LoraConfig(
-            r=config.lora_rank_dim,
-            # TODO(ryand): Diffusers uses lora_alpha=config.lora_rank_dim. Is that preferred?
-            lora_alpha=1.0,
-            target_modules=UNET_TARGET_MODULES,
-        )
-        unet = inject_lora_layers(unet, unet_lora_config, lr=config.unet_learning_rate)
-
-    if config.train_text_encoder:
-        text_encoder_lora_config = peft.LoraConfig(
-            r=config.lora_rank_dim,
-            lora_alpha=1.0,
-            # init_lora_weights="gaussian",
-            target_modules=TEXT_ENCODER_TARGET_MODULES,
-        )
-        text_encoder = inject_lora_layers(text_encoder, text_encoder_lora_config, lr=config.text_encoder_learning_rate)
+    training_unet = prep_peft_model(unet, config.unet_learning_rate)
+    training_text_encoder = prep_peft_model(text_encoder, config.text_encoder_learning_rate)
 
     # Make sure all trainable params are in float32.
     for trainable_model in all_trainable_models:
         for param in trainable_model.parameters():
             if param.requires_grad:
                 param.data = param.to(torch.float32)
-
-    if config.initial_lora_file is not None:
-        raise NotImplementedError("initial_lora_file")
-        # load_lora_checkpoint(lora_layers=lora_layers, lora_path=config.initial_lora_file)
 
     if config.gradient_checkpointing:
         # We want to enable gradient checkpointing in the UNet regardless of whether it is being trained.
@@ -328,7 +339,7 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
         # At the time of writing, the unet dropout probabilities default to 0, so putting the unet in train mode does
         # not change its forward behavior.
         unet.train()
-        if config.train_text_encoder:
+        if training_text_encoder:
             text_encoder.gradient_checkpointing_enable()
 
             # The text encoder must be in train() mode for gradient checkpointing to take effect. This should
@@ -467,12 +478,12 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
                 log = {"train_loss": train_loss}
 
                 lrs = lr_scheduler.get_last_lr()
-                if config.train_unet:
+                if training_unet:
                     # When training the UNet, it will always be the first parameter group.
                     log["lr/unet"] = float(lrs[0])
                     if config.optimizer.optimizer.optimizer_type == "Prodigy":
                         log["lr/d*lr/unet"] = optimizer.param_groups[0]["d"] * optimizer.param_groups[0]["lr"]
-                if config.train_text_encoder:
+                if training_text_encoder:
                     # When training the text encoder, it will always be the last parameter group.
                     log["lr/text_encoder"] = float(lrs[-1])
                     if config.optimizer.optimizer.optimizer_type == "Prodigy":
@@ -486,8 +497,8 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
                     if accelerator.is_main_process:
                         save_sd_lora_checkpoint(
                             idx=global_step + 1,
-                            unet=accelerator.unwrap_model(unet) if config.train_unet else None,
-                            text_encoder=accelerator.unwrap_model(text_encoder) if config.train_text_encoder else None,
+                            unet=accelerator.unwrap_model(unet) if training_unet else None,
+                            text_encoder=accelerator.unwrap_model(text_encoder) if training_text_encoder else None,
                             logger=logger,
                             checkpoint_tracker=step_checkpoint_tracker,
                         )
@@ -507,8 +518,8 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
                 accelerator.wait_for_everyone()
                 save_sd_lora_checkpoint(
                     idx=epoch + 1,
-                    unet=accelerator.unwrap_model(unet) if config.train_unet else None,
-                    text_encoder=accelerator.unwrap_model(text_encoder) if config.train_text_encoder else None,
+                    unet=accelerator.unwrap_model(unet) if training_unet else None,
+                    text_encoder=accelerator.unwrap_model(text_encoder) if training_text_encoder else None,
                     logger=logger,
                     checkpoint_tracker=epoch_checkpoint_tracker,
                 )
