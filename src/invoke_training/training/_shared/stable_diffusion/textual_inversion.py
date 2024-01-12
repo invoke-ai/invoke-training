@@ -1,4 +1,5 @@
 import torch
+from accelerate import Accelerator
 from transformers import CLIPTextModel, CLIPTokenizer, PreTrainedTokenizer
 
 
@@ -40,3 +41,22 @@ def initialize_placeholder_tokens_from_initializer_token(
             token_embeds[token_id] = token_embeds[initializer_token_id].clone()
 
     return placeholder_token_ids
+
+
+def restore_original_embeddings(
+    tokenizer: CLIPTokenizer,
+    placeholder_token_ids: list[int],
+    accelerator: Accelerator,
+    text_encoder: CLIPTextModel,
+    orig_embeds_params: torch.Tensor,
+):
+    """Restore the text_encoder embeddings that we are not actively training to make sure they don't change.
+
+    TODO(ryand): Look into whether this is actually necessary if we set requires_grad correctly.
+    """
+    index_no_updates = torch.ones((len(tokenizer),), dtype=torch.bool)
+    index_no_updates[min(placeholder_token_ids) : max(placeholder_token_ids) + 1] = False
+    with torch.no_grad():
+        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[index_no_updates] = orig_embeds_params[
+            index_no_updates
+        ]

@@ -28,6 +28,7 @@ from invoke_training.training._shared.stable_diffusion.model_loading_utils impor
 from invoke_training.training._shared.stable_diffusion.textual_inversion import (
     add_tokens_to_tokenizer,
     initialize_placeholder_tokens_from_initializer_token,
+    restore_original_embeddings,
 )
 from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import (
     cache_vae_outputs,
@@ -146,25 +147,6 @@ def _initialize_placeholder_tokens(
         )
 
     return placeholder_token_ids
-
-
-def restore_original_embeddings(
-    tokenizer: CLIPTokenizer,
-    placeholder_token_ids: list[int],
-    accelerator: Accelerator,
-    text_encoder: CLIPTextModel,
-    orig_embeds_params: torch.Tensor,
-):
-    """Restore the text_encoder embeddings that we are not actively training to make sure they don't change.
-
-    TODO(ryand): Look into whether this is actually necessary if we set requires_grad correctly.
-    """
-    index_no_updates = torch.ones((len(tokenizer),), dtype=torch.bool)
-    index_no_updates[min(placeholder_token_ids) : max(placeholder_token_ids) + 1] = False
-    with torch.no_grad():
-        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[index_no_updates] = orig_embeds_params[
-            index_no_updates
-        ]
 
 
 def run_training(config: TextualInversionSDConfig):  # noqa: C901

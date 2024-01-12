@@ -29,8 +29,8 @@ from invoke_training.training._shared.stable_diffusion.model_loading_utils impor
 from invoke_training.training._shared.stable_diffusion.textual_inversion import (
     add_tokens_to_tokenizer,
     initialize_placeholder_tokens_from_initializer_token,
+    restore_original_embeddings,
 )
-from invoke_training.training.pipelines.stable_diffusion.textual_inversion_sd import restore_original_embeddings
 from invoke_training.training.pipelines.stable_diffusion_xl.finetune_lora_sdxl import (
     cache_vae_outputs,
     generate_validation_images,
