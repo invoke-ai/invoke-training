@@ -50,7 +50,7 @@ from invoke_training.training._shared.stable_diffusion.model_loading_utils impor
 from invoke_training.training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 
 
-def save_sd_lora_checkpoint(
+def _save_sd_lora_checkpoint(
     idx: int,
     unet: peft.PeftModel | None,
     text_encoder: peft.PeftModel | None,
@@ -646,7 +646,7 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
                 if config.save_every_n_steps is not None and (global_step + 1) % config.save_every_n_steps == 0:
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
-                        save_sd_lora_checkpoint(
+                        _save_sd_lora_checkpoint(
                             idx=global_step + 1,
                             unet=accelerator.unwrap_model(unet) if config.train_unet else None,
                             text_encoder=accelerator.unwrap_model(text_encoder) if config.train_text_encoder else None,
@@ -667,7 +667,7 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
             if accelerator.is_main_process:
                 accelerator.wait_for_everyone()
-                save_sd_lora_checkpoint(
+                _save_sd_lora_checkpoint(
                     idx=epoch + 1,
                     unet=accelerator.unwrap_model(unet) if config.train_unet else None,
                     text_encoder=accelerator.unwrap_model(text_encoder) if config.train_text_encoder else None,

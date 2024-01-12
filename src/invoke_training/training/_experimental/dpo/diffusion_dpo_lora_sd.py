@@ -1,10 +1,12 @@
 import copy
 import itertools
 import json
+import logging
 import math
 import os
 import tempfile
 import time
+from pathlib import Path
 
 import peft
 import torch
@@ -30,14 +32,30 @@ from invoke_training.training._shared.stable_diffusion.lora_checkpoint_utils imp
     TEXT_ENCODER_TARGET_MODULES,
     UNET_TARGET_MODULES,
     load_sd_peft_checkpoint,
+    save_sd_peft_checkpoint,
 )
 from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_models_sd
 from invoke_training.training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import (
     cache_text_encoder_outputs,
     generate_validation_images,
-    save_sd_lora_checkpoint,
 )
+
+
+def _save_sd_lora_checkpoint(
+    idx: int,
+    unet: peft.PeftModel | None,
+    text_encoder: peft.PeftModel | None,
+    logger: logging.Logger,
+    checkpoint_tracker: CheckpointTracker,
+):
+    # Prune checkpoints and get new checkpoint path.
+    num_pruned = checkpoint_tracker.prune(1)
+    if num_pruned > 0:
+        logger.info(f"Pruned {num_pruned} checkpoint(s).")
+    save_path = checkpoint_tracker.get_path(idx)
+
+    save_sd_peft_checkpoint(Path(save_path), unet=unet, text_encoder=text_encoder)
 
 
 def train_forward_dpo(  # noqa: C901
@@ -495,7 +513,7 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
                 if config.save_every_n_steps is not None and (global_step + 1) % config.save_every_n_steps == 0:
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
-                        save_sd_lora_checkpoint(
+                        _save_sd_lora_checkpoint(
                             idx=global_step + 1,
                             unet=accelerator.unwrap_model(unet) if training_unet else None,
                             text_encoder=accelerator.unwrap_model(text_encoder) if training_text_encoder else None,
@@ -516,7 +534,7 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
             if accelerator.is_main_process:
                 accelerator.wait_for_everyone()
-                save_sd_lora_checkpoint(
+                _save_sd_lora_checkpoint(
                     idx=epoch + 1,
                     unet=accelerator.unwrap_model(unet) if training_unet else None,
                     text_encoder=accelerator.unwrap_model(text_encoder) if training_text_encoder else None,
