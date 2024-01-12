@@ -15,9 +15,7 @@ from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 
-from invoke_training.config.pipelines.finetune_lora_config import (
-    DirectPreferenceOptimizationLoRASDConfig,
-)
+from invoke_training.config._experimental.dpo.config import DirectPreferenceOptimizationLoRASDConfig
 from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import (
     cache_text_encoder_outputs,
     generate_validation_images,
