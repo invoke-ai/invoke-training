@@ -30,9 +30,9 @@ from invoke_training.training._shared.stable_diffusion.textual_inversion import 
     initialize_placeholder_tokens_from_initializer_token,
     restore_original_embeddings,
 )
+from invoke_training.training._shared.stable_diffusion.validation import generate_validation_images_sd
 from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import (
     cache_vae_outputs,
-    generate_validation_images,
     log_aspect_ratio_buckets,
     train_forward,
 )
@@ -417,7 +417,7 @@ def run_training(config: TextualInversionSDConfig):  # noqa: C901
         # Generate validation images every n epochs.
         if len(config.validation_prompts) > 0 and (epoch + 1) % config.validate_every_n_epochs == 0:
             if accelerator.is_main_process:
-                generate_validation_images(
+                generate_validation_images_sd(
                     epoch=epoch + 1,
                     out_dir=out_dir,
                     accelerator=accelerator,

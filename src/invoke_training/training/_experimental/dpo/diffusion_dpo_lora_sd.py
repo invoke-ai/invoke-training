@@ -36,10 +36,8 @@ from invoke_training.training._shared.stable_diffusion.lora_checkpoint_utils imp
 )
 from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_models_sd
 from invoke_training.training._shared.stable_diffusion.tokenize_captions import tokenize_captions
-from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import (
-    cache_text_encoder_outputs,
-    generate_validation_images,
-)
+from invoke_training.training._shared.stable_diffusion.validation import generate_validation_images_sd
+from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import cache_text_encoder_outputs
 
 
 def _save_sd_lora_checkpoint(
@@ -545,7 +543,7 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
         # Generate validation images every n epochs.
         if len(config.validation_prompts) > 0 and (epoch + 1) % config.validate_every_n_epochs == 0:
             if accelerator.is_main_process:
-                generate_validation_images(
+                generate_validation_images_sd(
                     epoch=epoch + 1,
                     out_dir=out_dir,
                     accelerator=accelerator,
