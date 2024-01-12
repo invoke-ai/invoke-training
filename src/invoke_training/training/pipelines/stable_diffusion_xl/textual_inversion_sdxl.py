@@ -38,7 +38,7 @@ from invoke_training.training.pipelines.stable_diffusion_xl.finetune_lora_sdxl i
 )
 
 
-def save_ti_embeddings(
+def _save_ti_embeddings(
     idx: int,
     text_encoder_1: CLIPTextModel,
     text_encoder_2: CLIPTextModel,
@@ -387,7 +387,7 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
                 if config.save_every_n_steps is not None and (global_step + 1) % config.save_every_n_steps == 0:
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
-                        save_ti_embeddings(
+                        _save_ti_embeddings(
                             idx=global_step + 1,
                             text_encoder_1=text_encoder_1,
                             text_encoder_2=text_encoder_2,
@@ -410,7 +410,7 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
         # Save a checkpoint every n epochs.
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
             if accelerator.is_main_process:
-                save_ti_embeddings(
+                _save_ti_embeddings(
                     idx=epoch + 1,
                     text_encoder_1=text_encoder_1,
                     text_encoder_2=text_encoder_2,
