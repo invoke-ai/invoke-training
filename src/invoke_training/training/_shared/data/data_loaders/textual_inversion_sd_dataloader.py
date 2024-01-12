@@ -7,21 +7,21 @@ from invoke_training.config.shared.data.transform_config import (
     TextualInversionCaptionTransformConfig,
     TextualInversionPresetCaptionTransformConfig,
 )
-from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
+from invoke_training.training._shared.data.data_loaders.image_caption_sd_dataloader import (
     build_aspect_ratio_bucket_manager,
     sd_image_caption_collate_fn,
 )
-from invoke_training.training.shared.data.datasets.image_dir_dataset import ImageDirDataset
-from invoke_training.training.shared.data.datasets.transform_dataset import TransformDataset
-from invoke_training.training.shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
+from invoke_training.training._shared.data.datasets.image_dir_dataset import ImageDirDataset
+from invoke_training.training._shared.data.datasets.transform_dataset import TransformDataset
+from invoke_training.training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
     AspectRatioBucketBatchSampler,
 )
-from invoke_training.training.shared.data.transforms.drop_field_transform import DropFieldTransform
-from invoke_training.training.shared.data.transforms.load_cache_transform import LoadCacheTransform
-from invoke_training.training.shared.data.transforms.sd_image_transform import SDImageTransform
-from invoke_training.training.shared.data.transforms.shuffle_caption_transform import ShuffleCaptionTransform
-from invoke_training.training.shared.data.transforms.tensor_disk_cache import TensorDiskCache
-from invoke_training.training.shared.data.transforms.textual_inversion_caption_transform import (
+from invoke_training.training._shared.data.transforms.drop_field_transform import DropFieldTransform
+from invoke_training.training._shared.data.transforms.load_cache_transform import LoadCacheTransform
+from invoke_training.training._shared.data.transforms.sd_image_transform import SDImageTransform
+from invoke_training.training._shared.data.transforms.shuffle_caption_transform import ShuffleCaptionTransform
+from invoke_training.training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
+from invoke_training.training._shared.data.transforms.textual_inversion_caption_transform import (
     TextualInversionCaptionTransform,
 )
 

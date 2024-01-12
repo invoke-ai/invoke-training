@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from invoke_training.training.shared.checkpoints.checkpoint_tracker import CheckpointTracker
+from invoke_training.training._shared.checkpoints.checkpoint_tracker import CheckpointTracker
 
 
 def test_checkpoint_tracker_get_path_file():

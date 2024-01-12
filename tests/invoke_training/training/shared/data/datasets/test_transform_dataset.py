@@ -1,6 +1,6 @@
 import unittest.mock
 
-from invoke_training.training.shared.data.datasets.transform_dataset import TransformDataset
+from invoke_training.training._shared.data.datasets.transform_dataset import TransformDataset
 
 
 def test_transform_dataset_len():

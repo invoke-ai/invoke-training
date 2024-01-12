@@ -1,4 +1,4 @@
-from invoke_training.training.shared.data.transforms.drop_field_transform import DropFieldTransform
+from invoke_training.training._shared.data.transforms.drop_field_transform import DropFieldTransform
 
 
 def test_drop_field_transform():

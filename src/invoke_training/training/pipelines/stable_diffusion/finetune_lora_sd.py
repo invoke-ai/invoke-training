@@ -26,28 +26,28 @@ from invoke_training.config.shared.data.data_loader_config import (
     DreamboothSDDataLoaderConfig,
     ImageCaptionSDDataLoaderConfig,
 )
-from invoke_training.training.shared.accelerator.accelerator_utils import (
+from invoke_training.training._shared.accelerator.accelerator_utils import (
     get_mixed_precision_dtype,
     initialize_accelerator,
     initialize_logging,
 )
-from invoke_training.training.shared.checkpoints.checkpoint_tracker import CheckpointTracker
-from invoke_training.training.shared.data.data_loaders.dreambooth_sd_dataloader import build_dreambooth_sd_dataloader
-from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
+from invoke_training.training._shared.checkpoints.checkpoint_tracker import CheckpointTracker
+from invoke_training.training._shared.data.data_loaders.dreambooth_sd_dataloader import build_dreambooth_sd_dataloader
+from invoke_training.training._shared.data.data_loaders.image_caption_sd_dataloader import (
     build_image_caption_sd_dataloader,
 )
-from invoke_training.training.shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
+from invoke_training.training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
     AspectRatioBucketBatchSampler,
 )
-from invoke_training.training.shared.data.transforms.tensor_disk_cache import TensorDiskCache
-from invoke_training.training.shared.optimizer.optimizer_utils import initialize_optimizer
-from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils import (
+from invoke_training.training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
+from invoke_training.training._shared.optimizer.optimizer_utils import initialize_optimizer
+from invoke_training.training._shared.stable_diffusion.lora_checkpoint_utils import (
     TEXT_ENCODER_TARGET_MODULES,
     UNET_TARGET_MODULES,
     save_sd_peft_checkpoint,
 )
-from invoke_training.training.shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
-from invoke_training.training.shared.stable_diffusion.tokenize_captions import tokenize_captions
+from invoke_training.training._shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
+from invoke_training.training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 
 
 def load_models(

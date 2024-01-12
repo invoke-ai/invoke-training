@@ -5,7 +5,7 @@ import datasets
 import torch.utils.data
 from PIL.Image import Image
 
-from invoke_training.training.shared.data.utils.resolution import Resolution
+from invoke_training.training._shared.data.utils.resolution import Resolution
 
 
 class HFImageCaptionDataset(torch.utils.data.Dataset):

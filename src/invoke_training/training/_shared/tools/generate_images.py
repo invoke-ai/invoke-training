@@ -5,8 +5,8 @@ from typing import Optional
 import torch
 from tqdm import tqdm
 
-from invoke_training.training.shared.data.datasets.image_pair_preference_dataset import ImagePairPreferenceDataset
-from invoke_training.training.shared.stable_diffusion.model_loading_utils import (
+from invoke_training.training._shared.data.datasets.image_pair_preference_dataset import ImagePairPreferenceDataset
+from invoke_training.training._shared.stable_diffusion.model_loading_utils import (
     PipelineVersionEnum,
     load_pipeline,
 )

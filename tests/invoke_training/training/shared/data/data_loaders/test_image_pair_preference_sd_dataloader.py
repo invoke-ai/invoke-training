@@ -5,7 +5,7 @@ from invoke_training.config._experimental.dpo.config import (
     ImagePairPreferenceSDDataLoaderConfig,
 )
 from invoke_training.config.shared.data.transform_config import SDImageTransformConfig
-from invoke_training.training.shared.data.data_loaders.image_pair_preference_sd_dataloader import (
+from invoke_training.training._shared.data.data_loaders.image_pair_preference_sd_dataloader import (
     build_image_pair_preference_sd_dataloader,
 )
 

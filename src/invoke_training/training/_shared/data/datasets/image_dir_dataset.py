@@ -4,7 +4,7 @@ import typing
 import torch.utils.data
 from PIL import Image
 
-from invoke_training.training.shared.data.utils.resolution import Resolution
+from invoke_training.training._shared.data.utils.resolution import Resolution
 
 
 class ImageDirDataset(torch.utils.data.Dataset):

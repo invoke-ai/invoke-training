@@ -14,6 +14,17 @@ from tqdm.auto import tqdm
 from transformers import CLIPPreTrainedModel, CLIPTextModel, CLIPTokenizer, PreTrainedTokenizer
 
 from invoke_training.config.pipelines.textual_inversion_config import TextualInversionSDXLConfig
+from invoke_training.training._shared.accelerator.accelerator_utils import (
+    get_mixed_precision_dtype,
+    initialize_accelerator,
+    initialize_logging,
+)
+from invoke_training.training._shared.checkpoints.checkpoint_tracker import CheckpointTracker
+from invoke_training.training._shared.checkpoints.serialization import save_state_dict
+from invoke_training.training._shared.data.data_loaders.textual_inversion_sd_dataloader import (
+    build_textual_inversion_sd_dataloader,
+)
+from invoke_training.training._shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training.training.pipelines.stable_diffusion.textual_inversion_sd import (
     add_tokens_to_tokenizer,
     initialize_placeholder_tokens_from_initializer_token,
@@ -25,17 +36,6 @@ from invoke_training.training.pipelines.stable_diffusion_xl.finetune_lora_sdxl i
     load_models,
     train_forward,
 )
-from invoke_training.training.shared.accelerator.accelerator_utils import (
-    get_mixed_precision_dtype,
-    initialize_accelerator,
-    initialize_logging,
-)
-from invoke_training.training.shared.checkpoints.checkpoint_tracker import CheckpointTracker
-from invoke_training.training.shared.checkpoints.serialization import save_state_dict
-from invoke_training.training.shared.data.data_loaders.textual_inversion_sd_dataloader import (
-    build_textual_inversion_sd_dataloader,
-)
-from invoke_training.training.shared.optimizer.optimizer_utils import initialize_optimizer
 
 
 def save_ti_embeddings(
