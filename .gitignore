@@ -1,4 +1,5 @@
 output/
+test_configs/
 
 # pyenv
 .python-version

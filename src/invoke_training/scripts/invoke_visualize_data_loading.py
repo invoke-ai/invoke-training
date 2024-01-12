@@ -8,11 +8,15 @@ import torch
 import yaml
 from PIL import Image
 from pydantic import TypeAdapter
+from torch.utils.data import DataLoader
 
 from invoke_training.config.pipelines.pipeline_config import PipelineConfig
 from invoke_training.training.shared.data.data_loaders.dreambooth_sd_dataloader import build_dreambooth_sd_dataloader
 from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
     build_image_caption_sd_dataloader,
+)
+from invoke_training.training.shared.data.data_loaders.image_pair_preference_sd_dataloader import (
+    build_image_pair_preference_sd_dataloader,
 )
 from invoke_training.training.shared.data.data_loaders.textual_inversion_sd_dataloader import (
     build_textual_inversion_sd_dataloader,
@@ -55,6 +59,33 @@ def parse_args():
     return parser.parse_args()
 
 
+def visualize(data_loader: DataLoader):
+    out_dir = Path(f"out_{str(time.time()).replace('.', '-')}/")
+    os.makedirs(out_dir)
+
+    for batch_idx, batch in enumerate(data_loader):
+        print(f"Batch {batch_idx}:")
+        batch_path = out_dir / f"batch_{batch_idx}"
+        batch_path.mkdir()
+        saved_images = []
+        for k, v in batch.items():
+            if isinstance(v, torch.Tensor):
+                print(f"{k}: Tensor.shape={v.shape}")
+                if len(v.shape) == 4 and v.shape[1] == 3:
+                    # This is likely a batch of RGB images, so we save them to disk.
+                    for i in range(v.shape[0]):
+                        out_path = batch_path / f"{k}_{i}.png"
+                        save_image(v[i, ...], out_path)
+                        saved_images.append(out_path)
+            else:
+                print(f"{k}: {v}")
+
+        for saved_image in saved_images:
+            print(f"Saved image to '{saved_image}'.")
+
+        _ = input("\n\nPress Enter to continue to next batch...\n")
+
+
 def main():
     args = parse_args()
 
@@ -87,28 +118,16 @@ def main():
             shuffle=False,
             sequential_batching=False,
         )
+    elif data_loader_config.type == "IMAGE_PAIR_PREFERENCE_SD_DATA_LOADER":
+        data_loader = build_image_pair_preference_sd_dataloader(
+            config=data_loader_config,
+            batch_size=train_config.train_batch_size,
+            shuffle=False,
+        )
     else:
         raise ValueError(f"Unexpected data loader type: '{data_loader_config.type}'.")
 
-    out_dir = Path(f"out_{str(time.time()).replace('.', '-')}/")
-    os.makedirs(out_dir)
-
-    for batch_idx, batch in enumerate(data_loader):
-        print(f"Batch {batch_idx}:")
-        for k, v in batch.items():
-            if isinstance(v, torch.Tensor):
-                print(f"{k}: Tensor.shape={v.shape}")
-            else:
-                print(f"{k}: {v}")
-
-        batch_path = out_dir / f"batch_{batch_idx}"
-        batch_path.mkdir()
-        for i in range(batch["image"].shape[0]):
-            out_path = batch_path / f"example_{i}.png"
-            save_image(batch["image"][i, ...], out_path)
-            print(f"Saved image to '{out_path}'.")
-
-        _ = input("\n\nPress Enter to continue to next batch...\n")
+    visualize(data_loader)
 
 
 if __name__ == "__main__":

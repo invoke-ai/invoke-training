@@ -18,6 +18,7 @@ dependencies = [
     "accelerate~=0.25.0",
     "datasets~=2.14.3",
     "diffusers~=0.25.0",
+    "gradio",
     "numpy",
     "omegaconf",
     "peft~=0.7.0",

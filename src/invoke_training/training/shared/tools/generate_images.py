@@ -5,6 +5,7 @@ from typing import Optional
 import torch
 from tqdm import tqdm
 
+from invoke_training.training.shared.data.datasets.image_pair_preference_dataset import ImagePairPreferenceDataset
 from invoke_training.training.shared.stable_diffusion.model_loading_utils import (
     PipelineVersionEnum,
     load_pipeline,
@@ -16,8 +17,9 @@ def generate_images(
     model: str,
     hf_variant: str | None,
     pipeline_version: PipelineVersionEnum,
-    prompt: str,
-    num_images: int,
+    prompts: list[str],
+    set_size: int,
+    num_sets: int,
     height: int,
     width: int,
     loras: Optional[list[tuple[Path, float]]] = None,
@@ -35,7 +37,8 @@ def generate_images(
         model (str): The name or path of the diffusers pipeline to generate with.
         sd_version (PipelineVersionEnum): The model version.
         prompt (str): The prompt to generate images with.
-        num_images (int): The number of images to generate.
+        set_size (int): The number of images in a 'set' for a given prompt.
+        num_sets (int): The number of 'sets' to generate for each prompt.
         height (int): The output image height in pixels (recommended to match the resolution that the model was trained
             with).
         width (int): The output image width in pixels (recommended to match the resolution that the model was trained
@@ -75,14 +78,29 @@ def generate_images(
 
     os.makedirs(out_dir)
 
-    with torch.no_grad():
-        for i in tqdm(range(num_images)):
-            image = pipeline(
-                prompt,
-                num_inference_steps=30,
-                generator=generator,
-                height=height,
-                width=width,
-            ).images[0]
+    metadata = []
 
-            image.save(os.path.join(out_dir, f"{i:0>4}.jpg"))
+    total_images = num_sets * len(prompts) * set_size
+    with torch.no_grad(), tqdm(total=total_images) as pbar:
+        for prompt_idx in range(len(prompts)):
+            for set_idx in range(num_sets):
+                set_dir = os.path.join(out_dir, f"prompt-{prompt_idx:0>4}", f"set-{set_idx:0>4}")
+                os.makedirs(set_dir)
+                set_metadata_dict = {"prompt": prompts[prompt_idx]}
+                for image_idx in range(set_size):
+                    image = pipeline(
+                        prompts[prompt_idx],
+                        num_inference_steps=30,
+                        generator=generator,
+                        height=height,
+                        width=width,
+                    ).images[0]
+
+                    image_path = os.path.join(set_dir, f"image-{image_idx}.jpg")
+                    image.save(image_path)
+                    set_metadata_dict[f"image_{image_idx}"] = os.path.relpath(image_path, start=out_dir)
+                    set_metadata_dict[f"prefer_{image_idx}"] = False
+                    pbar.update(1)
+                metadata.append(set_metadata_dict)
+
+    ImagePairPreferenceDataset.save_metadata(metadata=metadata, dataset_dir=out_dir)

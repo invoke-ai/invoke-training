@@ -1,8 +1,13 @@
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from invoke_training.config.shared.data.dataset_config import ImageCaptionDatasetConfig, ImageDirDatasetConfig
+from invoke_training.config.shared.data.dataset_config import (
+    HFHubImagePairPreferenceDatasetConfig,
+    ImageCaptionDatasetConfig,
+    ImageDirDatasetConfig,
+    ImagePairPreferenceDatasetConfig,
+)
 from invoke_training.config.shared.data.transform_config import (
     SDImageTransformConfig,
     ShuffleCaptionTransformConfig,
@@ -103,6 +108,20 @@ class TextualInversionSDDataLoaderConfig(BaseModel):
     shuffle_caption_transform: Optional[ShuffleCaptionTransformConfig] = None
     """The caption shuffling configuration. If None, caption shuffling is disabled.
     """
+
+    dataloader_num_workers: int = 0
+    """Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
+    """
+
+
+class ImagePairPreferenceSDDataLoaderConfig(BaseModel):
+    type: Literal["IMAGE_PAIR_PREFERENCE_SD_DATA_LOADER"] = "IMAGE_PAIR_PREFERENCE_SD_DATA_LOADER"
+
+    dataset: Annotated[
+        Union[HFHubImagePairPreferenceDatasetConfig, ImagePairPreferenceDatasetConfig], Field(discriminator="type")
+    ]
+
+    image_transforms: SDImageTransformConfig
 
     dataloader_num_workers: int = 0
     """Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.

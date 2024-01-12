@@ -1,30 +1,28 @@
+import copy
 import itertools
 import json
-import logging
 import math
 import os
 import tempfile
 import time
-from pathlib import Path
-from typing import Optional, Union
 
-import numpy as np
 import peft
 import torch
 import torch.utils.data
-from accelerate import Accelerator
-from accelerate.hooks import remove_hook_from_module
 from accelerate.utils import set_seed
-from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionPipeline, UNet2DConditionModel
+from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel
 from diffusers.optimization import get_scheduler
-from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 
-from invoke_training.config.pipelines.finetune_lora_config import FinetuneLoRASDConfig
-from invoke_training.config.shared.data.data_loader_config import (
-    DreamboothSDDataLoaderConfig,
-    ImageCaptionSDDataLoaderConfig,
+from invoke_training.config.pipelines.finetune_lora_config import (
+    DirectPreferenceOptimizationLoRASDConfig,
+)
+from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import (
+    cache_text_encoder_outputs,
+    generate_validation_images,
+    load_models,
+    save_sd_lora_checkpoint,
 )
 from invoke_training.training.shared.accelerator.accelerator_utils import (
     get_mixed_precision_dtype,
@@ -32,337 +30,93 @@ from invoke_training.training.shared.accelerator.accelerator_utils import (
     initialize_logging,
 )
 from invoke_training.training.shared.checkpoints.checkpoint_tracker import CheckpointTracker
-from invoke_training.training.shared.data.data_loaders.dreambooth_sd_dataloader import build_dreambooth_sd_dataloader
-from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
-    build_image_caption_sd_dataloader,
+from invoke_training.training.shared.data.data_loaders.image_pair_preference_sd_dataloader import (
+    build_image_pair_preference_sd_dataloader,
 )
-from invoke_training.training.shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
-    AspectRatioBucketBatchSampler,
-)
-from invoke_training.training.shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training.training.shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training.training.shared.stable_diffusion.lora_checkpoint_utils import (
     TEXT_ENCODER_TARGET_MODULES,
     UNET_TARGET_MODULES,
-    save_sd_peft_checkpoint,
+    load_sd_peft_checkpoint,
 )
-from invoke_training.training.shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
 from invoke_training.training.shared.stable_diffusion.tokenize_captions import tokenize_captions
 
 
-def load_models(
-    config: FinetuneLoRASDConfig,
-) -> tuple[CLIPTokenizer, DDPMScheduler, CLIPTextModel, AutoencoderKL, UNet2DConditionModel]:
-    """Load all models required for training from disk, transfer them to the
-    target training device and cast their weight dtypes.
-
-    Args:
-        config (FinetuneLoRASDConfig): The LoRA training run config.
-        logger (logging.Logger): A logger.
-
-    Returns:
-        tuple[
-            CLIPTokenizer,
-            DDPMScheduler,
-            CLIPTextModel,
-            AutoencoderKL,
-            UNet2DConditionModel,
-        ]: A tuple of loaded models.
-    """
-    pipeline: StableDiffusionPipeline = load_pipeline(
-        model_name_or_path=config.model, pipeline_version=PipelineVersionEnum.SD, variant=config.hf_variant
-    )
-
-    # Extract sub-models from the pipeline.
-    tokenizer: CLIPTokenizer = pipeline.tokenizer
-    text_encoder: CLIPTextModel = pipeline.text_encoder
-    vae: AutoencoderKL = pipeline.vae
-    unet: UNet2DConditionModel = pipeline.unet
-    noise_scheduler = DDPMScheduler(
-        beta_start=0.00085,
-        beta_end=0.012,
-        beta_schedule="scaled_linear",
-        num_train_timesteps=1000,
-        clip_sample=False,
-        steps_offset=1,
-    )
-
-    # Disable gradient calculation for model weights to save memory.
-    text_encoder.requires_grad_(False)
-    vae.requires_grad_(False)
-    unet.requires_grad_(False)
-
-    # Put models in 'eval' mode.
-    text_encoder.eval()
-    vae.eval()
-    unet.eval()
-
-    return tokenizer, noise_scheduler, text_encoder, vae, unet
-
-
-def save_sd_lora_checkpoint(
-    idx: int,
-    unet: peft.PeftModel | None,
-    text_encoder: peft.PeftModel | None,
-    logger: logging.Logger,
-    checkpoint_tracker: CheckpointTracker,
-):
-    # Prune checkpoints and get new checkpoint path.
-    num_pruned = checkpoint_tracker.prune(1)
-    if num_pruned > 0:
-        logger.info(f"Pruned {num_pruned} checkpoint(s).")
-    save_path = checkpoint_tracker.get_path(idx)
-
-    save_sd_peft_checkpoint(Path(save_path), unet=unet, text_encoder=text_encoder)
-
-
-def build_data_loader(
-    data_loader_config: Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig],
-    batch_size: int,
-    text_encoder_output_cache_dir: Optional[str] = None,
-    vae_output_cache_dir: Optional[str] = None,
-    shuffle: bool = True,
-    sequential_batching: bool = False,
-) -> DataLoader:
-    if data_loader_config.type == "IMAGE_CAPTION_SD_DATA_LOADER":
-        return build_image_caption_sd_dataloader(
-            config=data_loader_config,
-            batch_size=batch_size,
-            text_encoder_output_cache_dir=text_encoder_output_cache_dir,
-            text_encoder_cache_field_to_output_field={"text_encoder_output": "text_encoder_output"},
-            vae_output_cache_dir=vae_output_cache_dir,
-            shuffle=shuffle,
-        )
-    elif data_loader_config.type == "DREAMBOOTH_SD_DATA_LOADER":
-        return build_dreambooth_sd_dataloader(
-            config=data_loader_config,
-            batch_size=batch_size,
-            text_encoder_output_cache_dir=text_encoder_output_cache_dir,
-            text_encoder_cache_field_to_output_field={"text_encoder_output": "text_encoder_output"},
-            vae_output_cache_dir=vae_output_cache_dir,
-            shuffle=shuffle,
-            sequential_batching=sequential_batching,
-        )
-    else:
-        raise ValueError(f"Unsupported data loader config type: '{data_loader_config.type}'.")
-
-
-def cache_text_encoder_outputs(
-    cache_dir: str, config: FinetuneLoRASDConfig, tokenizer: CLIPTokenizer, text_encoder: CLIPTextModel
-):
-    """Run the text encoder on all captions in the dataset and cache the results to disk.
-
-    Args:
-        cache_dir (str): The directory where the results will be cached.
-        config (FinetuneLoRASDConfig): Training config.
-        tokenizer (CLIPTokenizer): The tokenizer.
-        text_encoder (CLIPTextModel): The text_encoder.
-    """
-    data_loader = build_data_loader(
-        data_loader_config=config.data_loader,
-        batch_size=config.train_batch_size,
-        shuffle=False,
-        sequential_batching=True,
-    )
-
-    cache = TensorDiskCache(cache_dir)
-
-    for data_batch in tqdm(data_loader):
-        caption_token_ids = tokenize_captions(tokenizer, data_batch["caption"]).to(text_encoder.device)
-        text_encoder_output_batch = text_encoder(caption_token_ids)[0]
-        # Split batch before caching.
-        for i in range(len(data_batch["id"])):
-            cache.save(data_batch["id"][i], {"text_encoder_output": text_encoder_output_batch[i]})
-
-
-def cache_vae_outputs(cache_dir: str, data_loader: DataLoader, vae: AutoencoderKL):
-    """Run the VAE on all images in the dataset and cache the results to disk."""
-    cache = TensorDiskCache(cache_dir)
-
-    for data_batch in tqdm(data_loader):
-        latents = vae.encode(data_batch["image"].to(device=vae.device, dtype=vae.dtype)).latent_dist.sample()
-        latents = latents * vae.config.scaling_factor
-        # Split batch before caching.
-        for i in range(len(data_batch["id"])):
-            cache.save(
-                data_batch["id"][i],
-                {
-                    "vae_output": latents[i],
-                    "original_size_hw": data_batch["original_size_hw"][i],
-                    "crop_top_left_yx": data_batch["crop_top_left_yx"][i],
-                },
-            )
-
-
-def generate_validation_images(
-    epoch: int,
-    out_dir: str,
-    accelerator: Accelerator,
-    vae: AutoencoderKL,
-    text_encoder: CLIPTextModel,
-    tokenizer: CLIPTokenizer,
-    noise_scheduler: DDPMScheduler,
-    unet: UNet2DConditionModel,
-    config: FinetuneLoRASDConfig,
-    logger: logging.Logger,
-):
-    """Generate validation images for the purpose of tracking image generation behaviour on fixed prompts throughout
-    training.
-
-    Args:
-        epoch (int): Epoch number, for reporting purposes.
-        out_dir (str): The output directory where the validation images will be stored.
-        accelerator (Accelerator): Accelerator
-        vae (AutoencoderKL):
-        text_encoder (CLIPTextModel):
-        tokenizer (CLIPTokenizer):
-        noise_scheduler (DDPMScheduler):
-        unet (UNet2DConditionModel):
-        config (FinetuneLoRASDConfig): Training configs.
-        logger (logging.Logger): Logger.
-    """
-    logger.info("Generating validation images.")
-
-    # Record original model devices so that we can restore this state after running the pipeline with CPU model
-    # offloading.
-    unet_device = unet.device
-    vae_device = vae.device
-    text_encoder_device = text_encoder.device
-
-    # Create pipeline.
-    pipeline = StableDiffusionPipeline(
-        vae=vae,
-        text_encoder=text_encoder,
-        tokenizer=tokenizer,
-        unet=unet,
-        scheduler=noise_scheduler,
-        safety_checker=None,
-        feature_extractor=None,
-        # TODO(ryand): Add safety checker support.
-        requires_safety_checker=False,
-    )
-    if config.enable_cpu_offload_during_validation:
-        pipeline.enable_model_cpu_offload(accelerator.device.index or 0)
-    else:
-        pipeline = pipeline.to(accelerator.device)
-    pipeline.set_progress_bar_config(disable=True)
-
-    # Run inference.
-    with torch.no_grad():
-        for prompt_idx, prompt in enumerate(config.validation_prompts):
-            generator = torch.Generator(device=accelerator.device)
-            if config.seed is not None:
-                generator = generator.manual_seed(config.seed)
-
-            images = []
-            for _ in range(config.num_validation_images_per_prompt):
-                with accelerator.autocast():
-                    images.append(
-                        pipeline(
-                            prompt,
-                            num_inference_steps=30,
-                            generator=generator,
-                            height=config.data_loader.image_transforms.resolution,
-                            width=config.data_loader.image_transforms.resolution,
-                        ).images[0]
-                    )
-
-            # Save images to disk.
-            validation_dir = os.path.join(
-                out_dir,
-                "validation",
-                f"epoch_{epoch:0>8}",
-                f"prompt_{prompt_idx:0>4}",
-            )
-            os.makedirs(validation_dir)
-            for image_idx, image in enumerate(images):
-                image.save(os.path.join(validation_dir, f"{image_idx:0>4}.jpg"))
-
-            # Log images to trackers. Currently, only tensorboard is supported.
-            for tracker in accelerator.trackers:
-                if tracker.name == "tensorboard":
-                    np_images = np.stack([np.asarray(img) for img in images])
-                    tracker.writer.add_images(
-                        f"validation (prompt {prompt_idx})",
-                        np_images,
-                        epoch,
-                        dataformats="NHWC",
-                    )
-
-    del pipeline
-    torch.cuda.empty_cache()
-
-    # Remove hooks from models.
-    # HACK(ryand): Hooks get added when calling `pipeline.enable_model_cpu_offload(...)`, but `StableDiffusionPipeline`
-    # does not offer a way to clean them up so we have to do this manually.
-    for model in [unet, vae, text_encoder]:
-        remove_hook_from_module(model)
-
-    # Restore models to original devices.
-    unet.to(unet_device)
-    vae.to(vae_device)
-    text_encoder.to(text_encoder_device)
-
-
-def log_aspect_ratio_buckets(logger: logging.Logger, batch_sampler: AspectRatioBucketBatchSampler):
-    if not isinstance(batch_sampler, AspectRatioBucketBatchSampler):
-        return
-
-    log = "Aspect Ratio Buckets:\n"
-    buckets = batch_sampler.get_buckets()
-    bucket_resolutions = sorted(list(buckets.keys()))
-    for bucket_resolution in bucket_resolutions:
-        bucket_images = buckets[bucket_resolution]
-        log += f"  {bucket_resolution.to_tuple()}: {len(bucket_images)}\n"
-
-    logger.info(log)
-
-
-def train_forward(
-    config: FinetuneLoRASDConfig,
+def train_forward_dpo(  # noqa: C901
+    config: DirectPreferenceOptimizationLoRASDConfig,
     data_batch: dict,
     vae: AutoencoderKL,
     noise_scheduler: DDPMScheduler,
     tokenizer: CLIPTokenizer,
     text_encoder: CLIPTextModel,
     unet: UNet2DConditionModel,
+    ref_text_encoder: CLIPTextModel,
+    ref_unet: UNet2DConditionModel,
     weight_dtype: torch.dtype,
 ) -> torch.Tensor:
     """Run the forward training pass for a single data_batch.
 
+    This forward pass is based on 'Diffusion Model Alignment Using Direct Preference Optimization'
+    (https://arxiv.org/pdf/2311.12908.pdf). See the "Pseudocode for Training Objective" Appendix section for a helpful
+    reference.
+
     Returns:
         torch.Tensor: Loss
     """
+    batch_size = data_batch["image_0"].shape[0]
+
+    # Concatenate image_0 and image_1 images into a single image batch.
+    images = torch.concat((data_batch["image_0"], data_batch["image_1"]))
+
+    # Re-order images so that the 'images' batch contains all winner images followed by all loser images.
+    w_indices = []
+    l_indices = []
+    prefer_0 = data_batch["prefer_0"]
+    prefer_1 = data_batch["prefer_1"]
+    for i in range(batch_size):
+        if prefer_0[i] and not prefer_1[i]:
+            w_indices.append(i)
+            l_indices.append(i + batch_size)
+        elif not prefer_0[i] and prefer_1[i]:
+            w_indices.append(i + batch_size)
+            l_indices.append(i)
+        else:
+            raise ValueError(f"Encountered image pair with prefer_0={prefer_0[i]} and prefer_1={prefer_1[i]}.")
+    images = images[w_indices + l_indices]
+
+    # Update batch_size in case image pairs were filtered due to no-preference.
+    batch_size = images.shape[0] // 2
+
     # Convert images to latent space.
     # The VAE output may have been cached and included in the data_batch. If not, we calculate it here.
     latents = data_batch.get("vae_output", None)
     if latents is None:
-        latents = vae.encode(data_batch["image"].to(dtype=weight_dtype)).latent_dist.sample()
+        latents = vae.encode(images.to(dtype=weight_dtype)).latent_dist.sample()
         latents = latents * vae.config.scaling_factor
 
     # Sample noise that we'll add to the latents.
-    noise = torch.randn_like(latents)
+    # We want to use the same noise for the winning and losing example in each pair, so we generate noise for the
+    # winning latents and then repeat it.
+    noise = torch.randn_like(latents[:batch_size])
+    noise = noise.repeat((2, 1, 1, 1))
 
-    batch_size = latents.shape[0]
-    # Sample a random timestep for each image.
-    timesteps = torch.randint(
-        0,
-        noise_scheduler.config.num_train_timesteps,
-        (batch_size,),
-        device=latents.device,
-    )
-    timesteps = timesteps.long()
+    # Sample a random timestep for each image **pair**.
+    timesteps = torch.randint(0, noise_scheduler.config.num_train_timesteps, (batch_size,), device=latents.device)
+    timesteps = timesteps.repeat((2,)).long()
 
     # Add noise to the latents according to the noise magnitude at each timestep (this is the forward
     # diffusion process).
     noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
 
-    # Get the text embedding for conditioning.
+    # Get the text embedding for conditioning (for both the text_encoder and ref_text_encoder).
     # The text_encoder_output may have been cached and included in the data_batch. If not, we calculate it here.
     encoder_hidden_states = data_batch.get("text_encoder_output", None)
     if encoder_hidden_states is None:
         caption_token_ids = tokenize_captions(tokenizer, data_batch["caption"]).to(text_encoder.device)
         encoder_hidden_states = text_encoder(caption_token_ids)[0].to(dtype=weight_dtype)
+        ref_encoder_hidden_states = ref_text_encoder(caption_token_ids)[0].to(dtype=weight_dtype)
+    encoder_hidden_states = encoder_hidden_states.repeat((2, 1, 1))
+    ref_encoder_hidden_states = ref_encoder_hidden_states.repeat((2, 1, 1))
 
     # Get the target for loss depending on the prediction type.
     if config.prediction_type is not None:
@@ -376,18 +130,40 @@ def train_forward(
         raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
 
     # Predict the noise residual.
-    model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
+    ref_model_pred: torch.Tensor = ref_unet(noisy_latents, timesteps, ref_encoder_hidden_states).sample
+    model_pred: torch.Tensor = unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
-    loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="none")
     if "loss_weight" in data_batch:
-        # Mean-reduce the loss along all dimensions except for the batch dimension.
-        loss = loss.mean([1, 2, 3])
-        # Apply per-example weights.
-        loss = loss * data_batch["loss_weight"]
-    return loss.mean()
+        raise NotImplementedError("loss_weight is not yet supported.")
+
+    target = target.float()
+    w_target = target[:batch_size]
+    l_target = target[batch_size:]
+    model_w_pred = model_pred[:batch_size]
+    model_l_pred = model_pred[batch_size:]
+    ref_w_pred = ref_model_pred[:batch_size]
+    ref_l_pred = ref_model_pred[batch_size:]
+
+    # The pseudo-code from the paper uses `.norm().pow(2)` to calculate the errors. We take the mean over all pixels
+    # rather than the sum over all pixels instead. This helps keep the learning rate stable across different image
+    # resolutions. It also means that the the recommended settings for beta from the paper are not correct.
+    # > model_w_err = (model_w_pred - target).norm().pow(2)
+    # > model_l_err = (model_l_pred - target).norm().pow(2)
+    # > ref_w_err = (ref_w_pred - target).norm().pow(2)
+    # > ref_l_err = (ref_l_pred - target).norm().pow(2)
+    model_w_err = torch.nn.functional.mse_loss(model_w_pred, w_target)
+    model_l_err = torch.nn.functional.mse_loss(model_l_pred, l_target)
+    ref_w_err = torch.nn.functional.mse_loss(ref_w_pred, w_target)
+    ref_l_err = torch.nn.functional.mse_loss(ref_l_pred, l_target)
+
+    w_diff = model_w_err - ref_w_err
+    l_diff = model_l_err - ref_l_err
+    inside_term = -1 * config.beta * (w_diff - l_diff)
+    loss = -1 * torch.nn.functional.logsigmoid(inside_term)
+    return loss
 
 
-def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
+def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     # TODO(ryan): Update this check to work with single-file SD checkpoints.
     # check_base_model_version(
@@ -424,6 +200,8 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
 
     logger.info("Loading models.")
     tokenizer, noise_scheduler, text_encoder, vae, unet = load_models(config)
+    ref_text_encoder = copy.deepcopy(text_encoder)
+    ref_unet = copy.deepcopy(unet)
 
     if config.xformers:
         import xformers  # noqa: F401
@@ -431,6 +209,7 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
         # TODO(ryand): There is a known issue if xformers is enabled when training in mixed precision where xformers
         # will fail because Q, K, V have different dtypes.
         unet.enable_xformers_memory_efficient_attention()
+        ref_unet.enable_xformers_memory_efficient_attention()
         vae.enable_xformers_memory_efficient_attention()
 
     # Prepare text encoder output cache.
@@ -439,6 +218,7 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
         # TODO(ryand): Think about how to better check if it is safe to cache the text encoder outputs. Currently, there
         # are a number of configurations that would cause variation in the text encoder outputs and should not be used
         # with caching.
+        # TODO(ryand): This check does not make sense when config.initial_lora is set.
         if config.train_text_encoder:
             raise ValueError("'cache_text_encoder_outputs' and 'train_text_encoder' cannot both be True.")
 
@@ -456,78 +236,95 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
         accelerator.wait_for_everyone()
     else:
         text_encoder.to(accelerator.device, dtype=weight_dtype)
+        ref_text_encoder.to(accelerator.device, dtype=weight_dtype)
 
     # Prepare VAE output cache.
     vae_output_cache_dir_name = None
     if config.cache_vae_outputs:
-        if config.data_loader.image_transforms.random_flip:
-            raise ValueError("'cache_vae_outputs' cannot be True if 'random_flip' is True.")
-        if not config.data_loader.image_transforms.center_crop:
-            raise ValueError("'cache_vae_outputs' cannot be True if 'center_crop' is False.")
+        raise NotImplementedError("VAE caching is not implemented for Diffusion-DPO training yet.")
+        # if config.data_loader.image_transforms.random_flip:
+        #     raise ValueError("'cache_vae_outputs' cannot be True if 'random_flip' is True.")
+        # if not config.data_loader.image_transforms.center_crop:
+        #     raise ValueError("'cache_vae_outputs' cannot be True if 'center_crop' is False.")
 
-        # We use a temporary directory for the cache. The directory will automatically be cleaned up when
-        # tmp_vae_output_cache_dir is destroyed.
-        tmp_vae_output_cache_dir = tempfile.TemporaryDirectory()
-        vae_output_cache_dir_name = tmp_vae_output_cache_dir.name
-        if accelerator.is_local_main_process:
-            # Only the main process should populate the cache.
-            logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
-            vae.to(accelerator.device, dtype=weight_dtype)
-            data_loader = build_data_loader(
-                data_loader_config=config.data_loader,
-                batch_size=config.train_batch_size,
-                shuffle=False,
-                sequential_batching=True,
-            )
-            cache_vae_outputs(vae_output_cache_dir_name, data_loader, vae)
-        # Move the VAE back to the CPU, because it is not needed for training.
-        vae.to("cpu")
-        accelerator.wait_for_everyone()
+        # # We use a temporary directory for the cache. The directory will automatically be cleaned up when
+        # # tmp_vae_output_cache_dir is destroyed.
+        # tmp_vae_output_cache_dir = tempfile.TemporaryDirectory()
+        # vae_output_cache_dir_name = tmp_vae_output_cache_dir.name
+        # if accelerator.is_local_main_process:
+        #     # Only the main process should populate the cache.
+        #     logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
+        #     vae.to(accelerator.device, dtype=weight_dtype)
+
+        #     data_loader = build_data_loader(
+        #         data_loader_config=config.data_loader,
+        #         batch_size=config.train_batch_size,
+        #         shuffle=False,
+        #         sequential_batching=True,
+        #     )
+        #     cache_vae_outputs(vae_output_cache_dir_name, data_loader, vae)
+        # # Move the VAE back to the CPU, because it is not needed for training.
+        # vae.to("cpu")
+        # accelerator.wait_for_everyone()
     else:
         vae.to(accelerator.device, dtype=weight_dtype)
 
     unet.to(accelerator.device, dtype=weight_dtype)
+    ref_unet.to(accelerator.device, dtype=weight_dtype)
 
     # Add LoRA layers to the models being trained.
     trainable_param_groups = []
     all_trainable_models: list[peft.PeftModel] = []
 
-    def inject_lora_layers(model, lora_config: peft.LoraConfig, lr: float | None = None) -> peft.PeftModel:
-        peft_model = peft.get_peft_model(model, lora_config)
-        peft_model.print_trainable_parameters()
+    # Add LoRA layers to the model.
+    trainable_param_groups = []
+    if config.initial_lora is not None:
+        unet, text_encoder = load_sd_peft_checkpoint(
+            checkpoint_dir=config.initial_lora, unet=unet, text_encoder=text_encoder, is_trainable=True
+        )
+        ref_unet, ref_text_encoder = load_sd_peft_checkpoint(
+            checkpoint_dir=config.initial_lora, unet=ref_unet, text_encoder=ref_text_encoder, is_trainable=False
+        )
+    else:
+        if config.train_unet:
+            unet_lora_config = peft.LoraConfig(
+                r=config.lora_rank_dim,
+                # TODO(ryand): Diffusers uses lora_alpha=config.lora_rank_dim. Is that preferred?
+                lora_alpha=1.0,
+                target_modules=UNET_TARGET_MODULES,
+            )
+            unet = peft.get_peft_model(unet, unet_lora_config)
+
+        if config.train_text_encoder:
+            text_encoder_lora_config = peft.LoraConfig(
+                r=config.lora_rank_dim,
+                lora_alpha=1.0,
+                # init_lora_weights="gaussian",
+                target_modules=TEXT_ENCODER_TARGET_MODULES,
+            )
+            text_encoder = peft.get_peft_model(text_encoder, text_encoder_lora_config)
+
+    def prep_peft_model(model, lr: float | None = None):
+        if not isinstance(model, peft.PeftModel):
+            return False
+
+        model.print_trainable_parameters()
 
         # Populate `trainable_param_groups`, to be passed to the optimizer.
-        param_group = {"params": list(filter(lambda p: p.requires_grad, peft_model.parameters()))}
+        param_group = {"params": list(filter(lambda p: p.requires_grad, model.parameters()))}
         if lr is not None:
             param_group["lr"] = lr
         trainable_param_groups.append(param_group)
 
         # Populate all_trainable_models.
-        all_trainable_models.append(peft_model)
+        all_trainable_models.append(model)
 
-        peft_model.train()
+        model.train()
 
-        return peft_model
+        return True
 
-    # Add LoRA layers to the model.
-    trainable_param_groups = []
-    if config.train_unet:
-        unet_lora_config = peft.LoraConfig(
-            r=config.lora_rank_dim,
-            # TODO(ryand): Diffusers uses lora_alpha=config.lora_rank_dim. Is that preferred?
-            lora_alpha=1.0,
-            target_modules=UNET_TARGET_MODULES,
-        )
-        unet = inject_lora_layers(unet, unet_lora_config, lr=config.unet_learning_rate)
-
-    if config.train_text_encoder:
-        text_encoder_lora_config = peft.LoraConfig(
-            r=config.lora_rank_dim,
-            lora_alpha=1.0,
-            # init_lora_weights="gaussian",
-            target_modules=TEXT_ENCODER_TARGET_MODULES,
-        )
-        text_encoder = inject_lora_layers(text_encoder, text_encoder_lora_config, lr=config.text_encoder_learning_rate)
+    training_unet = prep_peft_model(unet, config.unet_learning_rate)
+    training_text_encoder = prep_peft_model(text_encoder, config.text_encoder_learning_rate)
 
     # Make sure all trainable params are in float32.
     for trainable_model in all_trainable_models:
@@ -542,7 +339,7 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
         # At the time of writing, the unet dropout probabilities default to 0, so putting the unet in train mode does
         # not change its forward behavior.
         unet.train()
-        if config.train_text_encoder:
+        if training_text_encoder:
             text_encoder.gradient_checkpointing_enable()
 
             # The text encoder must be in train() mode for gradient checkpointing to take effect. This should
@@ -559,14 +356,14 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
 
     optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
 
-    data_loader = build_data_loader(
-        data_loader_config=config.data_loader,
+    data_loader = build_image_pair_preference_sd_dataloader(
+        config=config.data_loader,
         batch_size=config.train_batch_size,
         text_encoder_output_cache_dir=text_encoder_output_cache_dir_name,
+        text_encoder_cache_field_to_output_field={"text_encoder_output": "text_encoder_output"},
         vae_output_cache_dir=vae_output_cache_dir_name,
+        shuffle=True,
     )
-
-    log_aspect_ratio_buckets(logger=logger, batch_sampler=data_loader.batch_sampler)
 
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
     # by the number of processes. This scaling logic was copied from the diffusers example training code, but it appears
@@ -581,8 +378,8 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
     )
 
     prepared_result: tuple[
-        UNet2DConditionModel,
-        CLIPTextModel,
+        UNet2DConditionModel | peft.PeftModel,
+        CLIPTextModel | peft.PeftModel,
         torch.optim.Optimizer,
         torch.utils.data.DataLoader,
         torch.optim.lr_scheduler.LRScheduler,
@@ -612,12 +409,14 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
     epoch_checkpoint_tracker = CheckpointTracker(
         base_dir=out_dir,
         prefix="checkpoint_epoch",
+        extension=f".{config.output.save_model_as}",
         max_checkpoints=config.max_checkpoints,
     )
 
     step_checkpoint_tracker = CheckpointTracker(
         base_dir=out_dir,
         prefix="checkpoint_step",
+        extension=f".{config.output.save_model_as}",
         max_checkpoints=config.max_checkpoints,
     )
 
@@ -645,15 +444,17 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
         train_loss = 0.0
         for data_batch in data_loader:
             with accelerator.accumulate(unet, text_encoder):
-                loss = train_forward(
-                    config,
-                    data_batch,
-                    vae,
-                    noise_scheduler,
-                    tokenizer,
-                    text_encoder,
-                    unet,
-                    weight_dtype,
+                loss = train_forward_dpo(
+                    config=config,
+                    data_batch=data_batch,
+                    vae=vae,
+                    noise_scheduler=noise_scheduler,
+                    tokenizer=tokenizer,
+                    text_encoder=text_encoder,
+                    unet=unet,
+                    ref_text_encoder=ref_text_encoder,
+                    ref_unet=ref_unet,
+                    weight_dtype=weight_dtype,
                 )
 
                 # Gather the losses across all processes for logging (if we use distributed training).
@@ -677,12 +478,12 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
                 log = {"train_loss": train_loss}
 
                 lrs = lr_scheduler.get_last_lr()
-                if config.train_unet:
+                if training_unet:
                     # When training the UNet, it will always be the first parameter group.
                     log["lr/unet"] = float(lrs[0])
                     if config.optimizer.optimizer.optimizer_type == "Prodigy":
                         log["lr/d*lr/unet"] = optimizer.param_groups[0]["d"] * optimizer.param_groups[0]["lr"]
-                if config.train_text_encoder:
+                if training_text_encoder:
                     # When training the text encoder, it will always be the last parameter group.
                     log["lr/text_encoder"] = float(lrs[-1])
                     if config.optimizer.optimizer.optimizer_type == "Prodigy":
@@ -696,8 +497,8 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
                     if accelerator.is_main_process:
                         save_sd_lora_checkpoint(
                             idx=global_step + 1,
-                            unet=accelerator.unwrap_model(unet) if config.train_unet else None,
-                            text_encoder=accelerator.unwrap_model(text_encoder) if config.train_text_encoder else None,
+                            unet=accelerator.unwrap_model(unet) if training_unet else None,
+                            text_encoder=accelerator.unwrap_model(text_encoder) if training_text_encoder else None,
                             logger=logger,
                             checkpoint_tracker=step_checkpoint_tracker,
                         )
@@ -717,8 +518,8 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
                 accelerator.wait_for_everyone()
                 save_sd_lora_checkpoint(
                     idx=epoch + 1,
-                    unet=accelerator.unwrap_model(unet) if config.train_unet else None,
-                    text_encoder=accelerator.unwrap_model(text_encoder) if config.train_text_encoder else None,
+                    unet=accelerator.unwrap_model(unet) if training_unet else None,
+                    text_encoder=accelerator.unwrap_model(text_encoder) if training_text_encoder else None,
                     logger=logger,
                     checkpoint_tracker=epoch_checkpoint_tracker,
                 )

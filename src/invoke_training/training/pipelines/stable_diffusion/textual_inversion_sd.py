@@ -6,7 +6,6 @@ import tempfile
 import time
 
 import torch
-import torch.utils.checkpoint
 from accelerate import Accelerator
 from accelerate.utils import set_seed
 from diffusers.optimization import get_scheduler

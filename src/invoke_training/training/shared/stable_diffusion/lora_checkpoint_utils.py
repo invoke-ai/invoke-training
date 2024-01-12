@@ -7,6 +7,28 @@ from transformers import CLIPTextModel
 
 from invoke_training.training.shared.checkpoints.serialization import save_state_dict
 
+# Copied from https://github.com/huggingface/peft/blob/8665e2b5719faa4e4b91749ddec09442927b53e0/examples/stable_diffusion/train_dreambooth.py#L49C1-L65C87
+# TODO(ryand): Is this the set of modules that we want to use?
+# UNET_TARGET_MODULES = [
+#     "to_q",
+#     "to_k",
+#     "to_v",
+#     "proj",
+#     "proj_in",
+#     "proj_out",
+#     "conv",
+#     "conv1",
+#     "conv2",
+#     "conv_shortcut",
+#     "to_out.0",
+#     "time_emb_proj",
+#     "ff.net.2",
+# ]
+# TEXT_ENCODER_TARGET_MODULES = ["fc1", "fc2", "q_proj", "k_proj", "v_proj", "out_proj"]
+# Module lists copied from diffusers training script:
+UNET_TARGET_MODULES = ["to_k", "to_q", "to_v", "to_out.0"]
+TEXT_ENCODER_TARGET_MODULES = ["q_proj", "k_proj", "v_proj", "out_proj"]
+
 SD_PEFT_UNET_KEY = "unet"
 SD_PEFT_TEXT_ENCODER_KEY = "text_encoder"
 
@@ -15,29 +37,31 @@ SDXL_PEFT_TEXT_ENCODER_1_KEY = "text_encoder_1"
 SDXL_PEFT_TEXT_ENCODER_2_KEY = "text_encoder_2"
 
 
-def save_multi_model_peft_checkpoint(checkpoint_dir: Path, models: dict[str, peft.PeftModel]):
+def save_multi_model_peft_checkpoint(checkpoint_dir: Path | str, models: dict[str, peft.PeftModel]):
     """Save a dict of PeftModels to a checkpoint directory.
 
     The `models` dict keys are used as the subdirectories for each individual model.
 
     `load_multi_model_peft_checkpoint(...)` can be used to load the resultant checkpoint.
     """
+    checkpoint_dir = Path(checkpoint_dir)
     for model_key, peft_model in models.items():
         assert isinstance(peft_model, peft.PeftModel)
         peft_model.save_pretrained(str(checkpoint_dir / model_key))
 
 
 def load_multi_model_peft_checkpoint(
-    checkpoint_dir: Path,
+    checkpoint_dir: Path | str,
     models: dict[str, torch.nn.Module],
     is_trainable: bool = False,
     raise_if_subdir_missing: bool = True,
 ) -> dict[str, torch.nn.Module]:
     """Load a multi-model PEFT checkpoint that was saved with `save_multi_model_peft_checkpoint(...)`."""
+    checkpoint_dir = Path(checkpoint_dir)
     assert checkpoint_dir.exists()
 
     out_models = {}
-    for model_key, model in models:
+    for model_key, model in models.items():
         dir_path: Path = checkpoint_dir / model_key
         if dir_path.exists():
             out_models[model_key] = peft.PeftModel.from_pretrained(model, dir_path, is_trainable=is_trainable)
@@ -51,7 +75,9 @@ def load_multi_model_peft_checkpoint(
     return out_models
 
 
-def save_sd_peft_checkpoint(checkpoint_dir: Path, unet: peft.PeftModel | None, text_encoder: peft.PeftModel | None):
+def save_sd_peft_checkpoint(
+    checkpoint_dir: Path | str, unet: peft.PeftModel | None, text_encoder: peft.PeftModel | None
+):
     models = {}
     if unet is not None:
         models[SD_PEFT_UNET_KEY] = unet
@@ -62,7 +88,7 @@ def save_sd_peft_checkpoint(checkpoint_dir: Path, unet: peft.PeftModel | None, t
 
 
 def load_sd_peft_checkpoint(
-    checkpoint_dir: Path, unet: UNet2DConditionModel, text_encoder: CLIPTextModel, is_trainable: bool = False
+    checkpoint_dir: Path | str, unet: UNet2DConditionModel, text_encoder: CLIPTextModel, is_trainable: bool = False
 ):
     models = load_multi_model_peft_checkpoint(
         checkpoint_dir=checkpoint_dir,
@@ -75,7 +101,7 @@ def load_sd_peft_checkpoint(
 
 
 def save_sdxl_peft_checkpoint(
-    checkpoint_dir: Path,
+    checkpoint_dir: Path | str,
     unet: peft.PeftModel | None,
     text_encoder_1: peft.PeftModel | None,
     text_encoder_2: peft.PeftModel | None,
@@ -92,7 +118,7 @@ def save_sdxl_peft_checkpoint(
 
 
 def load_sdxl_peft_checkpoint(
-    checkpoint_dir: Path,
+    checkpoint_dir: Path | str,
     unet: UNet2DConditionModel,
     text_encoder_1: CLIPTextModel,
     text_encoder_2: CLIPTextModel,

@@ -118,6 +118,7 @@ def test_hf_dir_image_caption_dataset_get_image_dimensions(hf_dir_dataset: HFIma
 ################################################
 
 
+@pytest.mark.loads_model
 def test_hf_hub_image_caption_dataset_bad_image_column():
     """Test that a ValueError is raised if HFImageCaptionDataset is initialized with an `image_column` that does not
     exist.
@@ -130,6 +131,7 @@ def test_hf_hub_image_caption_dataset_bad_image_column():
         )
 
 
+@pytest.mark.loads_model
 def test_hf_hub_image_caption_dataset_bad_caption_column():
     """Test that a ValueError is raised if HFImageCaptionDataset is initialized with a `caption_column` that does not
     exist.
@@ -150,6 +152,7 @@ def hf_hub_dataset():
     )
 
 
+@pytest.mark.loads_model
 def test_hf_hub_image_caption_dataset_index_error(hf_hub_dataset: HFImageCaptionDataset):
     """Test that an IndexError is raised if a dataset element is accessed with an index that is out-of-bounds."""
     with pytest.raises(IndexError):
@@ -176,6 +179,7 @@ def test_hf_hub_image_caption_dataset_getitem(hf_hub_dataset: HFImageCaptionData
     assert example["id"] == 0
 
 
+@pytest.mark.loads_model
 def test_hf_hub_image_caption_dataset_get_image_dimensions(hf_hub_dataset: HFImageCaptionDataset):
     """Test HFImageCaptionDataset.get_image_dimensions()."""
     image_dims = hf_hub_dataset.get_image_dimensions()
