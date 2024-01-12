@@ -66,7 +66,7 @@ def _save_sd_lora_checkpoint(
     save_sd_peft_checkpoint(Path(save_path), unet=unet, text_encoder=text_encoder)
 
 
-def build_data_loader(
+def _build_data_loader(
     data_loader_config: Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig],
     batch_size: int,
     text_encoder_output_cache_dir: Optional[str] = None,
@@ -108,7 +108,7 @@ def cache_text_encoder_outputs(
         tokenizer (CLIPTokenizer): The tokenizer.
         text_encoder (CLIPTextModel): The text_encoder.
     """
-    data_loader = build_data_loader(
+    data_loader = _build_data_loader(
         data_loader_config=config.data_loader,
         batch_size=config.train_batch_size,
         shuffle=False,
@@ -425,7 +425,7 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
             # Only the main process should populate the cache.
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
-            data_loader = build_data_loader(
+            data_loader = _build_data_loader(
                 data_loader_config=config.data_loader,
                 batch_size=config.train_batch_size,
                 shuffle=False,
@@ -511,7 +511,7 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
 
     optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
 
-    data_loader = build_data_loader(
+    data_loader = _build_data_loader(
         data_loader_config=config.data_loader,
         batch_size=config.train_batch_size,
         text_encoder_output_cache_dir=text_encoder_output_cache_dir_name,

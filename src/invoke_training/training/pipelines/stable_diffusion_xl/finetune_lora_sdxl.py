@@ -69,7 +69,7 @@ def _save_sdxl_lora_checkpoint(
     save_sdxl_peft_checkpoint(Path(save_path), unet=unet, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2)
 
 
-def build_data_loader(
+def _build_data_loader(
     data_loader_config: Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig],
     batch_size: int,
     text_encoder_output_cache_dir: Optional[str] = None,
@@ -152,7 +152,7 @@ def cache_text_encoder_outputs(
         text_encoder_1 (CLIPPreTrainedModel):
         text_encoder_2 (CLIPPreTrainedModel):
     """
-    data_loader = build_data_loader(
+    data_loader = _build_data_loader(
         data_loader_config=config.data_loader,
         batch_size=config.train_batch_size,
         shuffle=False,
@@ -470,7 +470,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
             # Only the main process should to populate the cache.
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
-            data_loader = build_data_loader(
+            data_loader = _build_data_loader(
                 data_loader_config=config.data_loader,
                 batch_size=config.train_batch_size,
                 shuffle=False,
@@ -560,7 +560,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
 
     optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
 
-    data_loader = build_data_loader(
+    data_loader = _build_data_loader(
         data_loader_config=config.data_loader,
         batch_size=config.train_batch_size,
         text_encoder_output_cache_dir=text_encoder_output_cache_dir_name,
