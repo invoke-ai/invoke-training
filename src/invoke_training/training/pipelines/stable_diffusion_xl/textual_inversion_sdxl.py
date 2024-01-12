@@ -26,11 +26,11 @@ from invoke_training.training._shared.data.data_loaders.textual_inversion_sd_dat
 )
 from invoke_training.training._shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_models_sdxl
-from invoke_training.training._shared.stable_diffusion.textual_inversion import add_tokens_to_tokenizer
-from invoke_training.training.pipelines.stable_diffusion.textual_inversion_sd import (
+from invoke_training.training._shared.stable_diffusion.textual_inversion import (
+    add_tokens_to_tokenizer,
     initialize_placeholder_tokens_from_initializer_token,
-    restore_original_embeddings,
 )
+from invoke_training.training.pipelines.stable_diffusion.textual_inversion_sd import restore_original_embeddings
 from invoke_training.training.pipelines.stable_diffusion_xl.finetune_lora_sdxl import (
     cache_vae_outputs,
     generate_validation_images,
