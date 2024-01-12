@@ -1,10 +1,8 @@
 import torch
 
-from invoke_training.config.shared.data.data_loader_config import (
-    ImagePairPreferenceSDDataLoaderConfig,
-)
-from invoke_training.config.shared.data.dataset_config import (
+from invoke_training.config._experimental.dpo.config import (
     HFHubImagePairPreferenceDatasetConfig,
+    ImagePairPreferenceSDDataLoaderConfig,
 )
 from invoke_training.config.shared.data.transform_config import SDImageTransformConfig
 from invoke_training.training.shared.data.data_loaders.image_pair_preference_sd_dataloader import (

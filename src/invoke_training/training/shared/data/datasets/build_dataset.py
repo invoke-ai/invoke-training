@@ -1,9 +1,9 @@
 from datasets import VerificationMode
 
+from invoke_training.config._experimental.dpo.config import HFHubImagePairPreferenceDatasetConfig
 from invoke_training.config.shared.data.dataset_config import (
     HFDirImageCaptionDatasetConfig,
     HFHubImageCaptionDatasetConfig,
-    HFHubImagePairPreferenceDatasetConfig,
 )
 from invoke_training.training.shared.data.datasets.hf_image_caption_dataset import HFImageCaptionDataset
 from invoke_training.training.shared.data.datasets.hf_image_pair_preference_dataset import HFImagePairPreferenceDataset

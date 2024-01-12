@@ -1,8 +1,37 @@
-from typing import Literal
+from typing import Annotated, Literal, Union
+
+from pydantic import BaseModel, Field
 
 from invoke_training.config.pipelines.finetune_lora_config import LoRATrainingConfig
-from invoke_training.config.shared.data.data_loader_config import ImagePairPreferenceSDDataLoaderConfig
+from invoke_training.config.shared.data.transform_config import SDImageTransformConfig
 from invoke_training.config.shared.optimizer.optimizer_config import OptimizerConfig
+
+
+class HFHubImagePairPreferenceDatasetConfig(BaseModel):
+    type: Literal["HF_HUB_IMAGE_PAIR_PREFERENCE_DATASET"] = "HF_HUB_IMAGE_PAIR_PREFERENCE_DATASET"
+
+    # TODO(ryand): Fill this out.
+
+
+class ImagePairPreferenceDatasetConfig(BaseModel):
+    type: Literal["IMAGE_PAIR_PREFERENCE_DATASET"] = "IMAGE_PAIR_PREFERENCE_DATASET"
+
+    dataset_dir: str
+    """The directory to load the dataset from."""
+
+
+class ImagePairPreferenceSDDataLoaderConfig(BaseModel):
+    type: Literal["IMAGE_PAIR_PREFERENCE_SD_DATA_LOADER"] = "IMAGE_PAIR_PREFERENCE_SD_DATA_LOADER"
+
+    dataset: Annotated[
+        Union[HFHubImagePairPreferenceDatasetConfig, ImagePairPreferenceDatasetConfig], Field(discriminator="type")
+    ]
+
+    image_transforms: SDImageTransformConfig
+
+    dataloader_num_workers: int = 0
+    """Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
+    """
 
 
 class DirectPreferenceOptimizationLoRASDConfig(LoRATrainingConfig):

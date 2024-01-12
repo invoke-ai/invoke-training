@@ -3,7 +3,7 @@ import typing
 import torch
 from torch.utils.data import DataLoader
 
-from invoke_training.config.shared.data.data_loader_config import ImagePairPreferenceSDDataLoaderConfig
+from invoke_training.config._experimental.dpo.config import ImagePairPreferenceSDDataLoaderConfig
 from invoke_training.training.shared.data.datasets.build_dataset import (
     build_hf_image_pair_preference_dataset,
 )
