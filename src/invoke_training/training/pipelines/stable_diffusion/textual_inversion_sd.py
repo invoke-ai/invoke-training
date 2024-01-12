@@ -25,6 +25,7 @@ from invoke_training.training._shared.data.data_loaders.textual_inversion_sd_dat
 )
 from invoke_training.training._shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_models_sd
+from invoke_training.training._shared.stable_diffusion.textual_inversion import add_tokens_to_tokenizer
 from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import (
     cache_vae_outputs,
     generate_validation_images,
@@ -59,15 +60,6 @@ def _save_ti_embeddings(
     learned_embeds_dict = {placeholder_token: learned_embeds.detach().cpu()}
 
     save_state_dict(learned_embeds_dict, save_path)
-
-
-def add_tokens_to_tokenizer(placeholder_tokens: list[str], tokenizer: PreTrainedTokenizer):
-    num_added_tokens = tokenizer.add_tokens(placeholder_tokens)
-    if num_added_tokens != len(placeholder_tokens):
-        raise ValueError(
-            f"The tokenizer already contains one of the tokens in '{placeholder_tokens}'. Please pass a different"
-            " 'placeholder_token' that is not already in the tokenizer."
-        )
 
 
 def initialize_placeholder_tokens_from_initializer_token(
