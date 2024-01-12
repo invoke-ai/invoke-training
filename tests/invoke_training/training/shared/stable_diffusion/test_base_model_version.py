@@ -1,7 +1,7 @@
 import pytest
 from transformers import PretrainedConfig
 
-from invoke_training.training.shared.stable_diffusion.base_model_version import (
+from invoke_training.training._shared.stable_diffusion.base_model_version import (
     BaseModelVersionEnum,
     check_base_model_version,
     get_base_model_version,

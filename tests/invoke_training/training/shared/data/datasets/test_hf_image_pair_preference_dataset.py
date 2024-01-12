@@ -2,7 +2,7 @@ import pytest
 from datasets import VerificationMode
 from PIL.Image import Image
 
-from invoke_training.training.shared.data.datasets.hf_image_pair_preference_dataset import HFImagePairPreferenceDataset
+from invoke_training.training._shared.data.datasets.hf_image_pair_preference_dataset import HFImagePairPreferenceDataset
 
 
 @pytest.mark.loads_model

@@ -5,7 +5,7 @@ import yaml
 from pydantic import TypeAdapter
 
 from invoke_training.config.pipelines.pipeline_config import PipelineConfig
-from invoke_training.training.pipelines.stable_diffusion.diffusion_dpo_lora_sd import (
+from invoke_training.training._experimental.dpo.diffusion_dpo_lora_sd import (
     run_training as run_diffusion_dpo_sd,
 )
 from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import run_training as run_finetune_lora_sd
@@ -51,6 +51,7 @@ def main():
     elif train_config.type == "TEXTUAL_INVERSION_SDXL":
         run_textual_inversion_sdxl(train_config)
     elif train_config.type == "DIRECT_PREFERENCE_OPTIMIZATION_LORA_SD":
+        print(f"Running EXPERIMENTAL pipeline: '{train_config.type}'.")
         run_diffusion_dpo_sd(train_config)
     else:
         raise ValueError(f"Unexpected pipeline type: '{train_config.type}'.")

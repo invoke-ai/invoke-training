@@ -1,4 +1,4 @@
-from invoke_training.training.shared.data.samplers.concat_sampler import ConcatSampler
+from invoke_training.training._shared.data.samplers.concat_sampler import ConcatSampler
 
 
 def test_concat_sampler():

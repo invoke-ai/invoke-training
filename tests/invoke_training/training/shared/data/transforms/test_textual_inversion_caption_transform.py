@@ -1,6 +1,6 @@
 import pytest
 
-from invoke_training.training.shared.data.transforms.textual_inversion_caption_transform import (
+from invoke_training.training._shared.data.transforms.textual_inversion_caption_transform import (
     TextualInversionCaptionTransform,
 )
 

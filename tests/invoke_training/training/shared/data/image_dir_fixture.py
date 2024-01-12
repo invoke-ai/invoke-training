@@ -2,7 +2,7 @@ import numpy as np
 import PIL.Image
 import pytest
 
-from invoke_training.training.shared.data.datasets.image_pair_preference_dataset import ImagePairPreferenceDataset
+from invoke_training.training._shared.data.datasets.image_pair_preference_dataset import ImagePairPreferenceDataset
 
 
 @pytest.fixture(scope="session")

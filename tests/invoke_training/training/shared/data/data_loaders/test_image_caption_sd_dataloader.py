@@ -7,7 +7,7 @@ from invoke_training.config.shared.data.data_loader_config import (
 )
 from invoke_training.config.shared.data.dataset_config import HFHubImageCaptionDatasetConfig
 from invoke_training.config.shared.data.transform_config import SDImageTransformConfig
-from invoke_training.training.shared.data.data_loaders.image_caption_sd_dataloader import (
+from invoke_training.training._shared.data.data_loaders.image_caption_sd_dataloader import (
     build_image_caption_sd_dataloader,
 )
 

@@ -1,4 +1,4 @@
-from invoke_training.training.shared.data.transforms.shuffle_caption_transform import ShuffleCaptionTransform
+from invoke_training.training._shared.data.transforms.shuffle_caption_transform import ShuffleCaptionTransform
 
 
 def test_shuffle_caption_transform():

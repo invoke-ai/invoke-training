@@ -9,7 +9,7 @@ import yaml
 from pydantic import TypeAdapter
 
 from invoke_training.config.pipelines.pipeline_config import PipelineConfig
-from invoke_training.training.shared.data.datasets.image_pair_preference_dataset import ImagePairPreferenceDataset
+from invoke_training.training._shared.data.datasets.image_pair_preference_dataset import ImagePairPreferenceDataset
 
 
 def parse_args():

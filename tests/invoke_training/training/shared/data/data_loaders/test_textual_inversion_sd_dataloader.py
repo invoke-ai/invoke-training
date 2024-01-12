@@ -6,7 +6,7 @@ from invoke_training.config.shared.data.transform_config import (
     SDImageTransformConfig,
     TextualInversionPresetCaptionTransformConfig,
 )
-from invoke_training.training.shared.data.data_loaders.textual_inversion_sd_dataloader import (
+from invoke_training.training._shared.data.data_loaders.textual_inversion_sd_dataloader import (
     build_textual_inversion_sd_dataloader,
 )
 

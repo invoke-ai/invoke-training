@@ -5,7 +5,7 @@ import torch
 from diffusers import UNet2DConditionModel
 from transformers import CLIPTextModel
 
-from invoke_training.training.shared.checkpoints.serialization import save_state_dict
+from invoke_training.training._shared.checkpoints.serialization import save_state_dict
 
 # Copied from https://github.com/huggingface/peft/blob/8665e2b5719faa4e4b91749ddec09442927b53e0/examples/stable_diffusion/train_dreambooth.py#L49C1-L65C87
 # TODO(ryand): Is this the set of modules that we want to use?

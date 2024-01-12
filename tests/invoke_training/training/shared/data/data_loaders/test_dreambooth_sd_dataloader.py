@@ -3,7 +3,7 @@ import torch
 from invoke_training.config.shared.data.data_loader_config import AspectRatioBucketConfig, DreamboothSDDataLoaderConfig
 from invoke_training.config.shared.data.dataset_config import ImageDirDatasetConfig
 from invoke_training.config.shared.data.transform_config import SDImageTransformConfig
-from invoke_training.training.shared.data.data_loaders.dreambooth_sd_dataloader import (
+from invoke_training.training._shared.data.data_loaders.dreambooth_sd_dataloader import (
     build_dreambooth_sd_dataloader,
 )
 

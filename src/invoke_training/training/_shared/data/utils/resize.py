@@ -3,7 +3,7 @@ import math
 from PIL.Image import Image
 from torchvision import transforms
 
-from invoke_training.training.shared.data.utils.resolution import Resolution
+from invoke_training.training._shared.data.utils.resolution import Resolution
 
 
 def resize_to_cover(image: Image, size_to_cover: Resolution) -> Image:

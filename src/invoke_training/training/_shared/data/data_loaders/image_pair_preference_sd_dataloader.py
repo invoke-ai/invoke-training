@@ -3,15 +3,15 @@ import typing
 import torch
 from torch.utils.data import DataLoader
 
-from invoke_training.config.shared.data.data_loader_config import ImagePairPreferenceSDDataLoaderConfig
-from invoke_training.training.shared.data.datasets.build_dataset import (
+from invoke_training.config._experimental.dpo.config import ImagePairPreferenceSDDataLoaderConfig
+from invoke_training.training._shared.data.datasets.build_dataset import (
     build_hf_image_pair_preference_dataset,
 )
-from invoke_training.training.shared.data.datasets.image_pair_preference_dataset import ImagePairPreferenceDataset
-from invoke_training.training.shared.data.datasets.transform_dataset import TransformDataset
-from invoke_training.training.shared.data.transforms.load_cache_transform import LoadCacheTransform
-from invoke_training.training.shared.data.transforms.sd_image_transform import SDImageTransform
-from invoke_training.training.shared.data.transforms.tensor_disk_cache import TensorDiskCache
+from invoke_training.training._shared.data.datasets.image_pair_preference_dataset import ImagePairPreferenceDataset
+from invoke_training.training._shared.data.datasets.transform_dataset import TransformDataset
+from invoke_training.training._shared.data.transforms.load_cache_transform import LoadCacheTransform
+from invoke_training.training._shared.data.transforms.sd_image_transform import SDImageTransform
+from invoke_training.training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 
 
 def sd_image_pair_preference_collate_fn(examples):
