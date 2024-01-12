@@ -88,7 +88,7 @@ def initialize_placeholder_tokens_from_initializer_token(
     return placeholder_token_ids
 
 
-def initialize_placeholder_tokens_from_initial_embedding(
+def _initialize_placeholder_tokens_from_initial_embedding(
     tokenizer: CLIPTokenizer, text_encoder: CLIPTextModel, initial_embedding_file: str, placeholder_tokens: list[str]
 ) -> list[int]:
     base_placeholder_token = placeholder_tokens[0]
@@ -157,7 +157,7 @@ def _initialize_placeholder_tokens(
             placeholder_tokens=placeholder_tokens,
         )
     elif config.initial_embedding_file is not None:
-        placeholder_token_ids = initialize_placeholder_tokens_from_initial_embedding(
+        placeholder_token_ids = _initialize_placeholder_tokens_from_initial_embedding(
             tokenizer=tokenizer,
             text_encoder=text_encoder,
             initial_embedding_file=config.initial_embedding_file,
