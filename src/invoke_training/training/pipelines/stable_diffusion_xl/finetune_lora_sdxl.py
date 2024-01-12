@@ -45,61 +45,11 @@ from invoke_training.training._shared.stable_diffusion.lora_checkpoint_utils imp
     UNET_TARGET_MODULES,
     save_sdxl_peft_checkpoint,
 )
-from invoke_training.training._shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
+from invoke_training.training._shared.stable_diffusion.model_loading_utils import (
+    load_models_sdxl,
+)
 from invoke_training.training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import cache_vae_outputs
-
-
-def load_models(
-    config: FinetuneLoRASDXLConfig,
-) -> tuple[
-    PreTrainedTokenizer,
-    PreTrainedTokenizer,
-    DDPMScheduler,
-    CLIPTextModel,
-    CLIPTextModel,
-    AutoencoderKL,
-    UNet2DConditionModel,
-]:
-    """Load all models required for training, transfer them to the target training device and cast their weight
-    dtypes.
-    """
-    pipeline: StableDiffusionXLPipeline = load_pipeline(
-        model_name_or_path=config.model, pipeline_version=PipelineVersionEnum.SDXL, variant=config.hf_variant
-    )
-
-    # Extract sub-models from the pipeline.
-    tokenizer_1: PreTrainedTokenizer = pipeline.tokenizer
-    tokenizer_2: PreTrainedTokenizer = pipeline.tokenizer_2
-    text_encoder_1: CLIPPreTrainedModel = pipeline.text_encoder
-    text_encoder_2: CLIPPreTrainedModel = pipeline.text_encoder_2
-    vae: AutoencoderKL = pipeline.vae
-    unet: UNet2DConditionModel = pipeline.unet
-    noise_scheduler = DDPMScheduler(
-        beta_start=0.00085,
-        beta_end=0.012,
-        beta_schedule="scaled_linear",
-        num_train_timesteps=1000,
-        clip_sample=False,
-        steps_offset=1,
-    )
-
-    if config.vae_model is not None:
-        vae: AutoencoderKL = AutoencoderKL.from_pretrained(config.vae_model)
-
-    # Disable gradient calculation for model weights to save memory.
-    text_encoder_1.requires_grad_(False)
-    text_encoder_2.requires_grad_(False)
-    vae.requires_grad_(False)
-    unet.requires_grad_(False)
-
-    # Put models in 'eval' mode.
-    text_encoder_1.eval()
-    text_encoder_2.eval()
-    vae.eval()
-    unet.eval()
-
-    return tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet
 
 
 def save_sdxl_lora_checkpoint(
@@ -462,7 +412,9 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     weight_dtype = get_mixed_precision_dtype(accelerator)
 
     logger.info("Loading models.")
-    tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = load_models(config)
+    tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = load_models_sdxl(
+        model_name_or_path=config.model, hf_variant=config.hf_variant, vae_model=config.vae_model
+    )
 
     if config.xformers:
         import xformers  # noqa: F401

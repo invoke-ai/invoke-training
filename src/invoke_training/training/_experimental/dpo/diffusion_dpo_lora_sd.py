@@ -31,11 +31,11 @@ from invoke_training.training._shared.stable_diffusion.lora_checkpoint_utils imp
     UNET_TARGET_MODULES,
     load_sd_peft_checkpoint,
 )
+from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_models_sd
 from invoke_training.training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import (
     cache_text_encoder_outputs,
     generate_validation_images,
-    load_models,
     save_sd_lora_checkpoint,
 )
 
@@ -197,7 +197,9 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
     weight_dtype = get_mixed_precision_dtype(accelerator)
 
     logger.info("Loading models.")
-    tokenizer, noise_scheduler, text_encoder, vae, unet = load_models(config)
+    tokenizer, noise_scheduler, text_encoder, vae, unet = load_models_sd(
+        model_name_or_path=config.model, hf_variant=config.hf_variant
+    )
     ref_text_encoder = copy.deepcopy(text_encoder)
     ref_unet = copy.deepcopy(unet)
 

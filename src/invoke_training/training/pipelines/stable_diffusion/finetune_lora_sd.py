@@ -46,58 +46,8 @@ from invoke_training.training._shared.stable_diffusion.lora_checkpoint_utils imp
     UNET_TARGET_MODULES,
     save_sd_peft_checkpoint,
 )
-from invoke_training.training._shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
+from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_models_sd
 from invoke_training.training._shared.stable_diffusion.tokenize_captions import tokenize_captions
-
-
-def load_models(
-    config: FinetuneLoRASDConfig,
-) -> tuple[CLIPTokenizer, DDPMScheduler, CLIPTextModel, AutoencoderKL, UNet2DConditionModel]:
-    """Load all models required for training from disk, transfer them to the
-    target training device and cast their weight dtypes.
-
-    Args:
-        config (FinetuneLoRASDConfig): The LoRA training run config.
-        logger (logging.Logger): A logger.
-
-    Returns:
-        tuple[
-            CLIPTokenizer,
-            DDPMScheduler,
-            CLIPTextModel,
-            AutoencoderKL,
-            UNet2DConditionModel,
-        ]: A tuple of loaded models.
-    """
-    pipeline: StableDiffusionPipeline = load_pipeline(
-        model_name_or_path=config.model, pipeline_version=PipelineVersionEnum.SD, variant=config.hf_variant
-    )
-
-    # Extract sub-models from the pipeline.
-    tokenizer: CLIPTokenizer = pipeline.tokenizer
-    text_encoder: CLIPTextModel = pipeline.text_encoder
-    vae: AutoencoderKL = pipeline.vae
-    unet: UNet2DConditionModel = pipeline.unet
-    noise_scheduler = DDPMScheduler(
-        beta_start=0.00085,
-        beta_end=0.012,
-        beta_schedule="scaled_linear",
-        num_train_timesteps=1000,
-        clip_sample=False,
-        steps_offset=1,
-    )
-
-    # Disable gradient calculation for model weights to save memory.
-    text_encoder.requires_grad_(False)
-    vae.requires_grad_(False)
-    unet.requires_grad_(False)
-
-    # Put models in 'eval' mode.
-    text_encoder.eval()
-    vae.eval()
-    unet.eval()
-
-    return tokenizer, noise_scheduler, text_encoder, vae, unet
 
 
 def save_sd_lora_checkpoint(
@@ -423,7 +373,9 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
     weight_dtype = get_mixed_precision_dtype(accelerator)
 
     logger.info("Loading models.")
-    tokenizer, noise_scheduler, text_encoder, vae, unet = load_models(config)
+    tokenizer, noise_scheduler, text_encoder, vae, unet = load_models_sd(
+        model_name_or_path=config.model, hf_variant=config.hf_variant
+    )
 
     if config.xformers:
         import xformers  # noqa: F401

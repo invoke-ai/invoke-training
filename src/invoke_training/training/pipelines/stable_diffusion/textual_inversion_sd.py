@@ -24,10 +24,10 @@ from invoke_training.training._shared.data.data_loaders.textual_inversion_sd_dat
     build_textual_inversion_sd_dataloader,
 )
 from invoke_training.training._shared.optimizer.optimizer_utils import initialize_optimizer
+from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_models_sd
 from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import (
     cache_vae_outputs,
     generate_validation_images,
-    load_models,
     log_aspect_ratio_buckets,
     train_forward,
 )
@@ -226,7 +226,9 @@ def run_training(config: TextualInversionSDConfig):  # noqa: C901
     weight_dtype = get_mixed_precision_dtype(accelerator)
 
     logger.info("Loading models.")
-    tokenizer, noise_scheduler, text_encoder, vae, unet = load_models(config)
+    tokenizer, noise_scheduler, text_encoder, vae, unet = load_models_sd(
+        model_name_or_path=config.model, hf_variant=config.hf_variant
+    )
 
     placeholder_token_ids = _initialize_placeholder_tokens(
         config=config, tokenizer=tokenizer, text_encoder=text_encoder

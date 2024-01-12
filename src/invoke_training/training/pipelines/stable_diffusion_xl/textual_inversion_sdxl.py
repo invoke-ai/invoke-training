@@ -25,6 +25,7 @@ from invoke_training.training._shared.data.data_loaders.textual_inversion_sd_dat
     build_textual_inversion_sd_dataloader,
 )
 from invoke_training.training._shared.optimizer.optimizer_utils import initialize_optimizer
+from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_models_sdxl
 from invoke_training.training.pipelines.stable_diffusion.textual_inversion_sd import (
     add_tokens_to_tokenizer,
     initialize_placeholder_tokens_from_initializer_token,
@@ -33,7 +34,6 @@ from invoke_training.training.pipelines.stable_diffusion.textual_inversion_sd im
 from invoke_training.training.pipelines.stable_diffusion_xl.finetune_lora_sdxl import (
     cache_vae_outputs,
     generate_validation_images,
-    load_models,
     train_forward,
 )
 
@@ -160,7 +160,9 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
     weight_dtype = get_mixed_precision_dtype(accelerator)
 
     logger.info("Loading models.")
-    tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = load_models(config)
+    tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = load_models_sdxl(
+        model_name_or_path=config.model, hf_variant=config.hf_variant, vae_model=config.vae_model
+    )
 
     placeholder_token_ids_1, placeholder_token_ids_2 = _initialize_placeholder_tokens(
         config=config,
