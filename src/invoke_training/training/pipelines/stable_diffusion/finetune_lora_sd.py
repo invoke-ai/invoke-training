@@ -8,14 +8,11 @@ import time
 from pathlib import Path
 from typing import Optional, Union
 
-import numpy as np
 import peft
 import torch
 import torch.utils.data
-from accelerate import Accelerator
-from accelerate.hooks import remove_hook_from_module
 from accelerate.utils import set_seed
-from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionPipeline, UNet2DConditionModel
+from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel
 from diffusers.optimization import get_scheduler
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
@@ -46,61 +43,12 @@ from invoke_training.training._shared.stable_diffusion.lora_checkpoint_utils imp
     UNET_TARGET_MODULES,
     save_sd_peft_checkpoint,
 )
-from invoke_training.training._shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
+from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_models_sd
 from invoke_training.training._shared.stable_diffusion.tokenize_captions import tokenize_captions
+from invoke_training.training._shared.stable_diffusion.validation import generate_validation_images_sd
 
 
-def load_models(
-    config: FinetuneLoRASDConfig,
-) -> tuple[CLIPTokenizer, DDPMScheduler, CLIPTextModel, AutoencoderKL, UNet2DConditionModel]:
-    """Load all models required for training from disk, transfer them to the
-    target training device and cast their weight dtypes.
-
-    Args:
-        config (FinetuneLoRASDConfig): The LoRA training run config.
-        logger (logging.Logger): A logger.
-
-    Returns:
-        tuple[
-            CLIPTokenizer,
-            DDPMScheduler,
-            CLIPTextModel,
-            AutoencoderKL,
-            UNet2DConditionModel,
-        ]: A tuple of loaded models.
-    """
-    pipeline: StableDiffusionPipeline = load_pipeline(
-        model_name_or_path=config.model, pipeline_version=PipelineVersionEnum.SD, variant=config.hf_variant
-    )
-
-    # Extract sub-models from the pipeline.
-    tokenizer: CLIPTokenizer = pipeline.tokenizer
-    text_encoder: CLIPTextModel = pipeline.text_encoder
-    vae: AutoencoderKL = pipeline.vae
-    unet: UNet2DConditionModel = pipeline.unet
-    noise_scheduler = DDPMScheduler(
-        beta_start=0.00085,
-        beta_end=0.012,
-        beta_schedule="scaled_linear",
-        num_train_timesteps=1000,
-        clip_sample=False,
-        steps_offset=1,
-    )
-
-    # Disable gradient calculation for model weights to save memory.
-    text_encoder.requires_grad_(False)
-    vae.requires_grad_(False)
-    unet.requires_grad_(False)
-
-    # Put models in 'eval' mode.
-    text_encoder.eval()
-    vae.eval()
-    unet.eval()
-
-    return tokenizer, noise_scheduler, text_encoder, vae, unet
-
-
-def save_sd_lora_checkpoint(
+def _save_sd_lora_checkpoint(
     idx: int,
     unet: peft.PeftModel | None,
     text_encoder: peft.PeftModel | None,
@@ -116,7 +64,7 @@ def save_sd_lora_checkpoint(
     save_sd_peft_checkpoint(Path(save_path), unet=unet, text_encoder=text_encoder)
 
 
-def build_data_loader(
+def _build_data_loader(
     data_loader_config: Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig],
     batch_size: int,
     text_encoder_output_cache_dir: Optional[str] = None,
@@ -158,7 +106,7 @@ def cache_text_encoder_outputs(
         tokenizer (CLIPTokenizer): The tokenizer.
         text_encoder (CLIPTextModel): The text_encoder.
     """
-    data_loader = build_data_loader(
+    data_loader = _build_data_loader(
         data_loader_config=config.data_loader,
         batch_size=config.train_batch_size,
         shuffle=False,
@@ -192,116 +140,6 @@ def cache_vae_outputs(cache_dir: str, data_loader: DataLoader, vae: AutoencoderK
                     "crop_top_left_yx": data_batch["crop_top_left_yx"][i],
                 },
             )
-
-
-def generate_validation_images(
-    epoch: int,
-    out_dir: str,
-    accelerator: Accelerator,
-    vae: AutoencoderKL,
-    text_encoder: CLIPTextModel,
-    tokenizer: CLIPTokenizer,
-    noise_scheduler: DDPMScheduler,
-    unet: UNet2DConditionModel,
-    config: FinetuneLoRASDConfig,
-    logger: logging.Logger,
-):
-    """Generate validation images for the purpose of tracking image generation behaviour on fixed prompts throughout
-    training.
-
-    Args:
-        epoch (int): Epoch number, for reporting purposes.
-        out_dir (str): The output directory where the validation images will be stored.
-        accelerator (Accelerator): Accelerator
-        vae (AutoencoderKL):
-        text_encoder (CLIPTextModel):
-        tokenizer (CLIPTokenizer):
-        noise_scheduler (DDPMScheduler):
-        unet (UNet2DConditionModel):
-        config (FinetuneLoRASDConfig): Training configs.
-        logger (logging.Logger): Logger.
-    """
-    logger.info("Generating validation images.")
-
-    # Record original model devices so that we can restore this state after running the pipeline with CPU model
-    # offloading.
-    unet_device = unet.device
-    vae_device = vae.device
-    text_encoder_device = text_encoder.device
-
-    # Create pipeline.
-    pipeline = StableDiffusionPipeline(
-        vae=vae,
-        text_encoder=text_encoder,
-        tokenizer=tokenizer,
-        unet=unet,
-        scheduler=noise_scheduler,
-        safety_checker=None,
-        feature_extractor=None,
-        # TODO(ryand): Add safety checker support.
-        requires_safety_checker=False,
-    )
-    if config.enable_cpu_offload_during_validation:
-        pipeline.enable_model_cpu_offload(accelerator.device.index or 0)
-    else:
-        pipeline = pipeline.to(accelerator.device)
-    pipeline.set_progress_bar_config(disable=True)
-
-    # Run inference.
-    with torch.no_grad():
-        for prompt_idx, prompt in enumerate(config.validation_prompts):
-            generator = torch.Generator(device=accelerator.device)
-            if config.seed is not None:
-                generator = generator.manual_seed(config.seed)
-
-            images = []
-            for _ in range(config.num_validation_images_per_prompt):
-                with accelerator.autocast():
-                    images.append(
-                        pipeline(
-                            prompt,
-                            num_inference_steps=30,
-                            generator=generator,
-                            height=config.data_loader.image_transforms.resolution,
-                            width=config.data_loader.image_transforms.resolution,
-                        ).images[0]
-                    )
-
-            # Save images to disk.
-            validation_dir = os.path.join(
-                out_dir,
-                "validation",
-                f"epoch_{epoch:0>8}",
-                f"prompt_{prompt_idx:0>4}",
-            )
-            os.makedirs(validation_dir)
-            for image_idx, image in enumerate(images):
-                image.save(os.path.join(validation_dir, f"{image_idx:0>4}.jpg"))
-
-            # Log images to trackers. Currently, only tensorboard is supported.
-            for tracker in accelerator.trackers:
-                if tracker.name == "tensorboard":
-                    np_images = np.stack([np.asarray(img) for img in images])
-                    tracker.writer.add_images(
-                        f"validation (prompt {prompt_idx})",
-                        np_images,
-                        epoch,
-                        dataformats="NHWC",
-                    )
-
-    del pipeline
-    torch.cuda.empty_cache()
-
-    # Remove hooks from models.
-    # HACK(ryand): Hooks get added when calling `pipeline.enable_model_cpu_offload(...)`, but `StableDiffusionPipeline`
-    # does not offer a way to clean them up so we have to do this manually.
-    for model in [unet, vae, text_encoder]:
-        remove_hook_from_module(model)
-
-    # Restore models to original devices.
-    unet.to(unet_device)
-    vae.to(vae_device)
-    text_encoder.to(text_encoder_device)
 
 
 def log_aspect_ratio_buckets(logger: logging.Logger, batch_sampler: AspectRatioBucketBatchSampler):
@@ -423,7 +261,9 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
     weight_dtype = get_mixed_precision_dtype(accelerator)
 
     logger.info("Loading models.")
-    tokenizer, noise_scheduler, text_encoder, vae, unet = load_models(config)
+    tokenizer, noise_scheduler, text_encoder, vae, unet = load_models_sd(
+        model_name_or_path=config.model, hf_variant=config.hf_variant
+    )
 
     if config.xformers:
         import xformers  # noqa: F401
@@ -473,7 +313,7 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
             # Only the main process should populate the cache.
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
-            data_loader = build_data_loader(
+            data_loader = _build_data_loader(
                 data_loader_config=config.data_loader,
                 batch_size=config.train_batch_size,
                 shuffle=False,
@@ -559,7 +399,7 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
 
     optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
 
-    data_loader = build_data_loader(
+    data_loader = _build_data_loader(
         data_loader_config=config.data_loader,
         batch_size=config.train_batch_size,
         text_encoder_output_cache_dir=text_encoder_output_cache_dir_name,
@@ -694,7 +534,7 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
                 if config.save_every_n_steps is not None and (global_step + 1) % config.save_every_n_steps == 0:
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
-                        save_sd_lora_checkpoint(
+                        _save_sd_lora_checkpoint(
                             idx=global_step + 1,
                             unet=accelerator.unwrap_model(unet) if config.train_unet else None,
                             text_encoder=accelerator.unwrap_model(text_encoder) if config.train_text_encoder else None,
@@ -715,7 +555,7 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
             if accelerator.is_main_process:
                 accelerator.wait_for_everyone()
-                save_sd_lora_checkpoint(
+                _save_sd_lora_checkpoint(
                     idx=epoch + 1,
                     unet=accelerator.unwrap_model(unet) if config.train_unet else None,
                     text_encoder=accelerator.unwrap_model(text_encoder) if config.train_text_encoder else None,
@@ -726,7 +566,7 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
         # Generate validation images every n epochs.
         if len(config.validation_prompts) > 0 and (epoch + 1) % config.validate_every_n_epochs == 0:
             if accelerator.is_main_process:
-                generate_validation_images(
+                generate_validation_images_sd(
                     epoch=epoch + 1,
                     out_dir=out_dir,
                     accelerator=accelerator,

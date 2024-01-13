@@ -25,20 +25,17 @@ from invoke_training.training._shared.data.data_loaders.textual_inversion_sd_dat
     build_textual_inversion_sd_dataloader,
 )
 from invoke_training.training._shared.optimizer.optimizer_utils import initialize_optimizer
-from invoke_training.training.pipelines.stable_diffusion.textual_inversion_sd import (
+from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_models_sdxl
+from invoke_training.training._shared.stable_diffusion.textual_inversion import (
     add_tokens_to_tokenizer,
     initialize_placeholder_tokens_from_initializer_token,
     restore_original_embeddings,
 )
-from invoke_training.training.pipelines.stable_diffusion_xl.finetune_lora_sdxl import (
-    cache_vae_outputs,
-    generate_validation_images,
-    load_models,
-    train_forward,
-)
+from invoke_training.training._shared.stable_diffusion.validation import generate_validation_images_sdxl
+from invoke_training.training.pipelines.stable_diffusion_xl.finetune_lora_sdxl import cache_vae_outputs, train_forward
 
 
-def save_ti_embeddings(
+def _save_ti_embeddings(
     idx: int,
     text_encoder_1: CLIPTextModel,
     text_encoder_2: CLIPTextModel,
@@ -160,7 +157,9 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
     weight_dtype = get_mixed_precision_dtype(accelerator)
 
     logger.info("Loading models.")
-    tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = load_models(config)
+    tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = load_models_sdxl(
+        model_name_or_path=config.model, hf_variant=config.hf_variant, vae_model=config.vae_model
+    )
 
     placeholder_token_ids_1, placeholder_token_ids_2 = _initialize_placeholder_tokens(
         config=config,
@@ -385,7 +384,7 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
                 if config.save_every_n_steps is not None and (global_step + 1) % config.save_every_n_steps == 0:
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
-                        save_ti_embeddings(
+                        _save_ti_embeddings(
                             idx=global_step + 1,
                             text_encoder_1=text_encoder_1,
                             text_encoder_2=text_encoder_2,
@@ -408,7 +407,7 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
         # Save a checkpoint every n epochs.
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
             if accelerator.is_main_process:
-                save_ti_embeddings(
+                _save_ti_embeddings(
                     idx=epoch + 1,
                     text_encoder_1=text_encoder_1,
                     text_encoder_2=text_encoder_2,
@@ -425,7 +424,7 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
         # Generate validation images every n epochs.
         if len(config.validation_prompts) > 0 and (epoch + 1) % config.validate_every_n_epochs == 0:
             if accelerator.is_main_process:
-                generate_validation_images(
+                generate_validation_images_sdxl(
                     epoch=epoch + 1,
                     out_dir=out_dir,
                     accelerator=accelerator,

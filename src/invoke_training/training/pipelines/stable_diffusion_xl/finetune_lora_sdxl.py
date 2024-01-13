@@ -8,14 +8,12 @@ import time
 from pathlib import Path
 from typing import Optional, Union
 
-import numpy as np
 import peft
 import torch
 import torch.utils.data
 from accelerate import Accelerator
-from accelerate.hooks import remove_hook_from_module
 from accelerate.utils import set_seed
-from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionXLPipeline, UNet2DConditionModel
+from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel
 from diffusers.optimization import get_scheduler
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
@@ -45,64 +43,15 @@ from invoke_training.training._shared.stable_diffusion.lora_checkpoint_utils imp
     UNET_TARGET_MODULES,
     save_sdxl_peft_checkpoint,
 )
-from invoke_training.training._shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
+from invoke_training.training._shared.stable_diffusion.model_loading_utils import (
+    load_models_sdxl,
+)
 from invoke_training.training._shared.stable_diffusion.tokenize_captions import tokenize_captions
+from invoke_training.training._shared.stable_diffusion.validation import generate_validation_images_sdxl
 from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import cache_vae_outputs
 
 
-def load_models(
-    config: FinetuneLoRASDXLConfig,
-) -> tuple[
-    PreTrainedTokenizer,
-    PreTrainedTokenizer,
-    DDPMScheduler,
-    CLIPTextModel,
-    CLIPTextModel,
-    AutoencoderKL,
-    UNet2DConditionModel,
-]:
-    """Load all models required for training, transfer them to the target training device and cast their weight
-    dtypes.
-    """
-    pipeline: StableDiffusionXLPipeline = load_pipeline(
-        model_name_or_path=config.model, pipeline_version=PipelineVersionEnum.SDXL, variant=config.hf_variant
-    )
-
-    # Extract sub-models from the pipeline.
-    tokenizer_1: PreTrainedTokenizer = pipeline.tokenizer
-    tokenizer_2: PreTrainedTokenizer = pipeline.tokenizer_2
-    text_encoder_1: CLIPPreTrainedModel = pipeline.text_encoder
-    text_encoder_2: CLIPPreTrainedModel = pipeline.text_encoder_2
-    vae: AutoencoderKL = pipeline.vae
-    unet: UNet2DConditionModel = pipeline.unet
-    noise_scheduler = DDPMScheduler(
-        beta_start=0.00085,
-        beta_end=0.012,
-        beta_schedule="scaled_linear",
-        num_train_timesteps=1000,
-        clip_sample=False,
-        steps_offset=1,
-    )
-
-    if config.vae_model is not None:
-        vae: AutoencoderKL = AutoencoderKL.from_pretrained(config.vae_model)
-
-    # Disable gradient calculation for model weights to save memory.
-    text_encoder_1.requires_grad_(False)
-    text_encoder_2.requires_grad_(False)
-    vae.requires_grad_(False)
-    unet.requires_grad_(False)
-
-    # Put models in 'eval' mode.
-    text_encoder_1.eval()
-    text_encoder_2.eval()
-    vae.eval()
-    unet.eval()
-
-    return tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet
-
-
-def save_sdxl_lora_checkpoint(
+def _save_sdxl_lora_checkpoint(
     idx: int,
     unet: peft.PeftModel | None,
     text_encoder_1: peft.PeftModel | None,
@@ -119,7 +68,7 @@ def save_sdxl_lora_checkpoint(
     save_sdxl_peft_checkpoint(Path(save_path), unet=unet, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2)
 
 
-def build_data_loader(
+def _build_data_loader(
     data_loader_config: Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig],
     batch_size: int,
     text_encoder_output_cache_dir: Optional[str] = None,
@@ -202,7 +151,7 @@ def cache_text_encoder_outputs(
         text_encoder_1 (CLIPPreTrainedModel):
         text_encoder_2 (CLIPPreTrainedModel):
     """
-    data_loader = build_data_loader(
+    data_loader = _build_data_loader(
         data_loader_config=config.data_loader,
         batch_size=config.train_batch_size,
         shuffle=False,
@@ -225,106 +174,6 @@ def cache_text_encoder_outputs(
                 "pooled_prompt_embeds": pooled_prompt_embeds[i],
             }
             cache.save(data_batch["id"][i], embeds)
-
-
-def generate_validation_images(
-    epoch: int,
-    out_dir: str,
-    accelerator: Accelerator,
-    vae: AutoencoderKL,
-    text_encoder_1: CLIPPreTrainedModel,
-    text_encoder_2: CLIPPreTrainedModel,
-    tokenizer_1: PreTrainedTokenizer,
-    tokenizer_2: PreTrainedTokenizer,
-    noise_scheduler: DDPMScheduler,
-    unet: UNet2DConditionModel,
-    config: FinetuneLoRASDXLConfig,
-    logger: logging.Logger,
-):
-    """Generate validation images for the purpose of tracking image generation behaviour on fixed prompts throughout
-    training.
-    """
-    logger.info("Generating validation images.")
-
-    # Record original model devices so that we can restore this state after running the pipeline with CPU model
-    # offloading.
-    unet_device = unet.device
-    vae_device = vae.device
-    text_encoder_1_device = text_encoder_1.device
-    text_encoder_2_device = text_encoder_2.device
-
-    # Create pipeline.
-    pipeline = StableDiffusionXLPipeline(
-        vae=vae,
-        text_encoder=text_encoder_1,
-        text_encoder_2=text_encoder_2,
-        tokenizer=tokenizer_1,
-        tokenizer_2=tokenizer_2,
-        unet=unet,
-        scheduler=noise_scheduler,
-    )
-    if config.enable_cpu_offload_during_validation:
-        pipeline.enable_model_cpu_offload(accelerator.device.index or 0)
-    else:
-        pipeline = pipeline.to(accelerator.device)
-    pipeline.set_progress_bar_config(disable=True)
-
-    # Run inference.
-    with torch.no_grad():
-        for prompt_idx, prompt in enumerate(config.validation_prompts):
-            generator = torch.Generator(device=accelerator.device)
-            if config.seed is not None:
-                generator = generator.manual_seed(config.seed)
-
-            images = []
-            for _ in range(config.num_validation_images_per_prompt):
-                with accelerator.autocast():
-                    images.append(
-                        pipeline(
-                            prompt,
-                            num_inference_steps=30,
-                            generator=generator,
-                            height=config.data_loader.image_transforms.resolution,
-                            width=config.data_loader.image_transforms.resolution,
-                        ).images[0]
-                    )
-
-            # Save images to disk.
-            validation_dir = os.path.join(
-                out_dir,
-                "validation",
-                f"epoch_{epoch:0>8}",
-                f"prompt_{prompt_idx:0>4}",
-            )
-            os.makedirs(validation_dir)
-            for image_idx, image in enumerate(images):
-                image.save(os.path.join(validation_dir, f"{image_idx:0>4}.jpg"))
-
-            # Log images to trackers. Currently, only tensorboard is supported.
-            for tracker in accelerator.trackers:
-                if tracker.name == "tensorboard":
-                    np_images = np.stack([np.asarray(img) for img in images])
-                    tracker.writer.add_images(
-                        f"validation (prompt {prompt_idx})",
-                        np_images,
-                        epoch,
-                        dataformats="NHWC",
-                    )
-
-    del pipeline
-    torch.cuda.empty_cache()
-
-    # Remove hooks from models.
-    # HACK(ryand): Hooks get added when calling `pipeline.enable_model_cpu_offload(...)`, but
-    # `StableDiffusionXLPipeline` does not offer a way to clean them up so we have to do this manually.
-    for model in [unet, vae, text_encoder_1, text_encoder_2]:
-        remove_hook_from_module(model)
-
-    # Restore models to original devices.
-    unet.to(unet_device)
-    vae.to(vae_device)
-    text_encoder_1.to(text_encoder_1_device)
-    text_encoder_2.to(text_encoder_2_device)
 
 
 def train_forward(
@@ -462,7 +311,9 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     weight_dtype = get_mixed_precision_dtype(accelerator)
 
     logger.info("Loading models.")
-    tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = load_models(config)
+    tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = load_models_sdxl(
+        model_name_or_path=config.model, hf_variant=config.hf_variant, vae_model=config.vae_model
+    )
 
     if config.xformers:
         import xformers  # noqa: F401
@@ -518,7 +369,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
             # Only the main process should to populate the cache.
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
-            data_loader = build_data_loader(
+            data_loader = _build_data_loader(
                 data_loader_config=config.data_loader,
                 batch_size=config.train_batch_size,
                 shuffle=False,
@@ -608,7 +459,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
 
     optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
 
-    data_loader = build_data_loader(
+    data_loader = _build_data_loader(
         data_loader_config=config.data_loader,
         batch_size=config.train_batch_size,
         text_encoder_output_cache_dir=text_encoder_output_cache_dir_name,
@@ -754,7 +605,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
                 if config.save_every_n_steps is not None and (global_step + 1) % config.save_every_n_steps == 0:
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
-                        save_sdxl_lora_checkpoint(
+                        _save_sdxl_lora_checkpoint(
                             idx=global_step + 1,
                             unet=unet,
                             text_encoder_1=text_encoder_1,
@@ -775,7 +626,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         # Save a checkpoint every n epochs.
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
             if accelerator.is_main_process:
-                save_sdxl_lora_checkpoint(
+                _save_sdxl_lora_checkpoint(
                     idx=epoch + 1,
                     unet=unet,
                     text_encoder_1=text_encoder_1,
@@ -788,7 +639,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         # Generate validation images every n epochs.
         if len(config.validation_prompts) > 0 and (epoch + 1) % config.validate_every_n_epochs == 0:
             if accelerator.is_main_process:
-                generate_validation_images(
+                generate_validation_images_sdxl(
                     epoch=epoch + 1,
                     out_dir=out_dir,
                     accelerator=accelerator,

@@ -73,9 +73,6 @@ class DreamboothSDDataLoaderConfig(BaseModel):
     """
 
     image_transforms: SDImageTransformConfig
-    """The aspect ratio bucketing configuration. If None, aspect ratio bucketing is disabled, and all images will be
-    resized to the same resolution.
-    """
 
     aspect_ratio_buckets: AspectRatioBucketConfig | None = None
     """The aspect ratio bucketing configuration. If None, aspect ratio bucketing is disabled, and all images will be
