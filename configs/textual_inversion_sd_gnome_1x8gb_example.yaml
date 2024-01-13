@@ -8,7 +8,7 @@ output:
   base_output_dir: output/ti_sd_bruce_the_gnome
 
 optimizer:
-  learning_rate: 2e-3
+  learning_rate: 4e-3
   lr_warmup_steps: 200
   lr_scheduler: cosine
 
@@ -37,7 +37,7 @@ data_loader:
 
 # General
 model: runwayml/stable-diffusion-v1-5
-num_vectors: 1
+num_vectors: 4
 placeholder_token: "bruce_the_gnome"
 initializer_token: "gnome"
 cache_vae_outputs: False

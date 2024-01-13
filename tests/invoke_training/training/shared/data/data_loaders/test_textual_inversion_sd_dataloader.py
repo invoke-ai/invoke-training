@@ -21,9 +21,10 @@ def test_build_textual_inversion_sd_dataloader(image_dir):  # noqa: F811
         captions=TextualInversionPresetCaptionTransformConfig(preset="object"),
         image_transforms=SDImageTransformConfig(resolution=512),
     )
+    placeholder_tokens = ["placeholder", "placeholder_1"]
     data_loader = build_textual_inversion_sd_dataloader(
         config=config,
-        placeholder_str="placeholder",
+        placeholder_tokens=placeholder_tokens,
         batch_size=2,
     )
 
@@ -37,6 +38,9 @@ def test_build_textual_inversion_sd_dataloader(image_dir):  # noqa: F811
     assert image.dtype == torch.float32
 
     assert len(example["caption"]) == 2
+    for caption in example["caption"]:
+        for placeholder_token in placeholder_tokens:
+            assert placeholder_token in caption
 
     original_size_hw = example["original_size_hw"]
     assert len(original_size_hw) == 2

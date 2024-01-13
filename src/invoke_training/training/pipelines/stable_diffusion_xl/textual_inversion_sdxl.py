@@ -28,6 +28,7 @@ from invoke_training.training._shared.optimizer.optimizer_utils import initializ
 from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_models_sdxl
 from invoke_training.training._shared.stable_diffusion.textual_inversion import (
     add_tokens_to_tokenizer,
+    expand_placeholder_token,
     initialize_placeholder_tokens_from_initializer_token,
     restore_original_embeddings,
 )
@@ -73,6 +74,7 @@ def _save_ti_embeddings(
 
 
 def _initialize_placeholder_tokens(
+    placeholder_tokens: list[str],
     config: TextualInversionSDXLConfig,
     tokenizer_1: CLIPTokenizer,
     tokenizer_2: CLIPTokenizer,
@@ -81,18 +83,10 @@ def _initialize_placeholder_tokens(
 ) -> tuple[list[int], list[int]]:
     """Prepare the tokenizers and text_encoders for TI training.
 
-    - Generate `num_vectors` placeholder tokens.
     - Add the placeholder tokens to the tokenizers.
     - Add new token embeddings to the text_encoders for each of the placeholder tokens.
     - Initialize the new token embeddings from either an existing token, or an initial TI embedding file.
     """
-    # Prepare num_vector placeholder tokens.
-    placeholder_tokens = [config.placeholder_token]
-    if config.num_vectors < 1:
-        raise ValueError(f"num_vectors must be >1, but is '{config.num_vectors}'.")
-    # Add dummy placeholder tokens if num_vectors > 1.
-    for i in range(1, config.num_vectors):
-        placeholder_tokens.append(f"{config.placeholder_token}_{i}")
 
     add_tokens_to_tokenizer(placeholder_tokens, tokenizer_1)
     add_tokens_to_tokenizer(placeholder_tokens, tokenizer_2)
@@ -161,7 +155,9 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
         model_name_or_path=config.model, hf_variant=config.hf_variant, vae_model=config.vae_model
     )
 
+    placeholder_tokens = expand_placeholder_token(config.placeholder_token, config.num_vectors)
     placeholder_token_ids_1, placeholder_token_ids_2 = _initialize_placeholder_tokens(
+        placeholder_tokens=placeholder_tokens,
         config=config,
         tokenizer_1=tokenizer_1,
         tokenizer_2=tokenizer_2,
@@ -212,7 +208,7 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
             vae.to(accelerator.device, dtype=weight_dtype)
             data_loader = build_textual_inversion_sd_dataloader(
                 config=config.data_loader,
-                placeholder_str=config.placeholder_token,
+                placeholder_tokens=placeholder_tokens,
                 batch_size=config.train_batch_size,
                 shuffle=False,
             )
@@ -237,7 +233,7 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
 
     data_loader = build_textual_inversion_sd_dataloader(
         config=config.data_loader,
-        placeholder_str=config.placeholder_token,
+        placeholder_tokens=placeholder_tokens,
         batch_size=config.train_batch_size,
         vae_output_cache_dir=vae_output_cache_dir_name,
     )
