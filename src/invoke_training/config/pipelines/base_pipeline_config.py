@@ -1,11 +1,10 @@
 from typing import Optional
 
-from pydantic import BaseModel
-
+from invoke_training.config.shared.config_base_model import ConfigBaseModel
 from invoke_training.config.shared.training_output_config import TrainingOutputConfig
 
 
-class BasePipelineConfig(BaseModel):
+class BasePipelineConfig(ConfigBaseModel):
     """A base config with fields that should be inherited by all pipelines."""
 
     type: str

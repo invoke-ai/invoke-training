@@ -1,9 +1,9 @@
 import typing
 
-from pydantic import BaseModel
+from invoke_training.config.shared.config_base_model import ConfigBaseModel
 
 
-class AdamOptimizer(BaseModel):
+class AdamOptimizer(ConfigBaseModel):
     optimizer_type: typing.Literal["AdamW"] = "AdamW"
 
     beta1: float = 0.9
@@ -12,7 +12,7 @@ class AdamOptimizer(BaseModel):
     epsilon: float = 1e-8
 
 
-class ProdigyOptimizer(BaseModel):
+class ProdigyOptimizer(ConfigBaseModel):
     optimizer_type: typing.Literal["Prodigy"] = "Prodigy"
 
     weight_decay: float = 0.0
@@ -20,7 +20,7 @@ class ProdigyOptimizer(BaseModel):
     safeguard_warmup: bool = False
 
 
-class OptimizerConfig(BaseModel):
+class OptimizerConfig(ConfigBaseModel):
     """Configuration for a training optimizer."""
 
     optimizer: typing.Union[AdamOptimizer, ProdigyOptimizer] = AdamOptimizer()

@@ -1,9 +1,9 @@
 import typing
 
-from pydantic import BaseModel
+from invoke_training.config.shared.config_base_model import ConfigBaseModel
 
 
-class TrainingOutputConfig(BaseModel):
+class TrainingOutputConfig(ConfigBaseModel):
     """Configuration for a training run's output."""
 
     base_output_dir: str

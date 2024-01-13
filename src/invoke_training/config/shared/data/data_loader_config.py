@@ -1,7 +1,6 @@
 from typing import Literal, Optional
 
-from pydantic import BaseModel
-
+from invoke_training.config.shared.config_base_model import ConfigBaseModel
 from invoke_training.config.shared.data.dataset_config import (
     ImageCaptionDatasetConfig,
     ImageDirDatasetConfig,
@@ -13,7 +12,7 @@ from invoke_training.config.shared.data.transform_config import (
 )
 
 
-class AspectRatioBucketConfig(BaseModel):
+class AspectRatioBucketConfig(ConfigBaseModel):
     target_resolution: int
     """The target resolution for all aspect ratios. When generating aspect ratio buckets, the resolution of each bucket
     is selected to have roughly `target_resolution * target_resolution` pixels (i.e. a square image with dimensions
@@ -45,7 +44,7 @@ class AspectRatioBucketConfig(BaseModel):
     """
 
 
-class ImageCaptionSDDataLoaderConfig(BaseModel):
+class ImageCaptionSDDataLoaderConfig(ConfigBaseModel):
     type: Literal["IMAGE_CAPTION_SD_DATA_LOADER"] = "IMAGE_CAPTION_SD_DATA_LOADER"
 
     dataset: ImageCaptionDatasetConfig
@@ -59,7 +58,7 @@ class ImageCaptionSDDataLoaderConfig(BaseModel):
     """
 
 
-class DreamboothSDDataLoaderConfig(BaseModel):
+class DreamboothSDDataLoaderConfig(ConfigBaseModel):
     type: Literal["DREAMBOOTH_SD_DATA_LOADER"] = "DREAMBOOTH_SD_DATA_LOADER"
 
     instance_caption: str
@@ -84,7 +83,7 @@ class DreamboothSDDataLoaderConfig(BaseModel):
     """
 
 
-class TextualInversionSDDataLoaderConfig(BaseModel):
+class TextualInversionSDDataLoaderConfig(ConfigBaseModel):
     type: Literal["TEXTUAL_INVERSION_SD_DATA_LOADER"] = "TEXTUAL_INVERSION_SD_DATA_LOADER"
 
     dataset: ImageDirDatasetConfig
