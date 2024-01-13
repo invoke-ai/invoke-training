@@ -1,26 +1,27 @@
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from invoke_training.config.pipelines.finetune_lora_config import LoRATrainingConfig
+from invoke_training.config.shared.config_base_model import ConfigBaseModel
 from invoke_training.config.shared.data.transform_config import SDImageTransformConfig
 from invoke_training.config.shared.optimizer.optimizer_config import OptimizerConfig
 
 
-class HFHubImagePairPreferenceDatasetConfig(BaseModel):
+class HFHubImagePairPreferenceDatasetConfig(ConfigBaseModel):
     type: Literal["HF_HUB_IMAGE_PAIR_PREFERENCE_DATASET"] = "HF_HUB_IMAGE_PAIR_PREFERENCE_DATASET"
 
     # TODO(ryand): Fill this out.
 
 
-class ImagePairPreferenceDatasetConfig(BaseModel):
+class ImagePairPreferenceDatasetConfig(ConfigBaseModel):
     type: Literal["IMAGE_PAIR_PREFERENCE_DATASET"] = "IMAGE_PAIR_PREFERENCE_DATASET"
 
     dataset_dir: str
     """The directory to load the dataset from."""
 
 
-class ImagePairPreferenceSDDataLoaderConfig(BaseModel):
+class ImagePairPreferenceSDDataLoaderConfig(ConfigBaseModel):
     type: Literal["IMAGE_PAIR_PREFERENCE_SD_DATA_LOADER"] = "IMAGE_PAIR_PREFERENCE_SD_DATA_LOADER"
 
     dataset: Annotated[

@@ -1,9 +1,11 @@
 from typing import Annotated, Literal, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from invoke_training.config.shared.config_base_model import ConfigBaseModel
 
 
-class HFHubImageCaptionDatasetConfig(BaseModel):
+class HFHubImageCaptionDatasetConfig(ConfigBaseModel):
     type: Literal["HF_HUB_IMAGE_CAPTION_DATASET"] = "HF_HUB_IMAGE_CAPTION_DATASET"
 
     dataset_name: str
@@ -28,7 +30,7 @@ class HFHubImageCaptionDatasetConfig(BaseModel):
     """
 
 
-class HFDirImageCaptionDatasetConfig(BaseModel):
+class HFDirImageCaptionDatasetConfig(ConfigBaseModel):
     type: Literal["HF_DIR_IMAGE_CAPTION_DATASET"] = "HF_DIR_IMAGE_CAPTION_DATASET"
 
     dataset_dir: str
@@ -44,7 +46,7 @@ class HFDirImageCaptionDatasetConfig(BaseModel):
     """
 
 
-class ImageDirDatasetConfig(BaseModel):
+class ImageDirDatasetConfig(ConfigBaseModel):
     type: Literal["IMAGE_DIR_DATASET"] = "IMAGE_DIR_DATASET"
 
     dataset_dir: str

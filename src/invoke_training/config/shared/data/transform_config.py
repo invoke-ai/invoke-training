@@ -1,9 +1,11 @@
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from invoke_training.config.shared.config_base_model import ConfigBaseModel
 
 
-class SDImageTransformConfig(BaseModel):
+class SDImageTransformConfig(ConfigBaseModel):
     resolution: int = 512
     """The resolution for input images. All of the images in the dataset will be resized to this (square) resolution.
     """
@@ -18,7 +20,7 @@ class SDImageTransformConfig(BaseModel):
     """
 
 
-class TextualInversionCaptionTransformConfig(BaseModel):
+class TextualInversionCaptionTransformConfig(ConfigBaseModel):
     type: Literal["TEXTUAL_INVERSION_CAPTION_TRANSFORM"] = "TEXTUAL_INVERSION_CAPTION_TRANSFORM"
 
     templates: list[str]
@@ -30,7 +32,7 @@ class TextualInversionCaptionTransformConfig(BaseModel):
     """
 
 
-class TextualInversionPresetCaptionTransformConfig(BaseModel):
+class TextualInversionPresetCaptionTransformConfig(ConfigBaseModel):
     type: Literal["TEXTUAL_INVERSION_PRESET_CAPTION_TRANSFORM"] = "TEXTUAL_INVERSION_PRESET_CAPTION_TRANSFORM"
 
     preset: Literal["style", "object"]
@@ -45,6 +47,6 @@ TextualInversionCaptionConfig = Annotated[
 ]
 
 
-class ShuffleCaptionTransformConfig(BaseModel):
+class ShuffleCaptionTransformConfig(ConfigBaseModel):
     delimiter: str = ","
     """The delimiter to use for caption splitting."""
