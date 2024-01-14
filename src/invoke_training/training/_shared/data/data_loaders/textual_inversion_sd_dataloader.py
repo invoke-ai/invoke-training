@@ -85,7 +85,7 @@ def get_preset_ti_caption_templates(preset: Literal["object", "style"]) -> list[
 
 def build_textual_inversion_sd_dataloader(
     config: TextualInversionSDDataLoaderConfig,
-    placeholder_str: str,
+    placeholder_tokens: list[str],
     batch_size: int,
     vae_output_cache_dir: Optional[str] = None,
     shuffle: bool = True,
@@ -94,7 +94,7 @@ def build_textual_inversion_sd_dataloader(
 
     Args:
         config (TextualInversionSDDataLoaderConfig): The dataset config.
-        placeholder_str (str): The placeholder string being trained.
+        placeholder_tokens (list[str]): The placeholder tokens being trained.
         batch_size (int): The DataLoader batch size.
         vae_output_cache_dir (str, optional): The directory where VAE outputs are cached and should be loaded from. If
             set, then the image augmentation transforms will be skipped, and the image will not be copied to VRAM.
@@ -102,6 +102,7 @@ def build_textual_inversion_sd_dataloader(
     Returns:
         DataLoader
     """
+    placeholder_str = " ".join(placeholder_tokens)
 
     base_dataset = ImageDirDataset(image_dir=config.dataset.dataset_dir)
 
@@ -176,6 +177,7 @@ def build_textual_inversion_sd_dataloader(
             collate_fn=sd_image_caption_collate_fn,
             batch_size=batch_size,
             num_workers=config.dataloader_num_workers,
+            persistent_workers=config.dataloader_num_workers > 0,
         )
     else:
         return DataLoader(
@@ -183,4 +185,5 @@ def build_textual_inversion_sd_dataloader(
             batch_sampler=batch_sampler,
             collate_fn=sd_image_caption_collate_fn,
             num_workers=config.dataloader_num_workers,
+            persistent_workers=config.dataloader_num_workers > 0,
         )

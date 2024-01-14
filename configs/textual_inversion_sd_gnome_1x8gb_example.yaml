@@ -1,14 +1,14 @@
 # Training mode: Textual Inversion
-# Base model:    SDXL
+# Base model:    SD v1
 # GPU:           1 x 24GB
 
-type: TEXTUAL_INVERSION_SDXL
+type: TEXTUAL_INVERSION_SD
 seed: 1
 output:
-  base_output_dir: output/ti_sdxl_bruce_the_gnome
+  base_output_dir: output/ti_sd_bruce_the_gnome
 
 optimizer:
-  learning_rate: 2e-3
+  learning_rate: 4e-3
   lr_warmup_steps: 200
   lr_scheduler: cosine
 
@@ -24,15 +24,19 @@ data_loader:
     type: TEXTUAL_INVERSION_PRESET_CAPTION_TRANSFORM
     preset: object
   image_transforms:
-    resolution: 1024
+    resolution: 512
     center_crop: True
     random_flip: False
   shuffle_caption_transform: null
+  aspect_ratio_buckets:
+    target_resolution: 512
+    start_dim: 256
+    end_dim: 768
+    divisible_by: 64
   dataloader_num_workers: 4
 
 # General
-model: stabilityai/stable-diffusion-xl-base-1.0
-vae_model: madebyollin/sdxl-vae-fp16-fix
+model: runwayml/stable-diffusion-v1-5
 num_vectors: 4
 placeholder_token: "bruce_the_gnome"
 initializer_token: "gnome"

@@ -3,6 +3,19 @@ from accelerate import Accelerator
 from transformers import CLIPTextModel, CLIPTokenizer, PreTrainedTokenizer
 
 
+def expand_placeholder_token(placeholder_token: str, num_vectors: int = 1) -> list[str]:
+    """Expand a placeholder token into a list of placeholder tokens based on the number of embedding vectors being
+    trained.
+    """
+    placeholder_tokens = [placeholder_token]
+    if num_vectors < 1:
+        raise ValueError(f"num_vectors must be >1, but is '{num_vectors}'.")
+    # Add dummy placeholder tokens if num_vectors > 1.
+    for i in range(1, num_vectors):
+        placeholder_tokens.append(f"{placeholder_token}_{i}")
+    return placeholder_tokens
+
+
 def add_tokens_to_tokenizer(placeholder_tokens: list[str], tokenizer: PreTrainedTokenizer):
     """Add new tokens to a tokenizer.
 
