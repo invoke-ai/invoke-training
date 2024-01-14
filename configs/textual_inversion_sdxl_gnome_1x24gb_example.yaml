@@ -28,14 +28,15 @@ data_loader:
     center_crop: True
     random_flip: False
   shuffle_caption_transform: null
+  dataloader_num_workers: 4
 
 # General
 model: stabilityai/stable-diffusion-xl-base-1.0
 vae_model: madebyollin/sdxl-vae-fp16-fix
-num_vectors: 1
+num_vectors: 4
 placeholder_token: "bruce_the_gnome"
 initializer_token: "gnome"
-cache_vae_outputs: True
+cache_vae_outputs: False
 gradient_accumulation_steps: 1
 mixed_precision: fp16
 xformers: True
