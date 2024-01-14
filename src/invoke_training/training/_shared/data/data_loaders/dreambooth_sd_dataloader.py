@@ -53,7 +53,11 @@ def build_dreambooth_sd_dataloader(
         DataLoader
     """
     # Prepare instance dataset.
-    base_instance_dataset = ImageDirDataset(config.instance_dataset.dataset_dir, id_prefix="instance_")
+    base_instance_dataset = ImageDirDataset(
+        config.instance_dataset.dataset_dir,
+        id_prefix="instance_",
+        keep_in_memory=config.instance_dataset.keep_in_memory,
+    )
     instance_dataset = TransformDataset(
         base_instance_dataset,
         [
@@ -67,7 +71,9 @@ def build_dreambooth_sd_dataloader(
     base_class_dataset = None
     class_dataset = None
     if config.class_dataset is not None:
-        base_class_dataset = ImageDirDataset(config.class_dataset.dataset_dir, id_prefix="class_")
+        base_class_dataset = ImageDirDataset(
+            config.class_dataset.dataset_dir, id_prefix="class_", keep_in_memory=config.class_dataset.keep_in_memory
+        )
         class_dataset = TransformDataset(
             base_class_dataset,
             [
