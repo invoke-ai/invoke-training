@@ -177,6 +177,7 @@ def build_textual_inversion_sd_dataloader(
             collate_fn=sd_image_caption_collate_fn,
             batch_size=batch_size,
             num_workers=config.dataloader_num_workers,
+            persistent_workers=config.dataloader_num_workers > 0,
         )
     else:
         return DataLoader(
@@ -184,4 +185,5 @@ def build_textual_inversion_sd_dataloader(
             batch_sampler=batch_sampler,
             collate_fn=sd_image_caption_collate_fn,
             num_workers=config.dataloader_num_workers,
+            persistent_workers=config.dataloader_num_workers > 0,
         )
