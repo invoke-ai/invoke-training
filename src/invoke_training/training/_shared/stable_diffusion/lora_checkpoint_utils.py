@@ -47,6 +47,16 @@ def save_multi_model_peft_checkpoint(checkpoint_dir: Path | str, models: dict[st
     checkpoint_dir = Path(checkpoint_dir)
     for model_key, peft_model in models.items():
         assert isinstance(peft_model, peft.PeftModel)
+
+        # HACK(ryand): PeftModel.save_pretrained(...) expects the config to have a "_name_or_path" entry. For now, we
+        # set this to None here. This should be fixed upstream in PEFT.
+        if (
+            hasattr(peft_model, "config")
+            and isinstance(peft_model.config, dict)
+            and "_name_or_path" not in peft_model.config
+        ):
+            peft_model.config["_name_or_path"] = None
+
         peft_model.save_pretrained(str(checkpoint_dir / model_key))
 
 
