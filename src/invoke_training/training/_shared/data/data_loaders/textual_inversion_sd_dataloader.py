@@ -104,7 +104,7 @@ def build_textual_inversion_sd_dataloader(
     """
     placeholder_str = " ".join(placeholder_tokens)
 
-    base_dataset = ImageDirDataset(image_dir=config.dataset.dataset_dir)
+    base_dataset = ImageDirDataset(image_dir=config.dataset.dataset_dir, keep_in_memory=config.dataset.keep_in_memory)
 
     if isinstance(config.captions, TextualInversionCaptionTransformConfig):
         caption_templates = config.captions.templates

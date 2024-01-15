@@ -10,7 +10,13 @@ from invoke_training.training._shared.data.utils.resolution import Resolution
 class ImageDirDataset(torch.utils.data.Dataset):
     """A dataset that loads image files from a directory."""
 
-    def __init__(self, image_dir: str, id_prefix: str = "", image_extensions: typing.Optional[list[str]] = None):
+    def __init__(
+        self,
+        image_dir: str,
+        id_prefix: str = "",
+        image_extensions: typing.Optional[list[str]] = None,
+        keep_in_memory: bool = False,
+    ):
         """Initialize an ImageDirDataset
 
         Args:
@@ -18,6 +24,8 @@ class ImageDirDataset(torch.utils.data.Dataset):
             id_prefix (str): A prefix added to the 'id' field in every example.
             image_extensions (list[str], optional): The list of image file extensions to include in the dataset (not
                 case-sensitive). Defaults to [".jpg", ".jpeg", ".png"].
+            keep_in_memory (bool, optional): If True, keep all images loaded in memory. This improves performance for
+            datasets that are small enough to be kept in memory.
         """
         super().__init__()
         self._id_prefix = id_prefix
@@ -31,6 +39,17 @@ class ImageDirDataset(torch.utils.data.Dataset):
             image_path = os.path.join(image_dir, image_file)
             if os.path.isfile(image_path) and os.path.splitext(image_path)[1].lower() in image_extensions:
                 self._image_paths.append(image_path)
+
+        self._images = None
+        if keep_in_memory:
+            self._images = []
+            for image_path in self._image_paths:
+                self._images.append(self._load_image(image_path))
+
+    def _load_image(self, image_path: str) -> Image.Image:
+        # We call `convert("RGB")` to drop the alpha channel from RGBA images, or to repeat channels for greyscale
+        # images.
+        return Image.open(image_path).convert("RGB")
 
     def get_image_dimensions(self) -> list[Resolution]:
         """Get the dimensions of all images in the dataset.
@@ -50,6 +69,5 @@ class ImageDirDataset(torch.utils.data.Dataset):
         return len(self._image_paths)
 
     def __getitem__(self, idx: int) -> typing.Dict[str, typing.Any]:
-        # We call `convert("RGB")` to drop the alpha channel from RGBA images, or to repeat channels for greyscale
-        # images.
-        return {"id": f"{self._id_prefix}{idx}", "image": Image.open(self._image_paths[idx]).convert("RGB")}
+        image = self._images[idx] if self._images is not None else self._load_image(self._image_paths[idx])
+        return {"id": f"{self._id_prefix}{idx}", "image": image}

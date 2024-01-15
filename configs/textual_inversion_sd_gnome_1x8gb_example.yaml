@@ -20,6 +20,7 @@ data_loader:
   dataset:
     type: IMAGE_DIR_DATASET
     dataset_dir: "sample_data/bruce_the_gnome"
+    keep_in_memory: True
   captions:
     type: TEXTUAL_INVERSION_PRESET_CAPTION_TRANSFORM
     preset: object
