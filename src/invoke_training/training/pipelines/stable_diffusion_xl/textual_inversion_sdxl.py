@@ -24,6 +24,7 @@ from invoke_training.training._shared.checkpoints.serialization import save_stat
 from invoke_training.training._shared.data.data_loaders.textual_inversion_sd_dataloader import (
     build_textual_inversion_sd_dataloader,
 )
+from invoke_training.training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import log_aspect_ratio_buckets
 from invoke_training.training._shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_models_sdxl
 from invoke_training.training._shared.stable_diffusion.textual_inversion import (
@@ -237,6 +238,8 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
         batch_size=config.train_batch_size,
         vae_output_cache_dir=vae_output_cache_dir_name,
     )
+
+    log_aspect_ratio_buckets(logger=logger, batch_sampler=data_loader.batch_sampler)
 
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
     # by the number of processes. This scaling logic was copied from the diffusers example training code, but it appears

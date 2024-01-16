@@ -36,6 +36,7 @@ from invoke_training.training._shared.data.data_loaders.dreambooth_sd_dataloader
 from invoke_training.training._shared.data.data_loaders.image_caption_sd_dataloader import (
     build_image_caption_sd_dataloader,
 )
+from invoke_training.training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import log_aspect_ratio_buckets
 from invoke_training.training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training.training._shared.data.utils.resolution import Resolution
 from invoke_training.training._shared.optimizer.optimizer_utils import initialize_optimizer
@@ -466,6 +467,8 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         text_encoder_output_cache_dir=text_encoder_output_cache_dir_name,
         vae_output_cache_dir=vae_output_cache_dir_name,
     )
+
+    log_aspect_ratio_buckets(logger=logger, batch_sampler=data_loader.batch_sampler)
 
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
     # by the number of processes. This scaling logic was copied from the diffusers example training code, but it appears

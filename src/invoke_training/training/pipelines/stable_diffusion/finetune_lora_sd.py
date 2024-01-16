@@ -33,9 +33,7 @@ from invoke_training.training._shared.data.data_loaders.dreambooth_sd_dataloader
 from invoke_training.training._shared.data.data_loaders.image_caption_sd_dataloader import (
     build_image_caption_sd_dataloader,
 )
-from invoke_training.training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
-    AspectRatioBucketBatchSampler,
-)
+from invoke_training.training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import log_aspect_ratio_buckets
 from invoke_training.training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training.training._shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training.training._shared.stable_diffusion.lora_checkpoint_utils import (
@@ -140,20 +138,6 @@ def cache_vae_outputs(cache_dir: str, data_loader: DataLoader, vae: AutoencoderK
                     "crop_top_left_yx": data_batch["crop_top_left_yx"][i],
                 },
             )
-
-
-def log_aspect_ratio_buckets(logger: logging.Logger, batch_sampler: AspectRatioBucketBatchSampler):
-    if not isinstance(batch_sampler, AspectRatioBucketBatchSampler):
-        return
-
-    log = "Aspect Ratio Buckets:\n"
-    buckets = batch_sampler.get_buckets()
-    bucket_resolutions = sorted(list(buckets.keys()))
-    for bucket_resolution in bucket_resolutions:
-        bucket_images = buckets[bucket_resolution]
-        log += f"  {bucket_resolution.to_tuple()}: {len(bucket_images)}\n"
-
-    logger.info(log)
 
 
 def train_forward(

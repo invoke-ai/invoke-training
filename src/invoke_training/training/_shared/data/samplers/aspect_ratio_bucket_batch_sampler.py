@@ -1,4 +1,5 @@
 import copy
+import logging
 import math
 import random
 from typing import Iterator
@@ -29,6 +30,15 @@ class AspectRatioBucketBatchSampler(Sampler[list[int]]):
         self._batch_size = batch_size
         self._shuffle = shuffle
         self._random = random.Random(seed)
+
+    def __str__(self) -> str:
+        buckets = self.get_buckets()
+        bucket_resolutions = sorted(list(buckets.keys()))
+        s = ""
+        for bucket_resolution in bucket_resolutions:
+            bucket_images = buckets[bucket_resolution]
+            s += f"  {bucket_resolution.to_tuple()}: {len(bucket_images)}\n"
+        return s
 
     @classmethod
     def from_image_sizes(
@@ -95,3 +105,13 @@ class AspectRatioBucketBatchSampler(Sampler[list[int]]):
         for bucket_images in self._buckets.values():
             num_batches += math.ceil(len(bucket_images) / self._batch_size)
         return num_batches
+
+
+def log_aspect_ratio_buckets(logger: logging.Logger, batch_sampler: AspectRatioBucketBatchSampler):
+    """Utility function for logging the aspect ratio buckets."""
+    if not isinstance(batch_sampler, AspectRatioBucketBatchSampler):
+        return
+
+    log = "Aspect Ratio Buckets:\n"
+    log += str(batch_sampler)
+    logger.info(log)
