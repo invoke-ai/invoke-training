@@ -37,6 +37,7 @@ from invoke_training.training._shared.data.data_loaders.image_caption_sd_dataloa
     build_image_caption_sd_dataloader,
 )
 from invoke_training.training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
+from invoke_training.training._shared.data.utils.resolution import Resolution
 from invoke_training.training._shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training.training._shared.stable_diffusion.lora_checkpoint_utils import (
     TEXT_ENCODER_TARGET_MODULES,
@@ -187,7 +188,7 @@ def train_forward(
     text_encoder_2: CLIPPreTrainedModel,
     unet: UNet2DConditionModel,
     weight_dtype: torch.dtype,
-    resolution: int,
+    resolution: int | tuple[int, int],
     prediction_type=None,
 ):
     """Run the forward training pass for a single data_batch.
@@ -225,7 +226,7 @@ def train_forward(
     # it is a result of the fact that the original size and crop values get concatenated with the time embeddings.
     def compute_time_ids(original_size, crops_coords_top_left):
         # Adapted from pipeline.StableDiffusionXLPipeline._get_add_time_ids
-        target_size = (resolution, resolution)
+        target_size = Resolution.parse(resolution).to_tuple()
         add_time_ids = list(original_size + crops_coords_top_left + target_size)
         add_time_ids = torch.tensor([add_time_ids])
         add_time_ids = add_time_ids.to(accelerator.device, dtype=weight_dtype)

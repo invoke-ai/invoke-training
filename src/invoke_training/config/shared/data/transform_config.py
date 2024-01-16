@@ -6,8 +6,9 @@ from invoke_training.config.shared.config_base_model import ConfigBaseModel
 
 
 class SDImageTransformConfig(ConfigBaseModel):
-    resolution: int = 512
-    """The resolution for input images. All of the images in the dataset will be resized to this (square) resolution.
+    resolution: int | tuple[int, int] = 512
+    """The resolution for input images. Either a scalar integer representing the square resolution height and width, or
+    a (height, width) tuple. All of the images in the dataset will be resized to this resolution.
     """
 
     center_crop: bool = True
