@@ -86,9 +86,15 @@ class DreamboothSDDataLoaderConfig(ConfigBaseModel):
 class TextualInversionSDDataLoaderConfig(ConfigBaseModel):
     type: Literal["TEXTUAL_INVERSION_SD_DATA_LOADER"] = "TEXTUAL_INVERSION_SD_DATA_LOADER"
 
-    dataset: ImageDirDatasetConfig
+    dataset: ImageDirDatasetConfig | ImageCaptionDatasetConfig
 
     captions: TextualInversionCaptionConfig
+    """The caption configuration. One of:
+
+    - [`TextualInversionPresetCaptionTransformConfig`][invoke_training.config.shared.data.transform_config.TextualInversionPresetCaptionTransformConfig]: Use preset `object` or `style` caption templates.
+    - [`TextualInversionCaptionTransformConfig`][invoke_training.config.shared.data.transform_config.TextualInversionCaptionTransformConfig]: Use custom caption templates.
+    - [`TextualInversionCaptionPrefixTransformConfig`][invoke_training.config.shared.data.transform_config.TextualInversionCaptionPrefixTransformConfig]: Prepend the textual inversion token(s) to all existing dataset captions.
+    """  # noqa: E501
 
     image_transforms: SDImageTransformConfig
     """The image transforms to apply to all images.

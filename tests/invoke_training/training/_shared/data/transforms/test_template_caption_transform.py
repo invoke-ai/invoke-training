@@ -1,12 +1,12 @@
 import pytest
 
-from invoke_training.training._shared.data.transforms.textual_inversion_caption_transform import (
-    TextualInversionCaptionTransform,
+from invoke_training.training._shared.data.transforms.template_caption_transform import (
+    TemplateCaptionTransform,
 )
 
 
-def test_textual_inversion_caption_transform():
-    tf = TextualInversionCaptionTransform(
+def test_template_caption_transform():
+    tf = TemplateCaptionTransform(
         field_name="test_field", placeholder_str="placeholder", caption_templates=["template 1 {}"]
     )
 
@@ -17,11 +17,11 @@ def test_textual_inversion_caption_transform():
     assert out_example == {"existing": 2, "test_field": "template 1 placeholder"}
 
 
-def test_textual_inversion_caption_transform_seed():
+def test_template_caption_transform_seed():
     field_name = "test_field"
     placeholder_str = "placeholder"
     caption_templates = ["template 1 {}", "template 2 {}"]
-    tf = TextualInversionCaptionTransform(
+    tf = TemplateCaptionTransform(
         field_name=field_name,
         placeholder_str=placeholder_str,
         caption_templates=caption_templates,
@@ -32,7 +32,7 @@ def test_textual_inversion_caption_transform_seed():
     out_examples = [tf({}) for _ in range(10)]
 
     # Run on 10 examples with same seed and assert that results match.
-    tf = TextualInversionCaptionTransform(
+    tf = TemplateCaptionTransform(
         field_name=field_name,
         placeholder_str=placeholder_str,
         caption_templates=caption_templates,
@@ -42,7 +42,7 @@ def test_textual_inversion_caption_transform_seed():
     assert out_examples == out_examples_same_seed
 
     # Run on 10 examples with a different seed and assert that the results don't match.
-    tf = TextualInversionCaptionTransform(
+    tf = TemplateCaptionTransform(
         field_name=field_name,
         placeholder_str=placeholder_str,
         caption_templates=caption_templates,
@@ -52,8 +52,8 @@ def test_textual_inversion_caption_transform_seed():
     assert out_examples != out_examples_diff_seed
 
 
-def test_textual_inversion_caption_transform_bad_templates():
-    tf = TextualInversionCaptionTransform(
+def test_template_caption_transform_bad_templates():
+    tf = TemplateCaptionTransform(
         field_name="test_field", placeholder_str="placeholder", caption_templates=["template 1"]
     )
 

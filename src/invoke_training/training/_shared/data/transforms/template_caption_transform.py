@@ -3,7 +3,7 @@ import typing
 import numpy as np
 
 
-class TextualInversionCaptionTransform:
+class TemplateCaptionTransform:
     """A simple transform that constructs a caption for each example by combining a caption template with the
     placeholder string.
     """
