@@ -145,7 +145,8 @@ def _initialize_placeholder_tokens(
 def run_training(config: TextualInversionSDConfig):  # noqa: C901
     # Create a timestamped directory for all outputs.
     out_dir = os.path.join(config.output.base_output_dir, f"{time.time()}")
-    os.makedirs(out_dir)
+    ckpt_dir = os.path.join(out_dir, "checkpoints")
+    os.makedirs(ckpt_dir)
 
     accelerator = initialize_accelerator(
         out_dir, config.gradient_accumulation_steps, config.mixed_precision, config.output.report_to
@@ -283,14 +284,14 @@ def run_training(config: TextualInversionSDConfig):  # noqa: C901
         accelerator.log({"configuration": f"```json\n{json.dumps(config.dict(), indent=2, default=str)}\n```\n"})
 
     epoch_checkpoint_tracker = CheckpointTracker(
-        base_dir=out_dir,
+        base_dir=ckpt_dir,
         prefix="checkpoint_epoch",
         extension=f".{config.output.save_model_as}",
         max_checkpoints=config.max_checkpoints,
     )
 
     step_checkpoint_tracker = CheckpointTracker(
-        base_dir=out_dir,
+        base_dir=ckpt_dir,
         prefix="checkpoint_step",
         extension=f".{config.output.save_model_as}",
         max_checkpoints=config.max_checkpoints,
