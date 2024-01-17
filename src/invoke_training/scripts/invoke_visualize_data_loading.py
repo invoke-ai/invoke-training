@@ -21,7 +21,6 @@ from invoke_training.training._shared.data.data_loaders.image_pair_preference_sd
 from invoke_training.training._shared.data.data_loaders.textual_inversion_sd_dataloader import (
     build_textual_inversion_sd_dataloader,
 )
-from invoke_training.training._shared.stable_diffusion.textual_inversion import expand_placeholder_token
 
 
 def save_image(torch_image: torch.Tensor, out_path: Path):
@@ -106,10 +105,9 @@ def main():
             shuffle=False,
         )
     elif data_loader_config.type == "TEXTUAL_INVERSION_SD_DATA_LOADER":
-        placeholder_tokens = expand_placeholder_token(train_config.placeholder_token, train_config.num_vectors)
         data_loader = build_textual_inversion_sd_dataloader(
             config=data_loader_config,
-            placeholder_tokens=placeholder_tokens,
+            placeholder_tokens=["<placeholder_tokens_are_not_shown_when_visualizing>"],
             batch_size=train_config.train_batch_size,
             shuffle=False,
         )
