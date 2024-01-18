@@ -75,6 +75,7 @@ def initialize_placeholder_tokens_from_initial_phrase(
 
     # Expand the tokenizer / text_encoder to include one placeholder token for each token in the initial_phrase.
     placeholder_tokens = _expand_placeholder_token(placeholder_token, num_vectors=len(initial_token_ids))
+    _add_tokens_to_tokenizer(placeholder_tokens, tokenizer)
     # Resize the token embeddings as we have added new special tokens to the tokenizer.
     text_encoder.resize_token_embeddings(len(tokenizer))
     placeholder_token_ids = tokenizer.convert_tokens_to_ids(placeholder_tokens)
