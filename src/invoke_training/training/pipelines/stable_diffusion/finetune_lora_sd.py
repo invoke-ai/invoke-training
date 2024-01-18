@@ -247,7 +247,7 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
 
     logger.info("Loading models.")
     tokenizer, noise_scheduler, text_encoder, vae, unet = load_models_sd(
-        model_name_or_path=config.model, hf_variant=config.hf_variant
+        model_name_or_path=config.model, hf_variant=config.hf_variant, base_embeddings=config.base_embeddings
     )
 
     if config.xformers:

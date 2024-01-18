@@ -215,7 +215,7 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
 
     logger.info("Loading models.")
     tokenizer, noise_scheduler, text_encoder, vae, unet = load_models_sd(
-        model_name_or_path=config.model, hf_variant=config.hf_variant
+        model_name_or_path=config.model, hf_variant=config.hf_variant, base_embeddings=config.base_embeddings
     )
     ref_text_encoder = copy.deepcopy(text_encoder)
     ref_unet = copy.deepcopy(unet)

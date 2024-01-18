@@ -11,6 +11,8 @@ from diffusers import (
 )
 from transformers import CLIPTextModel, CLIPTokenizer
 
+from invoke_training.training._shared.checkpoints.serialization import load_state_dict
+
 
 class PipelineVersionEnum(Enum):
     SD = "SD"
@@ -51,23 +53,21 @@ def load_pipeline(
 
 
 def load_models_sd(
-    model_name_or_path: str, hf_variant: str | None = None
+    model_name_or_path: str,
+    hf_variant: str | None = None,
+    base_embeddings: dict[str, str] = None,
 ) -> tuple[CLIPTokenizer, DDPMScheduler, CLIPTextModel, AutoencoderKL, UNet2DConditionModel]:
     """Load all models required for training from disk, transfer them to the
     target training device and cast their weight dtypes.
-
-    Returns:
-        tuple[
-            CLIPTokenizer,
-            DDPMScheduler,
-            CLIPTextModel,
-            AutoencoderKL,
-            UNet2DConditionModel,
-        ]: A tuple of loaded models.
     """
+    base_embeddings = base_embeddings or {}
+
     pipeline: StableDiffusionPipeline = load_pipeline(
         model_name_or_path=model_name_or_path, pipeline_version=PipelineVersionEnum.SD, variant=hf_variant
     )
+
+    for token, embedding_path in base_embeddings.items():
+        pipeline.load_textual_inversion(embedding_path, token=token)
 
     # Extract sub-models from the pipeline.
     tokenizer: CLIPTokenizer = pipeline.tokenizer
@@ -97,7 +97,10 @@ def load_models_sd(
 
 
 def load_models_sdxl(
-    model_name_or_path: str, hf_variant: str | None = None, vae_model: str | None = None
+    model_name_or_path: str,
+    hf_variant: str | None = None,
+    vae_model: str | None = None,
+    base_embeddings: dict[str, str] = None,
 ) -> tuple[
     CLIPTokenizer,
     CLIPTokenizer,
@@ -110,9 +113,26 @@ def load_models_sdxl(
     """Load all models required for training, transfer them to the target training device and cast their weight
     dtypes.
     """
+    base_embeddings = base_embeddings or {}
+
     pipeline: StableDiffusionXLPipeline = load_pipeline(
         model_name_or_path=model_name_or_path, pipeline_version=PipelineVersionEnum.SDXL, variant=hf_variant
     )
+
+    for token, embedding_path in base_embeddings.items():
+        state_dict = load_state_dict(embedding_path)
+        pipeline.load_textual_inversion(
+            state_dict["clip_l"],
+            token=token,
+            text_encoder=pipeline.text_encoder,
+            tokenizer=pipeline.tokenizer,
+        )
+        pipeline.load_textual_inversion(
+            state_dict["clip_g"],
+            token=token,
+            text_encoder=pipeline.text_encoder_2,
+            tokenizer=pipeline.tokenizer_2,
+        )
 
     # Extract sub-models from the pipeline.
     tokenizer_1: CLIPTokenizer = pipeline.tokenizer

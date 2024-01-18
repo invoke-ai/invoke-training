@@ -22,6 +22,24 @@ class LoRATrainingConfig(BasePipelineConfig):
     """The Hugging Face Hub model variant to use. Only applies if `model` is a Hugging Face Hub model name.
     """
 
+    # Note: Pydantic handles mutable default values well:
+    # https://docs.pydantic.dev/latest/concepts/models/#fields-with-non-hashable-default-values
+    base_embeddings: dict[str, str] = {}
+    """A mapping of embedding tokens to trained embedding file paths. These embeddings will be applied to the base model
+    before training.
+
+    Example:
+    ```
+    base_embeddings = {
+        "bruce_the_gnome": "/path/to/bruce_the_gnome.safetensors",
+    }
+    ```
+
+    Note that the embeddings themselves are not fine-tuned further, but they will impact the LoRA model training if they
+    are referenced in the dataset captions. The list of embeddings provided here should be the same list used at
+    generation time with the resultant LoRA model.
+    """
+
     train_unet: bool = True
     """Whether to add LoRA layers to the UNet model and train it.
     """
