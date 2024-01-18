@@ -24,11 +24,11 @@ from invoke_training.training._shared.checkpoints.serialization import save_stat
 from invoke_training.training._shared.data.data_loaders.textual_inversion_sd_dataloader import (
     build_textual_inversion_sd_dataloader,
 )
+from invoke_training.training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import log_aspect_ratio_buckets
 from invoke_training.training._shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_models_sdxl
 from invoke_training.training._shared.stable_diffusion.textual_inversion import (
-    add_tokens_to_tokenizer,
-    expand_placeholder_token,
+    initialize_placeholder_tokens_from_initial_phrase,
     initialize_placeholder_tokens_from_initializer_token,
     restore_original_embeddings,
 )
@@ -74,13 +74,12 @@ def _save_ti_embeddings(
 
 
 def _initialize_placeholder_tokens(
-    placeholder_tokens: list[str],
     config: TextualInversionSDXLConfig,
     tokenizer_1: CLIPTokenizer,
     tokenizer_2: CLIPTokenizer,
     text_encoder_1: PreTrainedTokenizer,
     text_encoder_2: PreTrainedTokenizer,
-) -> tuple[list[int], list[int]]:
+) -> tuple[list[str], list[int], list[int]]:
     """Prepare the tokenizers and text_encoders for TI training.
 
     - Add the placeholder tokens to the tokenizers.
@@ -88,45 +87,65 @@ def _initialize_placeholder_tokens(
     - Initialize the new token embeddings from either an existing token, or an initial TI embedding file.
     """
 
-    add_tokens_to_tokenizer(placeholder_tokens, tokenizer_1)
-    add_tokens_to_tokenizer(placeholder_tokens, tokenizer_2)
-    # Resize the token embeddings as we have added new special tokens to the tokenizer.
-    text_encoder_1.resize_token_embeddings(len(tokenizer_1))
-    text_encoder_2.resize_token_embeddings(len(tokenizer_2))
-
-    if config.initializer_token is not None and config.initial_embedding_file is not None:
-        raise ValueError(
-            "Both 'initializer_token' and 'initial_embedding_file' are non-None. Only one of these fields should be "
-            "set."
+    if (
+        sum(
+            [
+                config.initializer_token is not None,
+                config.initial_embedding_file is not None,
+                config.initial_phrase is not None,
+            ]
         )
-    elif config.initializer_token is not None:
-        placeholder_token_ids_1 = initialize_placeholder_tokens_from_initializer_token(
+        != 1
+    ):
+        raise ValueError(
+            "Exactly one of 'initializer_token', 'initial_embedding_file', or 'initial_phrase' should be set."
+        )
+
+    if config.initializer_token is not None:
+        placeholder_tokens_1, placeholder_token_ids_1 = initialize_placeholder_tokens_from_initializer_token(
             tokenizer=tokenizer_1,
             text_encoder=text_encoder_1,
             initializer_token=config.initializer_token,
-            placeholder_tokens=placeholder_tokens,
+            placeholder_token=config.placeholder_token,
+            num_vectors=config.num_vectors,
         )
-        placeholder_token_ids_2 = initialize_placeholder_tokens_from_initializer_token(
+        placeholder_tokens_2, placeholder_token_ids_2 = initialize_placeholder_tokens_from_initializer_token(
             tokenizer=tokenizer_2,
             text_encoder=text_encoder_2,
             initializer_token=config.initializer_token,
-            placeholder_tokens=placeholder_tokens,
+            placeholder_token=config.placeholder_token,
+            num_vectors=config.num_vectors,
         )
     elif config.initial_embedding_file is not None:
         # TODO(ryan)
         raise NotImplementedError("Initializing from an initial embedding is not yet supported for SDXL.")
+    elif config.initial_phrase is not None:
+        placeholder_tokens_1, placeholder_token_ids_1 = initialize_placeholder_tokens_from_initial_phrase(
+            tokenizer=tokenizer_1,
+            text_encoder=text_encoder_1,
+            initial_phrase=config.initial_phrase,
+            placeholder_token=config.placeholder_token,
+        )
+        placeholder_tokens_2, placeholder_token_ids_2 = initialize_placeholder_tokens_from_initial_phrase(
+            tokenizer=tokenizer_2,
+            text_encoder=text_encoder_2,
+            initial_phrase=config.initial_phrase,
+            placeholder_token=config.placeholder_token,
+        )
     else:
         raise ValueError(
-            "Both 'initializer_token' and 'initial_embedding_file' are None. One of these fields must be set."
+            "Exactly one of 'initializer_token', 'initial_embedding_file', or 'initial_phrase' should be set."
         )
 
-    return placeholder_token_ids_1, placeholder_token_ids_2
+    assert placeholder_tokens_1 == placeholder_tokens_2
+    return placeholder_tokens_1, placeholder_token_ids_1, placeholder_token_ids_2
 
 
 def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
     # Create a timestamped directory for all outputs.
     out_dir = os.path.join(config.output.base_output_dir, f"{time.time()}")
-    os.makedirs(out_dir)
+    ckpt_dir = os.path.join(out_dir, "checkpoints")
+    os.makedirs(ckpt_dir)
 
     accelerator = initialize_accelerator(
         out_dir, config.gradient_accumulation_steps, config.mixed_precision, config.output.report_to
@@ -155,15 +174,14 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
         model_name_or_path=config.model, hf_variant=config.hf_variant, vae_model=config.vae_model
     )
 
-    placeholder_tokens = expand_placeholder_token(config.placeholder_token, config.num_vectors)
-    placeholder_token_ids_1, placeholder_token_ids_2 = _initialize_placeholder_tokens(
-        placeholder_tokens=placeholder_tokens,
+    placeholder_tokens, placeholder_token_ids_1, placeholder_token_ids_2 = _initialize_placeholder_tokens(
         config=config,
         tokenizer_1=tokenizer_1,
         tokenizer_2=tokenizer_2,
         text_encoder_1=text_encoder_1,
         text_encoder_2=text_encoder_2,
     )
+    logger.info(f"Initialized {len(placeholder_tokens)} placeholder tokens: {placeholder_tokens}.")
 
     # All parameters of the VAE, UNet, and text encoder are currently frozen. Just unfreeze the token embeddings in the
     # text encoders.
@@ -238,6 +256,8 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
         vae_output_cache_dir=vae_output_cache_dir_name,
     )
 
+    log_aspect_ratio_buckets(logger=logger, batch_sampler=data_loader.batch_sampler)
+
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
     # by the number of processes. This scaling logic was copied from the diffusers example training code, but it appears
     # in many places so I don't know where it originated. Internally, accelerate makes one LR scheduler step per process
@@ -272,14 +292,14 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
         accelerator.log({"configuration": f"```json\n{json.dumps(config.dict(), indent=2, default=str)}\n```\n"})
 
     epoch_checkpoint_tracker = CheckpointTracker(
-        base_dir=out_dir,
+        base_dir=ckpt_dir,
         prefix="checkpoint_epoch",
         extension=f".{config.output.save_model_as}",
         max_checkpoints=config.max_checkpoints,
     )
 
     step_checkpoint_tracker = CheckpointTracker(
-        base_dir=out_dir,
+        base_dir=ckpt_dir,
         prefix="checkpoint_step",
         extension=f".{config.output.save_model_as}",
         max_checkpoints=config.max_checkpoints,

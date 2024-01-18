@@ -16,6 +16,7 @@ from diffusers import (
 from transformers import CLIPTextModel, CLIPTokenizer
 
 from invoke_training.config.pipelines.finetune_lora_config import FinetuneLoRASDConfig, FinetuneLoRASDXLConfig
+from invoke_training.training._shared.data.utils.resolution import Resolution
 
 
 def generate_validation_images_sd(
@@ -71,6 +72,8 @@ def generate_validation_images_sd(
         pipeline = pipeline.to(accelerator.device)
     pipeline.set_progress_bar_config(disable=True)
 
+    validation_resolution = Resolution.parse(config.data_loader.image_transforms.resolution)
+
     # Run inference.
     with torch.no_grad():
         for prompt_idx, prompt in enumerate(config.validation_prompts):
@@ -86,8 +89,8 @@ def generate_validation_images_sd(
                             prompt,
                             num_inference_steps=30,
                             generator=generator,
-                            height=config.data_loader.image_transforms.resolution,
-                            width=config.data_loader.image_transforms.resolution,
+                            height=validation_resolution.height,
+                            width=validation_resolution.width,
                         ).images[0]
                     )
 
@@ -170,6 +173,8 @@ def generate_validation_images_sdxl(
         pipeline = pipeline.to(accelerator.device)
     pipeline.set_progress_bar_config(disable=True)
 
+    validation_resolution = Resolution.parse(config.data_loader.image_transforms.resolution)
+
     # Run inference.
     with torch.no_grad():
         for prompt_idx, prompt in enumerate(config.validation_prompts):
@@ -185,8 +190,8 @@ def generate_validation_images_sdxl(
                             prompt,
                             num_inference_steps=30,
                             generator=generator,
-                            height=config.data_loader.image_transforms.resolution,
-                            width=config.data_loader.image_transforms.resolution,
+                            height=validation_resolution.height,
+                            width=validation_resolution.width,
                         ).images[0]
                     )
 

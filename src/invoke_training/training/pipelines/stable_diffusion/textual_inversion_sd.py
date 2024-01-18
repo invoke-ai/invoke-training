@@ -19,24 +19,21 @@ from invoke_training.training._shared.accelerator.accelerator_utils import (
     initialize_logging,
 )
 from invoke_training.training._shared.checkpoints.checkpoint_tracker import CheckpointTracker
-from invoke_training.training._shared.checkpoints.serialization import load_state_dict, save_state_dict
+from invoke_training.training._shared.checkpoints.serialization import save_state_dict
 from invoke_training.training._shared.data.data_loaders.textual_inversion_sd_dataloader import (
     build_textual_inversion_sd_dataloader,
 )
+from invoke_training.training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import log_aspect_ratio_buckets
 from invoke_training.training._shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_models_sd
 from invoke_training.training._shared.stable_diffusion.textual_inversion import (
-    add_tokens_to_tokenizer,
-    expand_placeholder_token,
+    initialize_placeholder_tokens_from_initial_embedding,
+    initialize_placeholder_tokens_from_initial_phrase,
     initialize_placeholder_tokens_from_initializer_token,
     restore_original_embeddings,
 )
 from invoke_training.training._shared.stable_diffusion.validation import generate_validation_images_sd
-from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import (
-    cache_vae_outputs,
-    log_aspect_ratio_buckets,
-    train_forward,
-)
+from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import cache_vae_outputs, train_forward
 
 
 def _save_ti_embeddings(
@@ -67,88 +64,67 @@ def _save_ti_embeddings(
     save_state_dict(learned_embeds_dict, save_path)
 
 
-def _initialize_placeholder_tokens_from_initial_embedding(
-    tokenizer: CLIPTokenizer, text_encoder: CLIPTextModel, initial_embedding_file: str, placeholder_tokens: list[str]
-) -> list[int]:
-    base_placeholder_token = placeholder_tokens[0]
-
-    state_dict = load_state_dict(initial_embedding_file)
-    if base_placeholder_token not in state_dict:
-        raise ValueError(
-            f"The initial embedding at '{initial_embedding_file}' does not contain an embedding for placeholder token "
-            f"'{base_placeholder_token}'."
-        )
-
-    embeddings = state_dict[base_placeholder_token]
-    if embeddings.shape[0] != len(placeholder_tokens):
-        raise ValueError(
-            f"The number of initial embeddings in '{initial_embedding_file}' ({embeddings.shape[0]}) does not match "
-            f"the number of placeholder tokens ({len(placeholder_tokens)})."
-        )
-
-    placeholder_token_ids = tokenizer.convert_tokens_to_ids(placeholder_tokens)
-
-    # convert_tokens_to_ids returns a `int | list[int]` type, but since we pass in a list it should always return a
-    # list.
-    assert isinstance(placeholder_token_ids, list)
-
-    # Initialize the newly-added placeholder token(s) with the loaded embeddings.
-    token_embeds = text_encoder.get_input_embeddings().weight.data
-    with torch.no_grad():
-        for i, token_id in enumerate(placeholder_token_ids):
-            token_embeds[token_id] = embeddings[i].clone()
-
-    return placeholder_token_ids
-
-
 def _initialize_placeholder_tokens(
-    placeholder_tokens: list[str],
     config: TextualInversionSDConfig,
     tokenizer: CLIPTokenizer,
     text_encoder: PreTrainedTokenizer,
-) -> list[int]:
+) -> tuple[list[str], list[int]]:
     """Prepare the tokenizer and text_encoder for TI training.
 
     - Add the placeholder tokens to the tokenizer.
     - Add new token embeddings to the text_encoder for each of the placeholder tokens.
     - Initialize the new token embeddings from either an existing token, or an initial TI embedding file.
     """
-
-    add_tokens_to_tokenizer(placeholder_tokens, tokenizer)
-    # Resize the token embeddings as we have added new special tokens to the tokenizer.
-    text_encoder.resize_token_embeddings(len(tokenizer))
-
-    if config.initializer_token is not None and config.initial_embedding_file is not None:
-        raise ValueError(
-            "Both 'initializer_token' and 'initial_embedding_file' are non-None. Only one of these fields should be "
-            "set."
+    if (
+        sum(
+            [
+                config.initializer_token is not None,
+                config.initial_embedding_file is not None,
+                config.initial_phrase is not None,
+            ]
         )
-    elif config.initializer_token is not None:
-        placeholder_token_ids = initialize_placeholder_tokens_from_initializer_token(
+        != 1
+    ):
+        raise ValueError(
+            "Exactly one of 'initializer_token', 'initial_embedding_file', or 'initial_phrase' should be set."
+        )
+
+    if config.initializer_token is not None:
+        placeholder_tokens, placeholder_token_ids = initialize_placeholder_tokens_from_initializer_token(
             tokenizer=tokenizer,
             text_encoder=text_encoder,
             initializer_token=config.initializer_token,
-            placeholder_tokens=placeholder_tokens,
+            placeholder_token=config.placeholder_token,
+            num_vectors=config.num_vectors,
         )
     elif config.initial_embedding_file is not None:
-        placeholder_token_ids = _initialize_placeholder_tokens_from_initial_embedding(
+        placeholder_tokens, placeholder_token_ids = initialize_placeholder_tokens_from_initial_embedding(
             tokenizer=tokenizer,
             text_encoder=text_encoder,
             initial_embedding_file=config.initial_embedding_file,
-            placeholder_tokens=placeholder_tokens,
+            placeholder_token=config.placeholder_token,
+            num_vectors=config.num_vectors,
+        )
+    elif config.initial_phrase is not None:
+        placeholder_tokens, placeholder_token_ids = initialize_placeholder_tokens_from_initial_phrase(
+            tokenizer=tokenizer,
+            text_encoder=text_encoder,
+            initial_phrase=config.initial_phrase,
+            placeholder_token=config.placeholder_token,
         )
     else:
         raise ValueError(
-            "Both 'initializer_token' and 'initial_embedding_file' are None. One of these fields must be set."
+            "Exactly one of 'initializer_token', 'initial_embedding_file', or 'initial_phrase' should be set."
         )
 
-    return placeholder_token_ids
+    return placeholder_tokens, placeholder_token_ids
 
 
 def run_training(config: TextualInversionSDConfig):  # noqa: C901
     # Create a timestamped directory for all outputs.
     out_dir = os.path.join(config.output.base_output_dir, f"{time.time()}")
-    os.makedirs(out_dir)
+    ckpt_dir = os.path.join(out_dir, "checkpoints")
+    os.makedirs(ckpt_dir)
 
     accelerator = initialize_accelerator(
         out_dir, config.gradient_accumulation_steps, config.mixed_precision, config.output.report_to
@@ -177,10 +153,10 @@ def run_training(config: TextualInversionSDConfig):  # noqa: C901
         model_name_or_path=config.model, hf_variant=config.hf_variant
     )
 
-    placeholder_tokens = expand_placeholder_token(config.placeholder_token, config.num_vectors)
-    placeholder_token_ids = _initialize_placeholder_tokens(
-        placeholder_tokens=placeholder_tokens, config=config, tokenizer=tokenizer, text_encoder=text_encoder
+    placeholder_tokens, placeholder_token_ids = _initialize_placeholder_tokens(
+        config=config, tokenizer=tokenizer, text_encoder=text_encoder
     )
+    logger.info(f"Initialized {len(placeholder_tokens)} placeholder tokens: {placeholder_tokens}.")
 
     # All parameters of the VAE, UNet, and text encoder are currently frozen. Just unfreeze the token embeddings in the
     # text encoder.
@@ -286,14 +262,14 @@ def run_training(config: TextualInversionSDConfig):  # noqa: C901
         accelerator.log({"configuration": f"```json\n{json.dumps(config.dict(), indent=2, default=str)}\n```\n"})
 
     epoch_checkpoint_tracker = CheckpointTracker(
-        base_dir=out_dir,
+        base_dir=ckpt_dir,
         prefix="checkpoint_epoch",
         extension=f".{config.output.save_model_as}",
         max_checkpoints=config.max_checkpoints,
     )
 
     step_checkpoint_tracker = CheckpointTracker(
-        base_dir=out_dir,
+        base_dir=ckpt_dir,
         prefix="checkpoint_step",
         extension=f".{config.output.save_model_as}",
         max_checkpoints=config.max_checkpoints,

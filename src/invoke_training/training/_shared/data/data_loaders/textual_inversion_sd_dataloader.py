@@ -3,7 +3,13 @@ from typing import Literal, Optional
 from torch.utils.data import DataLoader
 
 from invoke_training.config.shared.data.data_loader_config import TextualInversionSDDataLoaderConfig
+from invoke_training.config.shared.data.dataset_config import (
+    HFDirImageCaptionDatasetConfig,
+    HFHubImageCaptionDatasetConfig,
+    ImageDirDatasetConfig,
+)
 from invoke_training.config.shared.data.transform_config import (
+    TextualInversionCaptionPrefixTransformConfig,
     TextualInversionCaptionTransformConfig,
     TextualInversionPresetCaptionTransformConfig,
 )
@@ -11,19 +17,24 @@ from invoke_training.training._shared.data.data_loaders.image_caption_sd_dataloa
     build_aspect_ratio_bucket_manager,
     sd_image_caption_collate_fn,
 )
+from invoke_training.training._shared.data.datasets.build_dataset import (
+    build_hf_dir_image_caption_dataset,
+    build_hf_hub_image_caption_dataset,
+)
 from invoke_training.training._shared.data.datasets.image_dir_dataset import ImageDirDataset
 from invoke_training.training._shared.data.datasets.transform_dataset import TransformDataset
 from invoke_training.training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
     AspectRatioBucketBatchSampler,
 )
+from invoke_training.training._shared.data.transforms.caption_prefix_transform import CaptionPrefixTransform
 from invoke_training.training._shared.data.transforms.drop_field_transform import DropFieldTransform
 from invoke_training.training._shared.data.transforms.load_cache_transform import LoadCacheTransform
 from invoke_training.training._shared.data.transforms.sd_image_transform import SDImageTransform
 from invoke_training.training._shared.data.transforms.shuffle_caption_transform import ShuffleCaptionTransform
-from invoke_training.training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
-from invoke_training.training._shared.data.transforms.textual_inversion_caption_transform import (
-    TextualInversionCaptionTransform,
+from invoke_training.training._shared.data.transforms.template_caption_transform import (
+    TemplateCaptionTransform,
 )
+from invoke_training.training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 
 
 def get_preset_ti_caption_templates(preset: Literal["object", "style"]) -> list[str]:
@@ -83,7 +94,7 @@ def get_preset_ti_caption_templates(preset: Literal["object", "style"]) -> list[
         raise ValueError(f"Unrecognized learnable property type: '{preset}'.")
 
 
-def build_textual_inversion_sd_dataloader(
+def build_textual_inversion_sd_dataloader(  # noqa: C901
     config: TextualInversionSDDataLoaderConfig,
     placeholder_tokens: list[str],
     batch_size: int,
@@ -104,12 +115,35 @@ def build_textual_inversion_sd_dataloader(
     """
     placeholder_str = " ".join(placeholder_tokens)
 
-    base_dataset = ImageDirDataset(image_dir=config.dataset.dataset_dir, keep_in_memory=config.dataset.keep_in_memory)
+    if isinstance(config.dataset, HFHubImageCaptionDatasetConfig):
+        base_dataset = build_hf_hub_image_caption_dataset(config.dataset)
+    elif isinstance(config.dataset, HFDirImageCaptionDatasetConfig):
+        base_dataset = build_hf_dir_image_caption_dataset(config.dataset)
+    elif isinstance(config.dataset, ImageDirDatasetConfig):
+        base_dataset = ImageDirDataset(
+            image_dir=config.dataset.dataset_dir, keep_in_memory=config.dataset.keep_in_memory
+        )
+    else:
+        raise ValueError(f"Unexpected dataset config type: '{type(config.dataset)}'.")
 
     if isinstance(config.captions, TextualInversionCaptionTransformConfig):
-        caption_templates = config.captions.templates
+        # Overwrites the caption field. Typically used with a ImageDirDataset that does not have captions.
+        caption_tf = TemplateCaptionTransform(
+            field_name="caption",
+            placeholder_str=placeholder_str,
+            caption_templates=config.captions.templates,
+        )
     elif isinstance(config.captions, TextualInversionPresetCaptionTransformConfig):
-        caption_templates = get_preset_ti_caption_templates(config.captions.preset)
+        # Overwrites the caption field. Typically used with a ImageDirDataset that does not have captions.
+        caption_tf = TemplateCaptionTransform(
+            field_name="caption",
+            placeholder_str=placeholder_str,
+            caption_templates=get_preset_ti_caption_templates(config.captions.preset),
+        )
+    elif isinstance(config.captions, TextualInversionCaptionPrefixTransformConfig):
+        # Prefixes the caption field. Must be used with a HFHubImageCaptionDataset or HFDirImageCaptionDataset that
+        # already has captions.
+        caption_tf = CaptionPrefixTransform(caption_field_name="caption", prefix=placeholder_str + " ")
     else:
         raise ValueError(f"Unexpected caption config type: '{type(config.captions)}'.")
 
@@ -130,13 +164,7 @@ def build_textual_inversion_sd_dataloader(
             seed=0,
         )
 
-    all_transforms = [
-        TextualInversionCaptionTransform(
-            field_name="caption",
-            placeholder_str=placeholder_str,
-            caption_templates=caption_templates,
-        ),
-    ]
+    all_transforms = [caption_tf]
 
     if config.shuffle_caption_transform is not None:
         all_transforms.append(

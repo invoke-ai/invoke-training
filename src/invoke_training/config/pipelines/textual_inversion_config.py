@@ -24,10 +24,15 @@ class TextualInversionTrainingConfig(BasePipelineConfig):
     # Helpful discussion for understanding how this works at inference time:
     # https://github.com/huggingface/diffusers/pull/3144#discussion_r1172413509
     num_vectors: int = 1
-    """The number of textual inversion placeholder vectors that will be used to learn the concept.
+    """Note: `num_vectors` can be overridden by `initial_phrase`.
 
-    Increasing the `num_vectors` enables the model to learn more complex concepts, but increases the risk of overfitting
-    and increases the size of the resulting output file.
+    The number of textual inversion embedding vectors that will be used to learn the concept.
+
+    Increasing the `num_vectors` enables the model to learn more complex concepts, but has the following drawbacks:
+
+    - greater risk of overfitting
+    - increased size of the resulting output file
+    - consumes more of the prompt capacity at inference time
 
     Typical values for `num_vectors` are in the range [1, 16].
 
@@ -40,17 +45,32 @@ class TextualInversionTrainingConfig(BasePipelineConfig):
     """
 
     initializer_token: Optional[str] = None
-    """A vocabulary token to use as an initializer for the placeholder token. It should be a single word that roughly
+    """Note: Exactly one of `initializer_token`, `initial_embedding_file`, or `initial_phrase` should be set.
+
+    A vocabulary token to use as an initializer for the placeholder token. It should be a single word that roughly
     describes the object or style that you're trying to train on. Must map to a single tokenizer token.
+
+    For example, if you are training on a dataset of images of your pet dog, a good choice would be `dog`.
+    """
+
+    initial_embedding_file: Optional[str] = None
+    """Note: Exactly one of `initializer_token`, `initial_embedding_file`, or `initial_phrase` should be set.
+
+    Path to an existing TI embedding that will be used to initialize the embedding being trained. The placeholder
+    token in the file must match the `placeholder_token` field.
 
     Either `initializer_token` or `initial_embedding_file` should be set.
     """
 
-    initial_embedding_file: Optional[str] = None
-    """Path to an existing TI embedding that will be used to initialize the embedding being trained. The placeholder
-    token in the file must match the `placeholder_token` field.
+    initial_phrase: Optional[str] = None
+    """Note: Exactly one of `initializer_token`, `initial_embedding_file`, or `initial_phrase` should be set.
 
-    Either `initializer_token` or `initial_embedding_file` should be set.
+    A phrase that will be used to initialize the placeholder token embedding. The phrase will be tokenized, and the
+    corresponding embeddings will be used to initialize the placeholder tokens. The number of embedding vectors will be
+    inferred from the length of the tokenized phrase, so keep the phrase short. The consequences of training a large
+    number of embedding vectors are discussed in the `num_vectors` field documentation.
+
+    For example, if you are training on a dataset of images of pokemon, you might use `pokemon sketch white background`.
     """
 
     cache_vae_outputs: bool = False

@@ -33,9 +33,7 @@ from invoke_training.training._shared.data.data_loaders.dreambooth_sd_dataloader
 from invoke_training.training._shared.data.data_loaders.image_caption_sd_dataloader import (
     build_image_caption_sd_dataloader,
 )
-from invoke_training.training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
-    AspectRatioBucketBatchSampler,
-)
+from invoke_training.training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import log_aspect_ratio_buckets
 from invoke_training.training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training.training._shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training.training._shared.stable_diffusion.lora_checkpoint_utils import (
@@ -142,20 +140,6 @@ def cache_vae_outputs(cache_dir: str, data_loader: DataLoader, vae: AutoencoderK
             )
 
 
-def log_aspect_ratio_buckets(logger: logging.Logger, batch_sampler: AspectRatioBucketBatchSampler):
-    if not isinstance(batch_sampler, AspectRatioBucketBatchSampler):
-        return
-
-    log = "Aspect Ratio Buckets:\n"
-    buckets = batch_sampler.get_buckets()
-    bucket_resolutions = sorted(list(buckets.keys()))
-    for bucket_resolution in bucket_resolutions:
-        bucket_images = buckets[bucket_resolution]
-        log += f"  {bucket_resolution.to_tuple()}: {len(bucket_images)}\n"
-
-    logger.info(log)
-
-
 def train_forward(
     config: FinetuneLoRASDConfig,
     data_batch: dict,
@@ -236,7 +220,8 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
 
     # Create a timestamped directory for all outputs.
     out_dir = os.path.join(config.output.base_output_dir, f"{time.time()}")
-    os.makedirs(out_dir)
+    ckpt_dir = os.path.join(out_dir, "checkpoints")
+    os.makedirs(ckpt_dir)
 
     accelerator = initialize_accelerator(
         out_dir, config.gradient_accumulation_steps, config.mixed_precision, config.output.report_to
@@ -450,13 +435,13 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
         accelerator.log({"configuration": f"```json\n{json.dumps(config.dict(), indent=2, default=str)}\n```\n"})
 
     epoch_checkpoint_tracker = CheckpointTracker(
-        base_dir=out_dir,
+        base_dir=ckpt_dir,
         prefix="checkpoint_epoch",
         max_checkpoints=config.max_checkpoints,
     )
 
     step_checkpoint_tracker = CheckpointTracker(
-        base_dir=out_dir,
+        base_dir=ckpt_dir,
         prefix="checkpoint_step",
         max_checkpoints=config.max_checkpoints,
     )

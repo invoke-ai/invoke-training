@@ -6,8 +6,9 @@ from invoke_training.config.shared.config_base_model import ConfigBaseModel
 
 
 class SDImageTransformConfig(ConfigBaseModel):
-    resolution: int = 512
-    """The resolution for input images. All of the images in the dataset will be resized to this (square) resolution.
+    resolution: int | tuple[int, int] = 512
+    """The resolution for input images. Either a scalar integer representing the square resolution height and width, or
+    a (height, width) tuple. All of the images in the dataset will be resized to this resolution.
     """
 
     center_crop: bool = True
@@ -26,6 +27,7 @@ class TextualInversionCaptionTransformConfig(ConfigBaseModel):
     templates: list[str]
     """A list of caption templates with a single template argument 'slot' in each.
     E.g.:
+
     - "a photo of a {}"
     - "a rendering of a {}"
     - "a cropped photo of the {}"
@@ -38,10 +40,15 @@ class TextualInversionPresetCaptionTransformConfig(ConfigBaseModel):
     preset: Literal["style", "object"]
 
 
+class TextualInversionCaptionPrefixTransformConfig(ConfigBaseModel):
+    type: Literal["TEXTUAL_INVERSION_CAPTION_PREFIX_TRANSFORM"] = "TEXTUAL_INVERSION_CAPTION_PREFIX_TRANSFORM"
+
+
 TextualInversionCaptionConfig = Annotated[
     Union[
         TextualInversionCaptionTransformConfig,
         TextualInversionPresetCaptionTransformConfig,
+        TextualInversionCaptionPrefixTransformConfig,
     ],
     Field(discriminator="type"),
 ]
