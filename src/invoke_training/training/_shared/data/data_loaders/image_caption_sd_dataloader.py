@@ -19,6 +19,7 @@ from invoke_training.training._shared.data.datasets.transform_dataset import Tra
 from invoke_training.training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
     AspectRatioBucketBatchSampler,
 )
+from invoke_training.training._shared.data.transforms.caption_prefix_transform import CaptionPrefixTransform
 from invoke_training.training._shared.data.transforms.drop_field_transform import DropFieldTransform
 from invoke_training.training._shared.data.transforms.load_cache_transform import LoadCacheTransform
 from invoke_training.training._shared.data.transforms.sd_image_transform import SDImageTransform
@@ -115,6 +116,10 @@ def build_image_caption_sd_dataloader(
         )
 
     all_transforms = []
+
+    if config.caption_prefix is not None:
+        all_transforms.append(CaptionPrefixTransform(caption_field_name="caption", prefix=config.caption_prefix + " "))
+
     if vae_output_cache_dir is None:
         all_transforms.append(
             SDImageTransform(

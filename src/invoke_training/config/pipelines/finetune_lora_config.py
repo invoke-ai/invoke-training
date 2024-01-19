@@ -35,6 +35,9 @@ class LoRATrainingConfig(BasePipelineConfig):
     }
     ```
 
+    Consider also adding the embedding tokens to the `data_loader.caption_prefix` if they are not already present in the
+    dataset captions.
+
     Note that the embeddings themselves are not fine-tuned further, but they will impact the LoRA model training if they
     are referenced in the dataset captions. The list of embeddings provided here should be the same list used at
     generation time with the resultant LoRA model.
