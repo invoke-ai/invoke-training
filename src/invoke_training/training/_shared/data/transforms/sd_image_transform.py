@@ -67,9 +67,11 @@ class SDImageTransform:
         original_size_hw = (image.height, image.width)
 
         # Determine the target image resolution.
+        assert sum([self._resolution is not None, self._aspect_ratio_bucket_manager is not None]) == 1
         if self._resolution is not None:
             resolution = self._resolution
         else:
+            assert self._aspect_ratio_bucket_manager is not None
             resolution = self._aspect_ratio_bucket_manager.get_aspect_ratio_bucket(Resolution.parse(original_size_hw))
 
         # Resize to cover the target resolution while preserving aspect ratio.

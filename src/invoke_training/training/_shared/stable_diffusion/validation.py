@@ -16,6 +16,7 @@ from diffusers import (
 from transformers import CLIPTextModel, CLIPTokenizer
 
 from invoke_training.config.pipelines.finetune_lora_config import FinetuneLoRASDConfig, FinetuneLoRASDXLConfig
+from invoke_training.config.pipelines.textual_inversion_config import TextualInversionSDXLConfig
 from invoke_training.training._shared.data.utils.resolution import Resolution
 
 
@@ -142,7 +143,7 @@ def generate_validation_images_sdxl(
     tokenizer_2: CLIPTokenizer,
     noise_scheduler: DDPMScheduler,
     unet: UNet2DConditionModel,
-    config: FinetuneLoRASDXLConfig,
+    config: FinetuneLoRASDXLConfig | TextualInversionSDXLConfig,
     logger: logging.Logger,
 ):
     """Generate validation images for the purpose of tracking image generation behaviour on fixed prompts throughout

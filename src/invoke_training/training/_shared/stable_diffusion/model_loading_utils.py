@@ -1,6 +1,4 @@
 import os
-import typing
-from enum import Enum
 
 from diffusers import (
     AutoencoderKL,
@@ -12,37 +10,24 @@ from diffusers import (
 from transformers import CLIPTextModel, CLIPTokenizer
 
 
-class PipelineVersionEnum(Enum):
-    SD = "SD"
-    SDXL = "SDXL"
-
-
-def load_pipeline(
-    model_name_or_path: str, pipeline_version: PipelineVersionEnum, variant: str | None = None
-) -> typing.Union[StableDiffusionPipeline, StableDiffusionXLPipeline]:
-    """Load a Stable Diffusion pipeline from disk.
-
-    Args:
-        model_name_or_path (str): The name or path of the pipeline to load. Can be in diffusers format, or a single
-            stable diffusion checkpoint file. (E.g. 'runwayml/stable-diffusion-v1-5',
-            'stabilityai/stable-diffusion-xl-base-1.0', '/path/to/realisticVisionV51_v51VAE.safetensors', etc. )
-        pipeline_version (PipelineVersionEnum): The pipeline version.
-        variant (str | None): The Hugging Face Hub variant. Only applies if `model_name_or_path` is a HF Hub model name.
-
-    Returns:
-        typing.Union[StableDiffusionPipeline, StableDiffusionXLPipeline]: The loaded pipeline.
-    """
-    if pipeline_version == PipelineVersionEnum.SD:
-        pipeline_class = StableDiffusionPipeline
-    elif pipeline_version == PipelineVersionEnum.SDXL:
-        pipeline_class = StableDiffusionXLPipeline
-    else:
-        raise ValueError(f"Unsupported pipeline_version: '{pipeline_version}'.")
-
+def load_pipeline_sd(model_name_or_path: str, variant: str | None = None) -> StableDiffusionPipeline:
+    """Load a Stable Diffusion pipeline from disk."""
     if os.path.isfile(model_name_or_path):
-        return pipeline_class.from_single_file(model_name_or_path, load_safety_checker=False)
+        return StableDiffusionPipeline.from_single_file(model_name_or_path, load_safety_checker=False)
 
-    return pipeline_class.from_pretrained(
+    return StableDiffusionPipeline.from_pretrained(
+        model_name_or_path,
+        safety_checker=None,
+        variant=variant,
+        requires_safety_checker=False,
+    )
+
+
+def load_pipeline_sdxl(model_name_or_path: str, variant: str | None = None) -> StableDiffusionXLPipeline:
+    if os.path.isfile(model_name_or_path):
+        return StableDiffusionXLPipeline.from_single_file(model_name_or_path, load_safety_checker=False)
+
+    return StableDiffusionXLPipeline.from_pretrained(
         model_name_or_path,
         safety_checker=None,
         variant=variant,
@@ -65,9 +50,7 @@ def load_models_sd(
             UNet2DConditionModel,
         ]: A tuple of loaded models.
     """
-    pipeline: StableDiffusionPipeline = load_pipeline(
-        model_name_or_path=model_name_or_path, pipeline_version=PipelineVersionEnum.SD, variant=hf_variant
-    )
+    pipeline: StableDiffusionPipeline = load_pipeline_sd(model_name_or_path=model_name_or_path, variant=hf_variant)
 
     # Extract sub-models from the pipeline.
     tokenizer: CLIPTokenizer = pipeline.tokenizer
@@ -110,9 +93,7 @@ def load_models_sdxl(
     """Load all models required for training, transfer them to the target training device and cast their weight
     dtypes.
     """
-    pipeline: StableDiffusionXLPipeline = load_pipeline(
-        model_name_or_path=model_name_or_path, pipeline_version=PipelineVersionEnum.SDXL, variant=hf_variant
-    )
+    pipeline: StableDiffusionXLPipeline = load_pipeline_sdxl(model_name_or_path=model_name_or_path, variant=hf_variant)
 
     # Extract sub-models from the pipeline.
     tokenizer_1: CLIPTokenizer = pipeline.tokenizer

@@ -2,7 +2,7 @@ import copy
 import logging
 import math
 import random
-from typing import Iterator
+from typing import Any, Iterator
 
 from torch.utils.data import Sampler
 
@@ -107,7 +107,7 @@ class AspectRatioBucketBatchSampler(Sampler[list[int]]):
         return num_batches
 
 
-def log_aspect_ratio_buckets(logger: logging.Logger, batch_sampler: AspectRatioBucketBatchSampler):
+def log_aspect_ratio_buckets(logger: logging.Logger, batch_sampler: Any):
     """Utility function for logging the aspect ratio buckets."""
     if not isinstance(batch_sampler, AspectRatioBucketBatchSampler):
         return

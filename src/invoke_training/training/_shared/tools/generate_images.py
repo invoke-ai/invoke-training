@@ -1,4 +1,5 @@
 import os
+from enum import Enum
 from pathlib import Path
 from typing import Optional
 
@@ -6,10 +7,12 @@ import torch
 from tqdm import tqdm
 
 from invoke_training.training._shared.data.datasets.image_pair_preference_dataset import ImagePairPreferenceDataset
-from invoke_training.training._shared.stable_diffusion.model_loading_utils import (
-    PipelineVersionEnum,
-    load_pipeline,
-)
+from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_pipeline_sd, load_pipeline_sdxl
+
+
+class PipelineVersionEnum(Enum):
+    SD = "SD"
+    SDXL = "SDXL"
 
 
 def generate_images(
@@ -35,7 +38,7 @@ def generate_images(
     Args:
         out_dir (str): The output directory to create.
         model (str): The name or path of the diffusers pipeline to generate with.
-        sd_version (PipelineVersionEnum): The model version.
+        pipeline_version (PipelineVersionEnum): The model version.
         prompt (str): The prompt to generate images with.
         set_size (int): The number of images in a 'set' for a given prompt.
         num_sets (int): The number of 'sets' to generate for each prompt.
@@ -53,7 +56,12 @@ def generate_images(
             Defaults to False.
     """
 
-    pipeline = load_pipeline(model_name_or_path=model, pipeline_version=pipeline_version, variant=hf_variant)
+    if pipeline_version == PipelineVersionEnum.SD:
+        pipeline = load_pipeline_sd(model_name_or_path=model, variant=hf_variant)
+    elif pipeline_version == PipelineVersionEnum.SDXL:
+        pipeline = load_pipeline_sdxl(model_name_or_path=model, variant=hf_variant)
+    else:
+        raise ValueError(f"Invalid pipeline version: {pipeline_version}.")
 
     loras = loras or []
     for lora in loras:

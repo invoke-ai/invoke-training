@@ -6,7 +6,9 @@ class AspectRatioBucketManager:
         self.buckets = buckets
 
     @classmethod
-    def from_constraints(cls, target_resolution: int, start_dim: int, end_dim: int, divisible_by: int) -> None:
+    def from_constraints(
+        cls, target_resolution: int, start_dim: int, end_dim: int, divisible_by: int
+    ) -> "AspectRatioBucketManager":
         buckets = cls.build_aspect_ratio_buckets(
             target_resolution=target_resolution,
             start_dim=start_dim,
