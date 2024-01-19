@@ -335,7 +335,6 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
         return peft_model
 
     # Add LoRA layers to the model.
-    trainable_param_groups = []
     if config.train_unet:
         unet_lora_config = peft.LoraConfig(
             r=config.lora_rank_dim,

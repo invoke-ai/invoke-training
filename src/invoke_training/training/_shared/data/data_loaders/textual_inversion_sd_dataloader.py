@@ -96,7 +96,7 @@ def get_preset_ti_caption_templates(preset: Literal["object", "style"]) -> list[
 
 def build_textual_inversion_sd_dataloader(  # noqa: C901
     config: TextualInversionSDDataLoaderConfig,
-    placeholder_tokens: list[str],
+    placeholder_token: str,
     batch_size: int,
     vae_output_cache_dir: Optional[str] = None,
     shuffle: bool = True,
@@ -105,7 +105,7 @@ def build_textual_inversion_sd_dataloader(  # noqa: C901
 
     Args:
         config (TextualInversionSDDataLoaderConfig): The dataset config.
-        placeholder_tokens (list[str]): The placeholder tokens being trained.
+        placeholder_token (str): The placeholder token being trained.
         batch_size (int): The DataLoader batch size.
         vae_output_cache_dir (str, optional): The directory where VAE outputs are cached and should be loaded from. If
             set, then the image augmentation transforms will be skipped, and the image will not be copied to VRAM.
@@ -113,8 +113,6 @@ def build_textual_inversion_sd_dataloader(  # noqa: C901
     Returns:
         DataLoader
     """
-    placeholder_str = " ".join(placeholder_tokens)
-
     if isinstance(config.dataset, HFHubImageCaptionDatasetConfig):
         base_dataset = build_hf_hub_image_caption_dataset(config.dataset)
     elif isinstance(config.dataset, HFDirImageCaptionDatasetConfig):
@@ -130,20 +128,20 @@ def build_textual_inversion_sd_dataloader(  # noqa: C901
         # Overwrites the caption field. Typically used with a ImageDirDataset that does not have captions.
         caption_tf = TemplateCaptionTransform(
             field_name="caption",
-            placeholder_str=placeholder_str,
+            placeholder_str=placeholder_token,
             caption_templates=config.captions.templates,
         )
     elif isinstance(config.captions, TextualInversionPresetCaptionTransformConfig):
         # Overwrites the caption field. Typically used with a ImageDirDataset that does not have captions.
         caption_tf = TemplateCaptionTransform(
             field_name="caption",
-            placeholder_str=placeholder_str,
+            placeholder_str=placeholder_token,
             caption_templates=get_preset_ti_caption_templates(config.captions.preset),
         )
     elif isinstance(config.captions, TextualInversionCaptionPrefixTransformConfig):
         # Prefixes the caption field. Must be used with a HFHubImageCaptionDataset or HFDirImageCaptionDataset that
         # already has captions.
-        caption_tf = CaptionPrefixTransform(caption_field_name="caption", prefix=placeholder_str + " ")
+        caption_tf = CaptionPrefixTransform(caption_field_name="caption", prefix=placeholder_token + " ")
     else:
         raise ValueError(f"Unexpected caption config type: '{type(config.captions)}'.")
 
