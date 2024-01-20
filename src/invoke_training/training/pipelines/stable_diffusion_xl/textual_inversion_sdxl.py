@@ -226,7 +226,7 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
             vae.to(accelerator.device, dtype=weight_dtype)
             data_loader = build_textual_inversion_sd_dataloader(
                 config=config.data_loader,
-                placeholder_tokens=placeholder_tokens,
+                placeholder_token=config.placeholder_token,
                 batch_size=config.train_batch_size,
                 shuffle=False,
             )
@@ -251,7 +251,7 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
 
     data_loader = build_textual_inversion_sd_dataloader(
         config=config.data_loader,
-        placeholder_tokens=placeholder_tokens,
+        placeholder_token=config.placeholder_token,
         batch_size=config.train_batch_size,
         vae_output_cache_dir=vae_output_cache_dir_name,
     )

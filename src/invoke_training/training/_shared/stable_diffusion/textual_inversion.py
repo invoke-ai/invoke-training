@@ -32,6 +32,35 @@ def _add_tokens_to_tokenizer(placeholder_tokens: list[str], tokenizer: PreTraine
         )
 
 
+def expand_placeholders_in_caption(caption: str, tokenizer: CLIPTokenizer) -> str:
+    """Expand any multi-vector placeholder tokens in the caption.
+
+    For example, "a dog in the style of my_placeholder", could get expanded to "a dog in the style of my_placeholder
+    my_placeholder_1 my_placeholder_2".
+
+    This implementation is based on
+    https://github.com/huggingface/diffusers/blob/main/src/diffusers/loaders/textual_inversion.py#L144. This logic gets
+    applied automatically when running a full diffusers text-to-image pipeline.
+    """
+    tokens = tokenizer.tokenize(caption)
+    unique_tokens = set(tokens)
+    for token in unique_tokens:
+        if token in tokenizer.added_tokens_encoder:
+            replacement = token
+            i = 1
+            while f"{token}_{i}" in tokenizer.added_tokens_encoder:
+                replacement += f" {token}_{i}"
+                i += 1
+
+            # If the replacement is already in the caption, this probably means that someone didn't realize that
+            # placeholder expansion is handled here.
+            assert replacement not in caption
+
+            caption = caption.replace(token, replacement)
+
+    return caption
+
+
 def initialize_placeholder_tokens_from_initializer_token(
     tokenizer: CLIPTokenizer,
     text_encoder: CLIPTextModel,

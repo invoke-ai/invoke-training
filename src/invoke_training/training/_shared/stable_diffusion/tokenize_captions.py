@@ -1,6 +1,8 @@
 import torch
 from transformers import CLIPTokenizer
 
+from invoke_training.training._shared.stable_diffusion.textual_inversion import expand_placeholders_in_caption
+
 
 def tokenize_captions(tokenizer: CLIPTokenizer, captions: list[str]) -> torch.Tensor:
     """Tokenize a list of caption.
@@ -14,6 +16,7 @@ def tokenize_captions(tokenizer: CLIPTokenizer, captions: list[str]) -> torch.Te
     """
     caption_token_ids = []
     for caption in captions:
+        caption = expand_placeholders_in_caption(caption, tokenizer)
         input = tokenizer(
             caption,
             max_length=tokenizer.model_max_length,

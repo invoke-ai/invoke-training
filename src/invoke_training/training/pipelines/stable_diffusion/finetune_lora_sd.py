@@ -247,7 +247,7 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
 
     logger.info("Loading models.")
     tokenizer, noise_scheduler, text_encoder, vae, unet = load_models_sd(
-        model_name_or_path=config.model, hf_variant=config.hf_variant
+        model_name_or_path=config.model, hf_variant=config.hf_variant, base_embeddings=config.base_embeddings
     )
 
     if config.xformers:
@@ -335,7 +335,6 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
         return peft_model
 
     # Add LoRA layers to the model.
-    trainable_param_groups = []
     if config.train_unet:
         unet_lora_config = peft.LoraConfig(
             r=config.lora_rank_dim,

@@ -53,6 +53,10 @@ class ImageCaptionSDDataLoaderConfig(ConfigBaseModel):
 
     aspect_ratio_buckets: AspectRatioBucketConfig | None = None
 
+    caption_prefix: str | None = None
+    """A prefix that will be prepended to all captions. If None, no prefix will be added.
+    """
+
     dataloader_num_workers: int = 0
     """Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
     """

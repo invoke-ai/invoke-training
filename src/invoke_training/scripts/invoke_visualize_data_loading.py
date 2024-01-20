@@ -107,7 +107,7 @@ def main():
     elif data_loader_config.type == "TEXTUAL_INVERSION_SD_DATA_LOADER":
         data_loader = build_textual_inversion_sd_dataloader(
             config=data_loader_config,
-            placeholder_tokens=["<placeholder_tokens_are_not_shown_when_visualizing>"],
+            placeholder_token=["<placeholder_token_not_shown_when_visualizing>"],
             batch_size=train_config.train_batch_size,
             shuffle=False,
         )
