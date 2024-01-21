@@ -1,11 +1,8 @@
-from typing import Annotated, Literal, Optional, Union
-
-from pydantic import Field
+from typing import Literal, Optional
 
 from invoke_training.config.pipelines.base_pipeline_config import BasePipelineConfig
 from invoke_training.config.shared.data.data_loader_config import (
-    DreamboothSDDataLoaderConfig,
-    ImageCaptionSDDataLoaderConfig,
+    TextualInversionSDDataLoaderConfig,
 )
 from invoke_training.config.shared.optimizer.optimizer_config import OptimizerConfig
 
@@ -22,25 +19,34 @@ class LoraAndTiTrainingConfig(BasePipelineConfig):
     """The Hugging Face Hub model variant to use. Only applies if `model` is a Hugging Face Hub model name.
     """
 
-    # Note: Pydantic handles mutable default values well:
-    # https://docs.pydantic.dev/latest/concepts/models/#fields-with-non-hashable-default-values
-    base_embeddings: dict[str, str] = {}
-    """A mapping of embedding tokens to trained embedding file paths. These embeddings will be applied to the base model
-    before training.
+    # Helpful discussion for understanding how this works at inference time:
+    # https://github.com/huggingface/diffusers/pull/3144#discussion_r1172413509
+    num_vectors: int = 1
+    """Note: `num_vectors` can be overridden by `initial_phrase`.
 
-    Example:
-    ```
-    base_embeddings = {
-        "bruce_the_gnome": "/path/to/bruce_the_gnome.safetensors",
-    }
-    ```
+    The number of textual inversion embedding vectors that will be used to learn the concept.
 
-    Consider also adding the embedding tokens to the `data_loader.caption_prefix` if they are not already present in the
-    dataset captions.
+    Increasing the `num_vectors` enables the model to learn more complex concepts, but has the following drawbacks:
 
-    Note that the embeddings themselves are not fine-tuned further, but they will impact the LoRA model training if they
-    are referenced in the dataset captions. The list of embeddings provided here should be the same list used at
-    generation time with the resultant LoRA model.
+    - greater risk of overfitting
+    - increased size of the resulting output file
+    - consumes more of the prompt capacity at inference time
+
+    Typical values for `num_vectors` are in the range [1, 16].
+
+    As a rule of thumb, `num_vectors` can be increased as the size of the dataset increases (without overfitting).
+    """
+
+    placeholder_token: str
+    """The special word to associate the learned embeddings with. Choose a unique token that is unlikely to already
+    exist in the tokenizer's vocabulary.
+    """
+
+    initializer_token: str
+    """A vocabulary token to use as an initializer for the placeholder token. It should be a single word that roughly
+    describes the object or style that you're trying to train on. Must map to a single tokenizer token.
+
+    For example, if you are training on a dataset of images of your pet dog, a good choice would be `dog`.
     """
 
     train_unet: bool = True
@@ -51,19 +57,19 @@ class LoraAndTiTrainingConfig(BasePipelineConfig):
     """Whether to add LoRA layers to the text encoder and train it.
     """
 
-    text_encoder_learning_rate: Optional[float] = None
-    """The learning rate to use for the text encoder model. If set, this overrides the optimizer's default learning
-    rate.
+    train_ti: bool = True
+    """Whether to train the textual inversion embeddings."""
+
+    text_encoder_learning_rate: float = 1e-4
+    """The learning rate to use for the text encoder model.
     """
 
-    unet_learning_rate: Optional[float] = None
-    """The learning rate to use for the UNet model. If set, this overrides the optimizer's default learning rate.
+    unet_learning_rate: float = 1e-4
+    """The learning rate to use for the UNet model.
     """
 
-    train_unet_non_attention_blocks: bool = False
-    """Whether to inject LoRA layers into the non-attention UNet blocks for training. Enabling will produce a more
-    expressive LoRA model at the cost of slower training, higher training VRAM requirements, and a larger LoRA weight
-    file.
+    textual_inversion_learning_rate: float = 1e-3
+    """The learning rate to use for textual inversion training of the embeddings.
     """
 
     lora_rank_dim: int = 4
@@ -160,9 +166,14 @@ class LoraAndTiTrainingConfig(BasePipelineConfig):
 class FinetuneLoraAndTiSdxlConfig(LoraAndTiTrainingConfig):
     type: Literal["FINETUNE_LORA_AND_TI_SDXL"] = "FINETUNE_LORA_AND_TI_SDXL"
     optimizer: OptimizerConfig
-    data_loader: Annotated[
-        Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig], Field(discriminator="type")
-    ]
+
+    data_loader: TextualInversionSDDataLoaderConfig
+    """The data configuration.
+
+    See
+    [`TextualInversionSDDataLoaderConfig`][invoke_training.config.shared.data.data_loader_config.TextualInversionSDDataLoaderConfig]
+    for details.
+    """
 
     vae_model: Optional[str] = None
     """The name of the Hugging Face Hub VAE model to train against. This will override the VAE bundled with the base
