@@ -14,18 +14,10 @@ output:
 optimizer:
   learning_rate: 4e-3
   lr_warmup_steps: 200
-  lr_scheduler: cosine
+  lr_scheduler: constant
 
   optimizer:
     optimizer_type: AdamW
-
-data_loader:
-  type: IMAGE_CAPTION_SD_DATA_LOADER
-  dataset:
-    type: HF_HUB_IMAGE_CAPTION_DATASET
-    dataset_name: lambdalabs/pokemon-blip-captions
-  image_transforms:
-    resolution: 512
 
 data_loader:
   type: TEXTUAL_INVERSION_SD_DATA_LOADER
@@ -35,7 +27,7 @@ data_loader:
   captions:
     type: TEXTUAL_INVERSION_CAPTION_PREFIX_TRANSFORM
   image_transforms:
-    resolution: 1024
+    resolution: 512
     center_crop: True
     random_flip: False
   shuffle_caption_transform: null

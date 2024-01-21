@@ -60,11 +60,11 @@ class LoraAndTiTrainingConfig(BasePipelineConfig):
     train_ti: bool = True
     """Whether to train the textual inversion embeddings."""
 
-    text_encoder_learning_rate: float = 1e-4
+    text_encoder_learning_rate: float = 1e-5
     """The learning rate to use for the text encoder model.
     """
 
-    unet_learning_rate: float = 1e-5
+    unet_learning_rate: float = 1e-4
     """The learning rate to use for the UNet model.
     """
 

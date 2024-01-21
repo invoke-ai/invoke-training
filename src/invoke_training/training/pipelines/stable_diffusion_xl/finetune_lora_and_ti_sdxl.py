@@ -534,7 +534,8 @@ def run_training(config: FinetuneLoraAndTiSdxlConfig):  # noqa: C901
                 if config.train_unet:
                     lr_names.append("unet")
                 if config.train_text_encoder:
-                    lr_names.append("text_encoder")
+                    lr_names.append("text_encoder_1")
+                    lr_names.append("text_encoder_2")
                 if config.train_ti:
                     lr_names.append("ti_embeddings_1")
                     lr_names.append("ti_embeddings_2")
