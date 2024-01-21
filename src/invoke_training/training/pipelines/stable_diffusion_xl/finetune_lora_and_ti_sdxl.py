@@ -3,10 +3,8 @@ import json
 import logging
 import math
 import os
-import tempfile
 import time
 from pathlib import Path
-from typing import Optional, Union
 
 import peft
 import torch
@@ -15,29 +13,21 @@ from accelerate import Accelerator
 from accelerate.utils import set_seed
 from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel
 from diffusers.optimization import get_scheduler
-from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers import CLIPPreTrainedModel, CLIPTextModel, PreTrainedTokenizer
 
-from invoke_training.config.pipelines.finetune_lora_config import FinetuneLoRASDXLConfig
-from invoke_training.config.shared.data.data_loader_config import (
-    DreamboothSDDataLoaderConfig,
-    ImageCaptionSDDataLoaderConfig,
-)
+from invoke_training.config.pipelines.finetune_lora_and_ti_config import FinetuneLoraAndTiSdxlConfig
 from invoke_training.training._shared.accelerator.accelerator_utils import (
     get_mixed_precision_dtype,
     initialize_accelerator,
     initialize_logging,
 )
 from invoke_training.training._shared.checkpoints.checkpoint_tracker import CheckpointTracker
-from invoke_training.training._shared.data.data_loaders.dreambooth_sd_dataloader import (
-    build_dreambooth_sd_dataloader,
-)
-from invoke_training.training._shared.data.data_loaders.image_caption_sd_dataloader import (
-    build_image_caption_sd_dataloader,
+from invoke_training.training._shared.checkpoints.serialization import save_state_dict
+from invoke_training.training._shared.data.data_loaders.textual_inversion_sd_dataloader import (
+    build_textual_inversion_sd_dataloader,
 )
 from invoke_training.training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import log_aspect_ratio_buckets
-from invoke_training.training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training.training._shared.data.utils.resolution import Resolution
 from invoke_training.training._shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training.training._shared.stable_diffusion.lora_checkpoint_utils import (
@@ -48,16 +38,20 @@ from invoke_training.training._shared.stable_diffusion.lora_checkpoint_utils imp
 from invoke_training.training._shared.stable_diffusion.model_loading_utils import (
     load_models_sdxl,
 )
+from invoke_training.training._shared.stable_diffusion.textual_inversion import restore_original_embeddings
 from invoke_training.training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training.training._shared.stable_diffusion.validation import generate_validation_images_sdxl
-from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import cache_vae_outputs
+from invoke_training.training.pipelines.stable_diffusion_xl.textual_inversion_sdxl import _initialize_placeholder_tokens
 
 
-def _save_sdxl_lora_checkpoint(
+def _save_sdxl_lora_and_ti_checkpoint(
     idx: int,
     unet: peft.PeftModel | None,
     text_encoder_1: peft.PeftModel | None,
     text_encoder_2: peft.PeftModel | None,
+    placeholder_token_ids_1: list[int],
+    placeholder_token_ids_2: list[int],
+    accelerator: Accelerator,
     logger: logging.Logger,
     checkpoint_tracker: CheckpointTracker,
 ):
@@ -69,42 +63,22 @@ def _save_sdxl_lora_checkpoint(
 
     save_sdxl_peft_checkpoint(Path(save_path), unet=unet, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2)
 
-
-def _build_data_loader(
-    data_loader_config: Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig],
-    batch_size: int,
-    text_encoder_output_cache_dir: Optional[str] = None,
-    vae_output_cache_dir: Optional[str] = None,
-    shuffle: bool = True,
-    sequential_batching: bool = False,
-) -> DataLoader:
-    if data_loader_config.type == "IMAGE_CAPTION_SD_DATA_LOADER":
-        return build_image_caption_sd_dataloader(
-            config=data_loader_config,
-            batch_size=batch_size,
-            text_encoder_output_cache_dir=text_encoder_output_cache_dir,
-            text_encoder_cache_field_to_output_field={
-                "prompt_embeds": "prompt_embeds",
-                "pooled_prompt_embeds": "pooled_prompt_embeds",
-            },
-            vae_output_cache_dir=vae_output_cache_dir,
-            shuffle=shuffle,
-        )
-    elif data_loader_config.type == "DREAMBOOTH_SD_DATA_LOADER":
-        return build_dreambooth_sd_dataloader(
-            config=data_loader_config,
-            batch_size=batch_size,
-            text_encoder_output_cache_dir=text_encoder_output_cache_dir,
-            text_encoder_cache_field_to_output_field={
-                "prompt_embeds": "prompt_embeds",
-                "pooled_prompt_embeds": "pooled_prompt_embeds",
-            },
-            vae_output_cache_dir=vae_output_cache_dir,
-            shuffle=shuffle,
-            sequential_batching=sequential_batching,
-        )
-    else:
-        raise ValueError(f"Unsupported data loader config type: '{data_loader_config.type}'.")
+    ti_checkpoint_path = Path(save_path) / "embeddings.safetensors"
+    learned_embeds_1 = (
+        accelerator.unwrap_model(text_encoder_1)
+        .get_input_embeddings()
+        .weight[min(placeholder_token_ids_1) : max(placeholder_token_ids_1) + 1]
+    )
+    learned_embeds_2 = (
+        accelerator.unwrap_model(text_encoder_2)
+        .get_input_embeddings()
+        .weight[min(placeholder_token_ids_2) : max(placeholder_token_ids_2) + 1]
+    )
+    learned_embeds_dict = {
+        "clip_l": learned_embeds_1.detach().cpu(),
+        "clip_g": learned_embeds_2.detach().cpu(),
+    }
+    save_state_dict(learned_embeds_dict, ti_checkpoint_path)
 
 
 # encode_prompt was adapted from:
@@ -131,51 +105,6 @@ def _encode_prompt(text_encoders: list[CLIPPreTrainedModel], prompt_token_ids_li
     prompt_embeds = torch.concat(prompt_embeds_list, dim=-1)
     pooled_prompt_embeds = pooled_prompt_embeds.view(bs_embed, -1)
     return prompt_embeds, pooled_prompt_embeds
-
-
-# TODO(ryand): Cache VAE outputs and text encoder outputs at the same time in a single pass over the dataset.
-
-
-def cache_text_encoder_outputs(
-    cache_dir: str,
-    config: FinetuneLoRASDXLConfig,
-    tokenizer_1: PreTrainedTokenizer,
-    tokenizer_2: PreTrainedTokenizer,
-    text_encoder_1: CLIPPreTrainedModel,
-    text_encoder_2: CLIPPreTrainedModel,
-):
-    """Run the text encoder on all captions in the dataset and cache the results to disk.
-    Args:
-        cache_dir (str): The directory where the results will be cached.
-        config (FinetuneLoRAConfig): Training config.
-        tokenizer_1 (PreTrainedTokenizer):
-        tokenizer_2 (PreTrainedTokenizer):
-        text_encoder_1 (CLIPPreTrainedModel):
-        text_encoder_2 (CLIPPreTrainedModel):
-    """
-    data_loader = _build_data_loader(
-        data_loader_config=config.data_loader,
-        batch_size=config.train_batch_size,
-        shuffle=False,
-        sequential_batching=True,
-    )
-
-    cache = TensorDiskCache(cache_dir)
-
-    for data_batch in tqdm(data_loader):
-        caption_token_ids_1 = tokenize_captions(tokenizer_1, data_batch["caption"])
-        caption_token_ids_2 = tokenize_captions(tokenizer_2, data_batch["caption"])
-        prompt_embeds, pooled_prompt_embeds = _encode_prompt(
-            [text_encoder_1, text_encoder_2], [caption_token_ids_1, caption_token_ids_2]
-        )
-
-        # Split batch before caching.
-        for i in range(len(data_batch["id"])):
-            embeds = {
-                "prompt_embeds": prompt_embeds[i],
-                "pooled_prompt_embeds": pooled_prompt_embeds[i],
-            }
-            cache.save(data_batch["id"][i], embeds)
 
 
 def train_forward(
@@ -277,7 +206,7 @@ def train_forward(
     return loss.mean()
 
 
-def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
+def run_training(config: FinetuneLoraAndTiSdxlConfig):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     # TODO(ryan): Update this check to work with single-file SD checkpoints.
     # check_base_model_version(
@@ -330,31 +259,9 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         vae.enable_xformers_memory_efficient_attention()
 
     # Prepare text encoder output cache.
-    text_encoder_output_cache_dir_name = None
+    # text_encoder_output_cache_dir_name = None
     if config.cache_text_encoder_outputs:
-        # TODO(ryand): Think about how to better check if it is safe to cache the text encoder outputs. Currently, there
-        # are a number of configurations that would cause variation in the text encoder outputs and should not be used
-        # with caching.
-
-        if config.train_text_encoder:
-            raise ValueError("'cache_text_encoder_outputs' and 'train_text_encoder' cannot both be True.")
-
-        # We use a temporary directory for the cache. The directory will automatically be cleaned up when
-        # tmp_text_encoder_output_cache_dir is destroyed.
-        tmp_text_encoder_output_cache_dir = tempfile.TemporaryDirectory()
-        text_encoder_output_cache_dir_name = tmp_text_encoder_output_cache_dir.name
-        if accelerator.is_local_main_process:
-            # Only the main process should populate the cache.
-            logger.info(f"Generating text encoder output cache ('{text_encoder_output_cache_dir_name}').")
-            text_encoder_1.to(accelerator.device, dtype=weight_dtype)
-            text_encoder_2.to(accelerator.device, dtype=weight_dtype)
-            cache_text_encoder_outputs(
-                text_encoder_output_cache_dir_name, config, tokenizer_1, tokenizer_2, text_encoder_1, text_encoder_2
-            )
-        # Move the text_encoders back to the CPU, because they are not needed for training.
-        text_encoder_1.to("cpu")
-        text_encoder_2.to("cpu")
-        accelerator.wait_for_everyone()
+        raise NotImplementedError("Caching text encoder outputs is not yet supported.")
     else:
         text_encoder_1.to(accelerator.device, dtype=weight_dtype)
         text_encoder_2.to(accelerator.device, dtype=weight_dtype)
@@ -362,29 +269,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     # Prepare VAE output cache.
     vae_output_cache_dir_name = None
     if config.cache_vae_outputs:
-        if config.data_loader.image_transforms.random_flip:
-            raise ValueError("'cache_vae_outputs' cannot be True if 'random_flip' is True.")
-        if not config.data_loader.image_transforms.center_crop:
-            raise ValueError("'cache_vae_outputs' cannot be True if 'center_crop' is False.")
-
-        # We use a temporary directory for the cache. The directory will automatically be cleaned up when
-        # tmp_vae_output_cache_dir is destroyed.
-        tmp_vae_output_cache_dir = tempfile.TemporaryDirectory()
-        vae_output_cache_dir_name = tmp_vae_output_cache_dir.name
-        if accelerator.is_local_main_process:
-            # Only the main process should to populate the cache.
-            logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
-            vae.to(accelerator.device, dtype=weight_dtype)
-            data_loader = _build_data_loader(
-                data_loader_config=config.data_loader,
-                batch_size=config.train_batch_size,
-                shuffle=False,
-                sequential_batching=True,
-            )
-            cache_vae_outputs(vae_output_cache_dir_name, data_loader, vae)
-        # Move the VAE back to the CPU, because it is not needed for training.
-        vae.to("cpu")
-        accelerator.wait_for_everyone()
+        raise NotImplementedError("Caching VAE outputs is not yet supported.")
     else:
         vae.to(accelerator.device, dtype=weight_dtype)
 
@@ -392,7 +277,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
 
     # Add LoRA layers to the models being trained.
     trainable_param_groups = []
-    all_trainable_models: list[peft.PeftModel] = []
+    all_trainable_models: list[torch.nn.Module] = []
 
     def inject_lora_layers(model, lora_config: peft.LoraConfig, lr: float | None = None) -> peft.PeftModel:
         peft_model = peft.get_peft_model(model, lora_config)
@@ -434,6 +319,27 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
             text_encoder_2, text_encoder_lora_config, lr=config.text_encoder_learning_rate
         )
 
+    if config.train_ti:
+        # TODO(ryand): Move this private function to a shared location.
+        placeholder_tokens, placeholder_token_ids_1, placeholder_token_ids_2 = _initialize_placeholder_tokens(
+            config=config,
+            tokenizer_1=tokenizer_1,
+            tokenizer_2=tokenizer_2,
+            text_encoder_1=text_encoder_1,
+            text_encoder_2=text_encoder_2,
+        )
+        logger.info(f"Initialized {len(placeholder_tokens)} placeholder tokens: {placeholder_tokens}.")
+
+        # Unfreeze the token embeddings in the text encoders.
+        text_encoder_1.text_model.embeddings.token_embedding.requires_grad_(True)
+        text_encoder_2.text_model.embeddings.token_embedding.requires_grad_(True)
+
+        for te in [text_encoder_1, text_encoder_2]:
+            param_group = {"params": te.get_input_embeddings().parameters()}
+            if config.textual_inversion_learning_rate is not None:
+                param_group["lr"] = config.textual_inversion_learning_rate
+            trainable_param_groups.append(param_group)
+
     # Make sure all trainable params are in float32.
     for trainable_model in all_trainable_models:
         for param in trainable_model.parameters():
@@ -460,15 +366,15 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
 
                 # Set requires_grad = True on the first parameters of the text encoders. Without this, the text encoder
                 # LoRA weights would have 0 gradients, and so would not get trained. Note that the set of
-                # trainable_param_groups has already been populated - the embeddings will not be trained.
+                # trainable_param_groups has already been populated - this won't change what gets trained.
                 te.text_model.embeddings.requires_grad_(True)
 
     optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
 
-    data_loader = _build_data_loader(
-        data_loader_config=config.data_loader,
+    data_loader = build_textual_inversion_sd_dataloader(
+        config=config.data_loader,
+        placeholder_token=config.placeholder_token,
         batch_size=config.train_batch_size,
-        text_encoder_output_cache_dir=text_encoder_output_cache_dir_name,
         vae_output_cache_dir=vae_output_cache_dir_name,
     )
 
@@ -520,7 +426,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     num_train_epochs = math.ceil(config.max_train_steps / num_steps_per_epoch)
 
     if accelerator.is_main_process:
-        accelerator.init_trackers("lora_training")
+        accelerator.init_trackers("lora_and_ti_training")
         # Tensorboard uses markdown formatting, so we wrap the config json in a code block.
         accelerator.log({"configuration": f"```json\n{json.dumps(config.dict(), indent=2, default=str)}\n```\n"})
 
@@ -556,7 +462,16 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     )
     progress_bar.set_description("Steps")
 
+    # Keep original embeddings as reference.
+    with torch.no_grad():
+        orig_embeds_params_1 = accelerator.unwrap_model(text_encoder_1).get_input_embeddings().weight.data.clone()
+        orig_embeds_params_2 = accelerator.unwrap_model(text_encoder_2).get_input_embeddings().weight.data.clone()
+
     for epoch in range(first_epoch, num_train_epochs):
+        # TODO(ryand): Is this necessary?
+        text_encoder_1.train()
+        text_encoder_2.train()
+
         train_loss = 0.0
         for data_batch in data_loader:
             with accelerator.accumulate(unet, text_encoder_1, text_encoder_2):
@@ -589,6 +504,23 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
                 lr_scheduler.step()
                 optimizer.zero_grad(set_to_none=True)
 
+                # Make sure we don't update any embedding weights besides the newly-added token(s).
+                # TODO(ryand): Should we only do this if accelerator.sync_gradients?
+                restore_original_embeddings(
+                    tokenizer=tokenizer_1,
+                    placeholder_token_ids=placeholder_token_ids_1,
+                    accelerator=accelerator,
+                    text_encoder=text_encoder_1,
+                    orig_embeds_params=orig_embeds_params_1,
+                )
+                restore_original_embeddings(
+                    tokenizer=tokenizer_2,
+                    placeholder_token_ids=placeholder_token_ids_2,
+                    accelerator=accelerator,
+                    text_encoder=text_encoder_2,
+                    orig_embeds_params=orig_embeds_params_2,
+                )
+
             # Checks if the accelerator has performed an optimization step behind the scenes.
             if accelerator.sync_gradients:
                 progress_bar.update(1)
@@ -596,16 +528,24 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
                 log = {"train_loss": train_loss}
 
                 lrs = lr_scheduler.get_last_lr()
+
+                # Prepare LR names in the same order that their respective param groups were added to the optimizer.
+                # TODO: Do this at the time that we prepare the param groups?
+                lr_names = []
                 if config.train_unet:
-                    # When training the UNet, it will always be the first parameter group.
-                    log["lr/unet"] = float(lrs[0])
-                    if config.optimizer.optimizer.optimizer_type == "Prodigy":
-                        log["lr/d*lr/unet"] = optimizer.param_groups[0]["d"] * optimizer.param_groups[0]["lr"]
+                    lr_names.append("unet")
                 if config.train_text_encoder:
-                    # When training the text encoder, it will always be the last parameter group.
-                    log["lr/text_encoder"] = float(lrs[-1])
+                    lr_names.append("text_encoder")
+                if config.train_ti:
+                    lr_names.append("ti_embeddings_1")
+                    lr_names.append("ti_embeddings_2")
+
+                for lr_idx, lr_name in enumerate(lr_names):
+                    log[f"lr/{lr_name}"] = float(lrs[lr_idx])
                     if config.optimizer.optimizer.optimizer_type == "Prodigy":
-                        log["lr/d*lr/text_encoder"] = optimizer.param_groups[-1]["d"] * optimizer.param_groups[-1]["lr"]
+                        log[f"lr/d*lr/{lr_name}"] = (
+                            optimizer.param_groups[lr_idx]["d"] * optimizer.param_groups[lr_idx]["lr"]
+                        )
 
                 accelerator.log(log, step=global_step)
                 train_loss = 0.0
@@ -613,11 +553,14 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
                 if config.save_every_n_steps is not None and (global_step + 1) % config.save_every_n_steps == 0:
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
-                        _save_sdxl_lora_checkpoint(
+                        _save_sdxl_lora_and_ti_checkpoint(
                             idx=global_step + 1,
                             unet=unet,
                             text_encoder_1=text_encoder_1,
                             text_encoder_2=text_encoder_2,
+                            placeholder_token_ids_1=placeholder_token_ids_1,
+                            placeholder_token_ids_2=placeholder_token_ids_2,
+                            accelerator=accelerator,
                             logger=logger,
                             checkpoint_tracker=step_checkpoint_tracker,
                         )
@@ -634,11 +577,14 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         # Save a checkpoint every n epochs.
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
             if accelerator.is_main_process:
-                _save_sdxl_lora_checkpoint(
+                _save_sdxl_lora_and_ti_checkpoint(
                     idx=epoch + 1,
                     unet=unet,
                     text_encoder_1=text_encoder_1,
                     text_encoder_2=text_encoder_2,
+                    placeholder_token_ids_1=placeholder_token_ids_1,
+                    placeholder_token_ids_2=placeholder_token_ids_2,
+                    accelerator=accelerator,
                     logger=logger,
                     checkpoint_tracker=epoch_checkpoint_tracker,
                 )
