@@ -64,7 +64,7 @@ class LoraAndTiTrainingConfig(BasePipelineConfig):
     """The learning rate to use for the text encoder model.
     """
 
-    unet_learning_rate: float = 1e-4
+    unet_learning_rate: float = 1e-5
     """The learning rate to use for the UNet model.
     """
 

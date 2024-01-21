@@ -13,6 +13,7 @@ from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
 from transformers import CLIPPreTrainedModel, CLIPTextModel, CLIPTokenizer, PreTrainedTokenizer
 
+from invoke_training.config.pipelines.finetune_lora_and_ti_config import FinetuneLoraAndTiSdxlConfig
 from invoke_training.config.pipelines.textual_inversion_config import TextualInversionSDXLConfig
 from invoke_training.training._shared.accelerator.accelerator_utils import (
     get_mixed_precision_dtype,
@@ -74,7 +75,7 @@ def _save_ti_embeddings(
 
 
 def _initialize_placeholder_tokens(
-    config: TextualInversionSDXLConfig,
+    config: TextualInversionSDXLConfig | FinetuneLoraAndTiSdxlConfig,
     tokenizer_1: CLIPTokenizer,
     tokenizer_2: CLIPTokenizer,
     text_encoder_1: PreTrainedTokenizer,
@@ -90,9 +91,9 @@ def _initialize_placeholder_tokens(
     if (
         sum(
             [
-                config.initializer_token is not None,
-                config.initial_embedding_file is not None,
-                config.initial_phrase is not None,
+                getattr(config, "initializer_token", None) is not None,
+                getattr(config, "initial_embedding_file", None) is not None,
+                getattr(config, "initial_phrase", None) is not None,
             ]
         )
         != 1
@@ -101,7 +102,7 @@ def _initialize_placeholder_tokens(
             "Exactly one of 'initializer_token', 'initial_embedding_file', or 'initial_phrase' should be set."
         )
 
-    if config.initializer_token is not None:
+    if getattr(config, "initializer_token", None) is not None:
         placeholder_tokens_1, placeholder_token_ids_1 = initialize_placeholder_tokens_from_initializer_token(
             tokenizer=tokenizer_1,
             text_encoder=text_encoder_1,
@@ -116,10 +117,10 @@ def _initialize_placeholder_tokens(
             placeholder_token=config.placeholder_token,
             num_vectors=config.num_vectors,
         )
-    elif config.initial_embedding_file is not None:
+    elif getattr(config, "initial_embedding_file", None) is not None:
         # TODO(ryan)
         raise NotImplementedError("Initializing from an initial embedding is not yet supported for SDXL.")
-    elif config.initial_phrase is not None:
+    elif getattr(config, "initial_phrase", None) is not None:
         placeholder_tokens_1, placeholder_token_ids_1 = initialize_placeholder_tokens_from_initial_phrase(
             tokenizer=tokenizer_1,
             text_encoder=text_encoder_1,

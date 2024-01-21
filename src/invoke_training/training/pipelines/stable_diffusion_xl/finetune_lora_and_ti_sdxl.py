@@ -247,7 +247,6 @@ def run_training(config: FinetuneLoraAndTiSdxlConfig):  # noqa: C901
         model_name_or_path=config.model,
         hf_variant=config.hf_variant,
         vae_model=config.vae_model,
-        base_embeddings=config.base_embeddings,
     )
 
     if config.xformers:

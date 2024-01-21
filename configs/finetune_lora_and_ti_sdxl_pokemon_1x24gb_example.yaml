@@ -1,0 +1,64 @@
+# Training mode: Finetuning with LoRA and Textual Inversion
+# Base model:    SDXL 1.0
+# Dataset:       Pokemon
+# GPU:           1 x 24GB
+
+# Notes:
+# This config file has been optimized for the primary goal of achieving reasonable results *quickly* (<15mins) for demo
+# purposes.
+type: FINETUNE_LORA_AND_TI_SDXL
+seed: 1
+output:
+  base_output_dir: output/finetune_lora_and_ti_sdxl_pokemon/
+
+optimizer:
+  learning_rate: 4e-3
+  lr_warmup_steps: 200
+  lr_scheduler: cosine
+
+  optimizer:
+    optimizer_type: AdamW
+
+data_loader:
+  type: IMAGE_CAPTION_SD_DATA_LOADER
+  dataset:
+    type: HF_HUB_IMAGE_CAPTION_DATASET
+    dataset_name: lambdalabs/pokemon-blip-captions
+  image_transforms:
+    resolution: 512
+
+data_loader:
+  type: TEXTUAL_INVERSION_SD_DATA_LOADER
+  dataset:
+    type: HF_HUB_IMAGE_CAPTION_DATASET
+    dataset_name: lambdalabs/pokemon-blip-captions
+  captions:
+    type: TEXTUAL_INVERSION_CAPTION_PREFIX_TRANSFORM
+  image_transforms:
+    resolution: 1024
+    center_crop: True
+    random_flip: False
+  shuffle_caption_transform: null
+  dataloader_num_workers: 4
+
+# General
+model: stabilityai/stable-diffusion-xl-base-1.0
+vae_model: madebyollin/sdxl-vae-fp16-fix
+num_vectors: 2
+placeholder_token: "pokemon_token"
+initializer_token: "pokemon"
+
+gradient_accumulation_steps: 1
+mixed_precision: fp16
+xformers: False
+gradient_checkpointing: True
+max_train_steps: 3000
+save_every_n_epochs: 1
+validate_every_n_epochs: 1
+save_every_n_steps: null
+max_checkpoints: 100
+validation_prompts:
+  - pokemon_token a cute yoda creature
+  - pokemon_token a cute astronaut creature
+train_batch_size: 4
+num_validation_images_per_prompt: 3

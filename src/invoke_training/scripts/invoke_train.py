@@ -12,6 +12,9 @@ from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import
 from invoke_training.training.pipelines.stable_diffusion.textual_inversion_sd import (
     run_training as run_textual_inversion_sd,
 )
+from invoke_training.training.pipelines.stable_diffusion_xl.finetune_lora_and_ti_sdxl import (
+    run_training as run_finetune_lora_and_ti_sdxl,
+)
 from invoke_training.training.pipelines.stable_diffusion_xl.finetune_lora_sdxl import (
     run_training as run_finetune_lora_sdxl,
 )
@@ -50,6 +53,8 @@ def main():
         run_textual_inversion_sd(train_config)
     elif train_config.type == "TEXTUAL_INVERSION_SDXL":
         run_textual_inversion_sdxl(train_config)
+    elif train_config.type == "FINETUNE_LORA_AND_TI_SDXL":
+        run_finetune_lora_and_ti_sdxl(train_config)
     elif train_config.type == "DIRECT_PREFERENCE_OPTIMIZATION_LORA_SD":
         print(f"Running EXPERIMENTAL pipeline: '{train_config.type}'.")
         run_diffusion_dpo_sd(train_config)
