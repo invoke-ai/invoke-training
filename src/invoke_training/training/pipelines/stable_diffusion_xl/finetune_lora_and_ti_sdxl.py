@@ -45,6 +45,7 @@ from invoke_training.training.pipelines.stable_diffusion_xl.textual_inversion_sd
 
 
 def _save_sdxl_lora_and_ti_checkpoint(
+    config: FinetuneLoraAndTiSdxlConfig,
     idx: int,
     unet: peft.PeftModel | None,
     text_encoder_1: peft.PeftModel | None,
@@ -61,24 +62,30 @@ def _save_sdxl_lora_and_ti_checkpoint(
         logger.info(f"Pruned {num_pruned} checkpoint(s).")
     save_path = checkpoint_tracker.get_path(idx)
 
-    save_sdxl_peft_checkpoint(Path(save_path), unet=unet, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2)
+    save_sdxl_peft_checkpoint(
+        Path(save_path),
+        unet=unet if config.train_unet else None,
+        text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
+        text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
+    )
 
-    ti_checkpoint_path = Path(save_path) / "embeddings.safetensors"
-    learned_embeds_1 = (
-        accelerator.unwrap_model(text_encoder_1)
-        .get_input_embeddings()
-        .weight[min(placeholder_token_ids_1) : max(placeholder_token_ids_1) + 1]
-    )
-    learned_embeds_2 = (
-        accelerator.unwrap_model(text_encoder_2)
-        .get_input_embeddings()
-        .weight[min(placeholder_token_ids_2) : max(placeholder_token_ids_2) + 1]
-    )
-    learned_embeds_dict = {
-        "clip_l": learned_embeds_1.detach().cpu(),
-        "clip_g": learned_embeds_2.detach().cpu(),
-    }
-    save_state_dict(learned_embeds_dict, ti_checkpoint_path)
+    if config.train_ti:
+        ti_checkpoint_path = Path(save_path) / "embeddings.safetensors"
+        learned_embeds_1 = (
+            accelerator.unwrap_model(text_encoder_1)
+            .get_input_embeddings()
+            .weight[min(placeholder_token_ids_1) : max(placeholder_token_ids_1) + 1]
+        )
+        learned_embeds_2 = (
+            accelerator.unwrap_model(text_encoder_2)
+            .get_input_embeddings()
+            .weight[min(placeholder_token_ids_2) : max(placeholder_token_ids_2) + 1]
+        )
+        learned_embeds_dict = {
+            "clip_l": learned_embeds_1.detach().cpu(),
+            "clip_g": learned_embeds_2.detach().cpu(),
+        }
+        save_state_dict(learned_embeds_dict, ti_checkpoint_path)
 
 
 # encode_prompt was adapted from:
@@ -276,7 +283,7 @@ def run_training(config: FinetuneLoraAndTiSdxlConfig):  # noqa: C901
 
     # Add LoRA layers to the models being trained.
     trainable_param_groups = []
-    all_trainable_models: list[torch.nn.Module] = []
+    all_trainable_models: set[torch.nn.Module] = set()
 
     def inject_lora_layers(model, lora_config: peft.LoraConfig, lr: float | None = None) -> peft.PeftModel:
         peft_model = peft.get_peft_model(model, lora_config)
@@ -289,7 +296,7 @@ def run_training(config: FinetuneLoraAndTiSdxlConfig):  # noqa: C901
         trainable_param_groups.append(param_group)
 
         # Populate all_trainable_models.
-        all_trainable_models.append(peft_model)
+        all_trainable_models.add(peft_model)
 
         peft_model.train()
 
@@ -332,6 +339,9 @@ def run_training(config: FinetuneLoraAndTiSdxlConfig):  # noqa: C901
         # Unfreeze the token embeddings in the text encoders.
         text_encoder_1.text_model.embeddings.token_embedding.requires_grad_(True)
         text_encoder_2.text_model.embeddings.token_embedding.requires_grad_(True)
+
+        all_trainable_models.add(text_encoder_1)
+        all_trainable_models.add(text_encoder_2)
 
         for te in [text_encoder_1, text_encoder_2]:
             param_group = {"params": te.get_input_embeddings().parameters()}
@@ -554,6 +564,7 @@ def run_training(config: FinetuneLoraAndTiSdxlConfig):  # noqa: C901
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
                         _save_sdxl_lora_and_ti_checkpoint(
+                            config=config,
                             idx=global_step + 1,
                             unet=unet,
                             text_encoder_1=text_encoder_1,
@@ -578,6 +589,7 @@ def run_training(config: FinetuneLoraAndTiSdxlConfig):  # noqa: C901
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
             if accelerator.is_main_process:
                 _save_sdxl_lora_and_ti_checkpoint(
+                    config=config,
                     idx=epoch + 1,
                     unet=unet,
                     text_encoder_1=text_encoder_1,
