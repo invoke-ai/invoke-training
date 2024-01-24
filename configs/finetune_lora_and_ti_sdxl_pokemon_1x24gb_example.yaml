@@ -8,29 +8,25 @@
 # purposes.
 type: FINETUNE_LORA_AND_TI_SDXL
 seed: 1
-output:
-  base_output_dir: output/finetune_lora_and_ti_sdxl_pokemon/
+base_output_dir: output/finetune_lora_and_ti_sdxl_pokemon/
 
 optimizer:
+  optimizer_type: AdamW
   learning_rate: 4e-3
-  lr_warmup_steps: 200
-  lr_scheduler: constant
 
-  optimizer:
-    optimizer_type: AdamW
+lr_warmup_steps: 200
+lr_scheduler: constant
 
 data_loader:
   type: TEXTUAL_INVERSION_SD_DATA_LOADER
   dataset:
     type: HF_HUB_IMAGE_CAPTION_DATASET
     dataset_name: lambdalabs/pokemon-blip-captions
-  captions:
-    type: TEXTUAL_INVERSION_CAPTION_PREFIX_TRANSFORM
-  image_transforms:
-    resolution: 512
-    center_crop: True
-    random_flip: False
-  shuffle_caption_transform: null
+  apply_caption_prefix: True
+  resolution: 512
+  center_crop: True
+  random_flip: False
+  shuffle_caption_delimiter: null
   dataloader_num_workers: 4
 
 # General

@@ -223,12 +223,12 @@ def run_training(config: FinetuneLoraAndTiSdxlConfig):  # noqa: C901
     # )
 
     # Create a timestamped directory for all outputs.
-    out_dir = os.path.join(config.output.base_output_dir, f"{time.time()}")
+    out_dir = os.path.join(config.base_output_dir, f"{time.time()}")
     ckpt_dir = os.path.join(out_dir, "checkpoints")
     os.makedirs(ckpt_dir)
 
     accelerator = initialize_accelerator(
-        out_dir, config.gradient_accumulation_steps, config.mixed_precision, config.output.report_to
+        out_dir, config.gradient_accumulation_steps, config.mixed_precision, config.report_to
     )
     logger = initialize_logging(__name__, accelerator)
 
@@ -395,9 +395,9 @@ def run_training(config: FinetuneLoraAndTiSdxlConfig):  # noqa: C901
     # (https://github.com/huggingface/accelerate/blame/49cb83a423f2946059117d8bb39b7c8747d29d80/src/accelerate/scheduler.py#L72-L82),
     # so the scaling here simply reverses that behaviour.
     lr_scheduler: torch.optim.lr_scheduler.LRScheduler = get_scheduler(
-        config.optimizer.lr_scheduler,
+        config.lr_scheduler,
         optimizer=optimizer,
-        num_warmup_steps=config.optimizer.lr_warmup_steps * accelerator.num_processes,
+        num_warmup_steps=config.lr_warmup_steps * accelerator.num_processes,
         num_training_steps=config.max_train_steps * accelerator.num_processes,
     )
 
@@ -495,7 +495,7 @@ def run_training(config: FinetuneLoraAndTiSdxlConfig):  # noqa: C901
                     text_encoder_2,
                     unet,
                     weight_dtype,
-                    config.data_loader.image_transforms.resolution,
+                    config.data_loader.resolution,
                     config.prediction_type,
                 )
 
@@ -552,7 +552,7 @@ def run_training(config: FinetuneLoraAndTiSdxlConfig):  # noqa: C901
 
                 for lr_idx, lr_name in enumerate(lr_names):
                     log[f"lr/{lr_name}"] = float(lrs[lr_idx])
-                    if config.optimizer.optimizer.optimizer_type == "Prodigy":
+                    if config.optimizer.optimizer_type == "Prodigy":
                         log[f"lr/d*lr/{lr_name}"] = (
                             optimizer.param_groups[lr_idx]["d"] * optimizer.param_groups[lr_idx]["lr"]
                         )

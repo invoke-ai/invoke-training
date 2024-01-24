@@ -1,10 +1,14 @@
+import typing
 from typing import Literal, Optional
 
 from invoke_training.config.pipelines.base_pipeline_config import BasePipelineConfig
 from invoke_training.config.shared.data.data_loader_config import (
     TextualInversionSDDataLoaderConfig,
 )
-from invoke_training.config.shared.optimizer.optimizer_config import OptimizerConfig
+from invoke_training.config.shared.optimizer.optimizer_config import (
+    AdamOptimizerConfig,
+    ProdigyOptimizerConfig,
+)
 
 
 class LoraAndTiTrainingConfig(BasePipelineConfig):
@@ -60,6 +64,8 @@ class LoraAndTiTrainingConfig(BasePipelineConfig):
     train_ti: bool = True
     """Whether to train the textual inversion embeddings."""
 
+    optimizer: AdamOptimizerConfig | ProdigyOptimizerConfig = AdamOptimizerConfig()
+
     text_encoder_learning_rate: float = 1e-5
     """The learning rate to use for the text encoder model.
     """
@@ -70,6 +76,15 @@ class LoraAndTiTrainingConfig(BasePipelineConfig):
 
     textual_inversion_learning_rate: float = 1e-3
     """The learning rate to use for textual inversion training of the embeddings.
+    """
+
+    lr_scheduler: typing.Literal[
+        "linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"
+    ] = "constant"
+
+    lr_warmup_steps: int = 0
+    """The number of warmup steps in the learning rate scheduler. Only applied to schedulers that support warmup.
+    See lr_scheduler.
     """
 
     lora_rank_dim: int = 4
@@ -165,7 +180,6 @@ class LoraAndTiTrainingConfig(BasePipelineConfig):
 
 class FinetuneLoraAndTiSdxlConfig(LoraAndTiTrainingConfig):
     type: Literal["FINETUNE_LORA_AND_TI_SDXL"] = "FINETUNE_LORA_AND_TI_SDXL"
-    optimizer: OptimizerConfig
 
     data_loader: TextualInversionSDDataLoaderConfig
     """The data configuration.
