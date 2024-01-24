@@ -92,7 +92,7 @@ def build_dreambooth_sd_dataloader(
     instance_sampler = None
     class_sampler = None
     if config.aspect_ratio_buckets is None:
-        target_resolution = config.image_transforms.resolution
+        target_resolution = config.resolution
         # TODO(ryand): Provide a seeded generator.
         instance_sampler = RandomSampler(instance_dataset) if shuffle else SequentialSampler(instance_dataset)
         if base_class_dataset is not None:
@@ -125,8 +125,8 @@ def build_dreambooth_sd_dataloader(
             SDImageTransform(
                 resolution=target_resolution,
                 aspect_ratio_bucket_manager=aspect_ratio_bucket_manager,
-                center_crop=config.image_transforms.center_crop,
-                random_flip=config.image_transforms.random_flip,
+                center_crop=config.center_crop,
+                random_flip=config.random_flip,
             )
         )
     else:

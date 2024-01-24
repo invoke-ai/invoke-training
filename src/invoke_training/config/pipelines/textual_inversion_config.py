@@ -1,8 +1,9 @@
+import typing
 from typing import Literal, Optional
 
 from invoke_training.config.pipelines.base_pipeline_config import BasePipelineConfig
 from invoke_training.config.shared.data.data_loader_config import TextualInversionSDDataLoaderConfig
-from invoke_training.config.shared.optimizer.optimizer_config import OptimizerConfig
+from invoke_training.config.shared.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
 
 
 class TextualInversionTrainingConfig(BasePipelineConfig):
@@ -71,6 +72,17 @@ class TextualInversionTrainingConfig(BasePipelineConfig):
     number of embedding vectors are discussed in the `num_vectors` field documentation.
 
     For example, if you are training on a dataset of images of pokemon, you might use `pokemon sketch white background`.
+    """
+
+    optimizer: AdamOptimizerConfig | ProdigyOptimizerConfig = AdamOptimizerConfig()
+
+    lr_scheduler: typing.Literal[
+        "linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"
+    ] = "constant"
+
+    lr_warmup_steps: int = 0
+    """The number of warmup steps in the learning rate scheduler. Only applied to schedulers that support warmup.
+    See lr_scheduler.
     """
 
     cache_vae_outputs: bool = False
@@ -160,12 +172,6 @@ class TextualInversionSDConfig(TextualInversionTrainingConfig):
     """Must be `TEXTUAL_INVERSION_SD`. This is what differentiates training pipeline types.
     """
 
-    optimizer: OptimizerConfig
-    """Configuration for the training optimizer (algorithm, learning rate, etc.).
-
-    See [`OptimizerConfig`][invoke_training.config.shared.optimizer.optimizer_config.OptimizerConfig] for details.
-    """
-
     data_loader: TextualInversionSDDataLoaderConfig
     """The data configuration.
 
@@ -178,12 +184,6 @@ class TextualInversionSDConfig(TextualInversionTrainingConfig):
 class TextualInversionSDXLConfig(TextualInversionTrainingConfig):
     type: Literal["TEXTUAL_INVERSION_SDXL"] = "TEXTUAL_INVERSION_SDXL"
     """Must be `TEXTUAL_INVERSION_SDXL`. This is what differentiates training pipeline types.
-    """
-
-    optimizer: OptimizerConfig
-    """Configuration for the training optimizer (algorithm, learning rate, etc.).
-
-    See [`OptimizerConfig`][invoke_training.config.shared.optimizer.optimizer_config.OptimizerConfig] for details.
     """
 
     data_loader: TextualInversionSDDataLoaderConfig

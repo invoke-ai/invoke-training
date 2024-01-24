@@ -2,10 +2,6 @@ import torch
 
 from invoke_training.config.shared.data.data_loader_config import TextualInversionSDDataLoaderConfig
 from invoke_training.config.shared.data.dataset_config import ImageDirDatasetConfig
-from invoke_training.config.shared.data.transform_config import (
-    SDImageTransformConfig,
-    TextualInversionPresetCaptionTransformConfig,
-)
 from invoke_training.training._shared.data.data_loaders.textual_inversion_sd_dataloader import (
     build_textual_inversion_sd_dataloader,
 )
@@ -17,9 +13,7 @@ def test_build_textual_inversion_sd_dataloader(image_dir):  # noqa: F811
     """Smoke test of build_textual_inversion_sd_dataloader(...)."""
 
     config = TextualInversionSDDataLoaderConfig(
-        dataset=ImageDirDatasetConfig(dataset_dir=str(image_dir)),
-        captions=TextualInversionPresetCaptionTransformConfig(preset="object"),
-        image_transforms=SDImageTransformConfig(resolution=512),
+        dataset=ImageDirDatasetConfig(dataset_dir=str(image_dir)), caption_preset="object"
     )
 
     data_loader = build_textual_inversion_sd_dataloader(

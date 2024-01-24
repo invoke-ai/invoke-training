@@ -100,7 +100,7 @@ def build_image_caption_sd_dataloader(
 
     # Initialize either the fixed target resolution or aspect ratio buckets.
     if config.aspect_ratio_buckets is None:
-        target_resolution = config.image_transforms.resolution
+        target_resolution = config.resolution
         aspect_ratio_bucket_manager = None
         batch_sampler = None
     else:
@@ -125,8 +125,8 @@ def build_image_caption_sd_dataloader(
             SDImageTransform(
                 resolution=target_resolution,
                 aspect_ratio_bucket_manager=aspect_ratio_bucket_manager,
-                center_crop=config.image_transforms.center_crop,
-                random_flip=config.image_transforms.random_flip,
+                center_crop=config.center_crop,
+                random_flip=config.random_flip,
             )
         )
     else:

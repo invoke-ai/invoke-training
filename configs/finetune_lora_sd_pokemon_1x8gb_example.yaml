@@ -9,25 +9,21 @@
 
 type: FINETUNE_LORA_SD
 seed: 1
-output:
-  base_output_dir: output/finetune_lora_sd_pokemon/
+base_output_dir: output/finetune_lora_sd_pokemon/
 
 optimizer:
+  optimizer_type: Prodigy
   learning_rate: 1.0
-
-  optimizer:
-    optimizer_type: Prodigy
-    weight_decay: 0.01
-    use_bias_correction: True
-    safeguard_warmup: True
+  weight_decay: 0.01
+  use_bias_correction: True
+  safeguard_warmup: True
 
 data_loader:
   type: IMAGE_CAPTION_SD_DATA_LOADER
   dataset:
     type: HF_HUB_IMAGE_CAPTION_DATASET
     dataset_name: lambdalabs/pokemon-blip-captions
-  image_transforms:
-    resolution: 512
+  resolution: 512
   dataloader_num_workers: 4
 
 # General

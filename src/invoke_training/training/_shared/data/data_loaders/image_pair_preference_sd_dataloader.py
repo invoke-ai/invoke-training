@@ -76,7 +76,7 @@ def build_image_pair_preference_sd_dataloader(
     else:
         raise ValueError(f"Unexpected dataset config type: '{type(config.dataset)}'.")
 
-    target_resolution = config.image_transforms.resolution
+    target_resolution = config.resolution
 
     all_transforms = []
     if vae_output_cache_dir is None:
@@ -84,8 +84,8 @@ def build_image_pair_preference_sd_dataloader(
             SDImageTransform(
                 resolution=target_resolution,
                 aspect_ratio_bucket_manager=None,
-                center_crop=config.image_transforms.center_crop,
-                random_flip=config.image_transforms.random_flip,
+                center_crop=config.center_crop,
+                random_flip=config.random_flip,
                 image_field_name="image_0",
                 orig_size_field_name="original_size_hw_0",
                 crop_field_name="crop_top_left_yx_0",
@@ -95,8 +95,8 @@ def build_image_pair_preference_sd_dataloader(
             SDImageTransform(
                 resolution=target_resolution,
                 aspect_ratio_bucket_manager=None,
-                center_crop=config.image_transforms.center_crop,
-                random_flip=config.image_transforms.random_flip,
+                center_crop=config.center_crop,
+                random_flip=config.random_flip,
                 image_field_name="image_1",
                 orig_size_field_name="original_size_hw_1",
                 crop_field_name="crop_top_left_yx_1",

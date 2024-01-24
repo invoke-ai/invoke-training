@@ -187,12 +187,12 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
     # )
 
     # Create a timestamped directory for all outputs.
-    out_dir = os.path.join(config.output.base_output_dir, f"{time.time()}")
+    out_dir = os.path.join(config.base_output_dir, f"{time.time()}")
     ckpt_dir = os.path.join(out_dir, "checkpoints")
     os.makedirs(ckpt_dir)
 
     accelerator = initialize_accelerator(
-        out_dir, config.gradient_accumulation_steps, config.mixed_precision, config.output.report_to
+        out_dir, config.gradient_accumulation_steps, config.mixed_precision, config.report_to
     )
     logger = initialize_logging(__name__, accelerator)
 
@@ -259,11 +259,6 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
     vae_output_cache_dir_name = None
     if config.cache_vae_outputs:
         raise NotImplementedError("VAE caching is not implemented for Diffusion-DPO training yet.")
-        # if config.data_loader.image_transforms.random_flip:
-        #     raise ValueError("'cache_vae_outputs' cannot be True if 'random_flip' is True.")
-        # if not config.data_loader.image_transforms.center_crop:
-        #     raise ValueError("'cache_vae_outputs' cannot be True if 'center_crop' is False.")
-
         # # We use a temporary directory for the cache. The directory will automatically be cleaned up when
         # # tmp_vae_output_cache_dir is destroyed.
         # tmp_vae_output_cache_dir = tempfile.TemporaryDirectory()
@@ -388,9 +383,9 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
     # (https://github.com/huggingface/accelerate/blame/49cb83a423f2946059117d8bb39b7c8747d29d80/src/accelerate/scheduler.py#L72-L82),
     # so the scaling here simply reverses that behaviour.
     lr_scheduler: torch.optim.lr_scheduler.LRScheduler = get_scheduler(
-        config.optimizer.lr_scheduler,
+        config.lr_scheduler,
         optimizer=optimizer,
-        num_warmup_steps=config.optimizer.lr_warmup_steps * accelerator.num_processes,
+        num_warmup_steps=config.lr_warmup_steps * accelerator.num_processes,
         num_training_steps=config.max_train_steps * accelerator.num_processes,
     )
 
@@ -426,14 +421,14 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
     epoch_checkpoint_tracker = CheckpointTracker(
         base_dir=ckpt_dir,
         prefix="checkpoint_epoch",
-        extension=f".{config.output.save_model_as}",
+        extension=".safetensors",
         max_checkpoints=config.max_checkpoints,
     )
 
     step_checkpoint_tracker = CheckpointTracker(
         base_dir=ckpt_dir,
         prefix="checkpoint_step",
-        extension=f".{config.output.save_model_as}",
+        extension=".safetensors",
         max_checkpoints=config.max_checkpoints,
     )
 
@@ -498,12 +493,12 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
                 if training_unet:
                     # When training the UNet, it will always be the first parameter group.
                     log["lr/unet"] = float(lrs[0])
-                    if config.optimizer.optimizer.optimizer_type == "Prodigy":
+                    if config.optimizer.optimizer_type == "Prodigy":
                         log["lr/d*lr/unet"] = optimizer.param_groups[0]["d"] * optimizer.param_groups[0]["lr"]
                 if training_text_encoder:
                     # When training the text encoder, it will always be the last parameter group.
                     log["lr/text_encoder"] = float(lrs[-1])
-                    if config.optimizer.optimizer.optimizer_type == "Prodigy":
+                    if config.optimizer.optimizer_type == "Prodigy":
                         log["lr/d*lr/text_encoder"] = optimizer.param_groups[-1]["d"] * optimizer.param_groups[-1]["lr"]
 
                 accelerator.log(log, step=global_step)

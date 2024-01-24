@@ -8,11 +8,6 @@ from invoke_training.config.shared.data.dataset_config import (
     HFHubImageCaptionDatasetConfig,
     ImageDirDatasetConfig,
 )
-from invoke_training.config.shared.data.transform_config import (
-    TextualInversionCaptionPrefixTransformConfig,
-    TextualInversionCaptionTransformConfig,
-    TextualInversionPresetCaptionTransformConfig,
-)
 from invoke_training.training._shared.data.data_loaders.image_caption_sd_dataloader import (
     build_aspect_ratio_bucket_manager,
     sd_image_caption_collate_fn,
@@ -131,30 +126,33 @@ def build_textual_inversion_sd_dataloader(  # noqa: C901
     else:
         raise ValueError(f"Unexpected dataset config type: '{type(config.dataset)}'.")
 
-    if isinstance(config.captions, TextualInversionCaptionTransformConfig):
+    if sum([config.caption_templates is not None, config.caption_preset is not None, config.apply_caption_prefix]) != 1:
+        raise ValueError("Exactly one of caption_templates, caption_preset, or apply_caption_prefix must be set.")
+
+    if config.caption_templates is not None:
         # Overwrites the caption field. Typically used with a ImageDirDataset that does not have captions.
         caption_tf = TemplateCaptionTransform(
             field_name="caption",
             placeholder_str=placeholder_token,
-            caption_templates=config.captions.templates,
+            caption_templates=config.caption_templates,
         )
-    elif isinstance(config.captions, TextualInversionPresetCaptionTransformConfig):
+    elif config.caption_preset is not None:
         # Overwrites the caption field. Typically used with a ImageDirDataset that does not have captions.
         caption_tf = TemplateCaptionTransform(
             field_name="caption",
             placeholder_str=placeholder_token,
-            caption_templates=get_preset_ti_caption_templates(config.captions.preset),
+            caption_templates=get_preset_ti_caption_templates(config.caption_preset),
         )
-    elif isinstance(config.captions, TextualInversionCaptionPrefixTransformConfig):
+    elif config.apply_caption_prefix:
         # Prefixes the caption field. Must be used with a HFHubImageCaptionDataset or HFDirImageCaptionDataset that
         # already has captions.
         caption_tf = CaptionPrefixTransform(caption_field_name="caption", prefix=placeholder_token + " ")
     else:
-        raise ValueError(f"Unexpected caption config type: '{type(config.captions)}'.")
+        raise ValueError("Exactly one of caption_templates, caption_preset, or apply_caption_prefix must be set.")
 
     # Initialize either the fixed target resolution or aspect ratio buckets.
     if config.aspect_ratio_buckets is None:
-        target_resolution = config.image_transforms.resolution
+        target_resolution = config.resolution
         aspect_ratio_bucket_manager = None
         batch_sampler = None
     else:
@@ -171,18 +169,16 @@ def build_textual_inversion_sd_dataloader(  # noqa: C901
 
     all_transforms = [caption_tf]
 
-    if config.shuffle_caption_transform is not None:
-        all_transforms.append(
-            ShuffleCaptionTransform(field_name="caption", delimiter=config.shuffle_caption_transform.delimiter)
-        )
+    if config.shuffle_caption_delimiter is not None:
+        all_transforms.append(ShuffleCaptionTransform(field_name="caption", delimiter=config.shuffle_caption_delimiter))
 
     if vae_output_cache_dir is None:
         all_transforms.append(
             SDImageTransform(
                 resolution=target_resolution,
                 aspect_ratio_bucket_manager=aspect_ratio_bucket_manager,
-                center_crop=config.image_transforms.center_crop,
-                random_flip=config.image_transforms.random_flip,
+                center_crop=config.center_crop,
+                random_flip=config.random_flip,
             )
         )
     else:

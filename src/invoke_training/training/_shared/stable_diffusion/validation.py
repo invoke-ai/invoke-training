@@ -72,7 +72,7 @@ def generate_validation_images_sd(
         pipeline = pipeline.to(accelerator.device)
     pipeline.set_progress_bar_config(disable=True)
 
-    validation_resolution = Resolution.parse(config.data_loader.image_transforms.resolution)
+    validation_resolution = Resolution.parse(config.data_loader.resolution)
 
     # Run inference.
     with torch.no_grad():
@@ -173,7 +173,7 @@ def generate_validation_images_sdxl(
         pipeline = pipeline.to(accelerator.device)
     pipeline.set_progress_bar_config(disable=True)
 
-    validation_resolution = Resolution.parse(config.data_loader.image_transforms.resolution)
+    validation_resolution = Resolution.parse(config.data_loader.resolution)
 
     # Run inference.
     with torch.no_grad():
