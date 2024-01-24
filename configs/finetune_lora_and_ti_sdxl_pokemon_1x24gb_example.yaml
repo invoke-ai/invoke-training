@@ -22,7 +22,11 @@ data_loader:
   dataset:
     type: HF_HUB_IMAGE_CAPTION_DATASET
     dataset_name: lambdalabs/pokemon-blip-captions
-  apply_caption_prefix: True
+  # We just use a single simple caption template here. keep_original_captions is set to True, so this effectively
+  # prepends the placeholder token to the original caption.
+  caption_templates:
+    - "{}"
+  keep_original_captions: True
   resolution: 512
   center_crop: True
   random_flip: False

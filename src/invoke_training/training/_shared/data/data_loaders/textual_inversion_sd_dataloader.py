@@ -21,7 +21,7 @@ from invoke_training.training._shared.data.datasets.transform_dataset import Tra
 from invoke_training.training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
     AspectRatioBucketBatchSampler,
 )
-from invoke_training.training._shared.data.transforms.caption_prefix_transform import CaptionPrefixTransform
+from invoke_training.training._shared.data.transforms.concat_fields_transform import ConcatFieldsTransform
 from invoke_training.training._shared.data.transforms.drop_field_transform import DropFieldTransform
 from invoke_training.training._shared.data.transforms.load_cache_transform import LoadCacheTransform
 from invoke_training.training._shared.data.transforms.sd_image_transform import SDImageTransform
@@ -126,30 +126,6 @@ def build_textual_inversion_sd_dataloader(  # noqa: C901
     else:
         raise ValueError(f"Unexpected dataset config type: '{type(config.dataset)}'.")
 
-    if sum([config.caption_templates is not None, config.caption_preset is not None, config.apply_caption_prefix]) != 1:
-        raise ValueError("Exactly one of caption_templates, caption_preset, or apply_caption_prefix must be set.")
-
-    if config.caption_templates is not None:
-        # Overwrites the caption field. Typically used with a ImageDirDataset that does not have captions.
-        caption_tf = TemplateCaptionTransform(
-            field_name="caption",
-            placeholder_str=placeholder_token,
-            caption_templates=config.caption_templates,
-        )
-    elif config.caption_preset is not None:
-        # Overwrites the caption field. Typically used with a ImageDirDataset that does not have captions.
-        caption_tf = TemplateCaptionTransform(
-            field_name="caption",
-            placeholder_str=placeholder_token,
-            caption_templates=get_preset_ti_caption_templates(config.caption_preset),
-        )
-    elif config.apply_caption_prefix:
-        # Prefixes the caption field. Must be used with a HFHubImageCaptionDataset or HFDirImageCaptionDataset that
-        # already has captions.
-        caption_tf = CaptionPrefixTransform(caption_field_name="caption", prefix=placeholder_token + " ")
-    else:
-        raise ValueError("Exactly one of caption_templates, caption_preset, or apply_caption_prefix must be set.")
-
     # Initialize either the fixed target resolution or aspect ratio buckets.
     if config.aspect_ratio_buckets is None:
         target_resolution = config.resolution
@@ -167,7 +143,35 @@ def build_textual_inversion_sd_dataloader(  # noqa: C901
             seed=0,
         )
 
+    if sum([config.caption_templates is not None, config.caption_preset is not None]) != 1:
+        raise ValueError("Either caption_templates or caption_preset must be set.")
+
+    if config.caption_templates is not None:
+        # Overwrites the caption field. Typically used with a ImageDirDataset that does not have captions.
+        caption_tf = TemplateCaptionTransform(
+            field_name="caption_prefix" if config.keep_original_captions else "caption",
+            placeholder_str=placeholder_token,
+            caption_templates=config.caption_templates,
+        )
+    elif config.caption_preset is not None:
+        # Overwrites the caption field. Typically used with a ImageDirDataset that does not have captions.
+        caption_tf = TemplateCaptionTransform(
+            field_name="caption_prefix" if config.keep_original_captions else "caption",
+            placeholder_str=placeholder_token,
+            caption_templates=get_preset_ti_caption_templates(config.caption_preset),
+        )
+    else:
+        raise ValueError("Either caption_templates or caption_preset must be set.")
+
     all_transforms = [caption_tf]
+
+    if config.keep_original_captions:
+        # This will only work with a HFHubImageCaptionDataset or HFDirImageCaptionDataset that already has captions.
+        all_transforms.append(
+            ConcatFieldsTransform(
+                src_field_names=["caption_prefix", "caption"], dst_field_name="caption", separator=" "
+            )
+        )
 
     if config.shuffle_caption_delimiter is not None:
         all_transforms.append(ShuffleCaptionTransform(field_name="caption", delimiter=config.shuffle_caption_delimiter))

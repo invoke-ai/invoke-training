@@ -124,8 +124,10 @@ class TextualInversionSDDataLoaderConfig(ConfigBaseModel):
     - "a cropped photo of the {}"
     """
 
-    # TODO(ryand): Replace this with keep_original_captions config.
-    apply_caption_prefix: bool = False
+    keep_original_captions: bool = False
+    """If `True`, then the captions generated as a result of the `caption_preset` or `caption_templates` will be used as
+    prefixes for the original captions. If `False`, then the generated captions will replace the original captions.
+    """
 
     aspect_ratio_buckets: AspectRatioBucketConfig | None = None
     """The aspect ratio bucketing configuration. If None, aspect ratio bucketing is disabled, and all images will be
