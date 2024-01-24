@@ -48,10 +48,8 @@ nav:
     - Textual Inversion SD Config: reference/config/pipelines/textual_inversion_sd_config.md
     - Textual Inversion SDXL Config: reference/config/pipelines/textual_inversion_sdxl_config.md
   - shared:
-    - data:
-      - data_loader_config: reference/config/shared/data/data_loader_config.md
-      - dataset_config: reference/config/shared/data/dataset_config.md
-      - transform_config: reference/config/shared/data/transform_config.md
+    - data_loader_config: reference/config/shared/data/data_loader_config.md
+    - dataset_config: reference/config/shared/data/dataset_config.md
     - optimizer_config: reference/config/shared/optimizer_config.md
 - Contributing:
   - contributing/development_environment.md
