@@ -19,13 +19,11 @@ data_loader:
     type: IMAGE_DIR_DATASET
     dataset_dir: "sample_data/bruce_the_gnome"
     keep_in_memory: True
-  captions:
-    type: TEXTUAL_INVERSION_PRESET_CAPTION_TRANSFORM
-    preset: object
+  caption_preset: object
   resolution: 1024
   center_crop: True
   random_flip: False
-  shuffle_caption_transform: null
+  shuffle_caption_delimiter: null
   dataloader_num_workers: 4
 
 # General

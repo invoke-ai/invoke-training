@@ -5,10 +5,6 @@ from invoke_training.config.shared.data.dataset_config import (
     ImageCaptionDatasetConfig,
     ImageDirDatasetConfig,
 )
-from invoke_training.config.shared.data.transform_config import (
-    ShuffleCaptionTransformConfig,
-    TextualInversionCaptionConfig,
-)
 
 
 class AspectRatioBucketConfig(ConfigBaseModel):
@@ -117,13 +113,19 @@ class TextualInversionSDDataLoaderConfig(ConfigBaseModel):
 
     dataset: ImageDirDatasetConfig | ImageCaptionDatasetConfig
 
-    captions: TextualInversionCaptionConfig
-    """The caption configuration. One of:
+    caption_preset: Literal["style", "object"] | None = None
 
-    - [`TextualInversionPresetCaptionTransformConfig`][invoke_training.config.shared.data.transform_config.TextualInversionPresetCaptionTransformConfig]: Use preset `object` or `style` caption templates.
-    - [`TextualInversionCaptionTransformConfig`][invoke_training.config.shared.data.transform_config.TextualInversionCaptionTransformConfig]: Use custom caption templates.
-    - [`TextualInversionCaptionPrefixTransformConfig`][invoke_training.config.shared.data.transform_config.TextualInversionCaptionPrefixTransformConfig]: Prepend the textual inversion token(s) to all existing dataset captions.
-    """  # noqa: E501
+    caption_templates: list[str] | None = None
+    """A list of caption templates with a single template argument 'slot' in each.
+    E.g.:
+
+    - "a photo of a {}"
+    - "a rendering of a {}"
+    - "a cropped photo of the {}"
+    """
+
+    # TODO(ryand): Replace this with keep_original_captions config.
+    apply_caption_prefix: bool = False
 
     aspect_ratio_buckets: AspectRatioBucketConfig | None = None
     """The aspect ratio bucketing configuration. If None, aspect ratio bucketing is disabled, and all images will be
@@ -145,8 +147,8 @@ class TextualInversionSDDataLoaderConfig(ConfigBaseModel):
     """Whether random flip augmentations should be applied to input images.
     """
 
-    shuffle_caption_transform: Optional[ShuffleCaptionTransformConfig] = None
-    """The caption shuffling configuration. If None, caption shuffling is disabled.
+    shuffle_caption_delimiter: str | None = None
+    """If `None`, then no caption shuffling is applied. If set, then captions are split on this delimiter and shuffled.
     """
 
     dataloader_num_workers: int = 0
