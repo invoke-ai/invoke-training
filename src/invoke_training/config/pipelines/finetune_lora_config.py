@@ -8,7 +8,7 @@ from invoke_training.config.shared.data.data_loader_config import (
     DreamboothSDDataLoaderConfig,
     ImageCaptionSDDataLoaderConfig,
 )
-from invoke_training.config.shared.optimizer.optimizer_config import AdamOptimizer, ProdigyOptimizer
+from invoke_training.config.shared.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
 
 
 class LoRATrainingConfig(BasePipelineConfig):
@@ -52,7 +52,7 @@ class LoRATrainingConfig(BasePipelineConfig):
     """Whether to add LoRA layers to the text encoder and train it.
     """
 
-    optimizer: AdamOptimizer | ProdigyOptimizer = AdamOptimizer()
+    optimizer: AdamOptimizerConfig | ProdigyOptimizerConfig = AdamOptimizerConfig()
 
     text_encoder_learning_rate: Optional[float] = None
     """The learning rate to use for the text encoder model. If set, this overrides the optimizer's default learning

@@ -3,7 +3,7 @@ import typing
 from invoke_training.config.shared.config_base_model import ConfigBaseModel
 
 
-class AdamOptimizer(ConfigBaseModel):
+class AdamOptimizerConfig(ConfigBaseModel):
     optimizer_type: typing.Literal["AdamW"] = "AdamW"
 
     learning_rate: float = 1e-4
@@ -18,7 +18,7 @@ class AdamOptimizer(ConfigBaseModel):
     epsilon: float = 1e-8
 
 
-class ProdigyOptimizer(ConfigBaseModel):
+class ProdigyOptimizerConfig(ConfigBaseModel):
     optimizer_type: typing.Literal["Prodigy"] = "Prodigy"
 
     learning_rate: float = 1.0

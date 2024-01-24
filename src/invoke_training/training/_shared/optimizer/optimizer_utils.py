@@ -1,10 +1,12 @@
 import torch
 from prodigyopt import Prodigy
 
-from invoke_training.config.shared.optimizer.optimizer_config import AdamOptimizer, ProdigyOptimizer
+from invoke_training.config.shared.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
 
 
-def initialize_optimizer(config: AdamOptimizer | ProdigyOptimizer, trainable_params: list) -> torch.optim.Optimizer:
+def initialize_optimizer(
+    config: AdamOptimizerConfig | ProdigyOptimizerConfig, trainable_params: list
+) -> torch.optim.Optimizer:
     """Initialize an optimizer based on the provided config."""
 
     if config.optimizer_type == "AdamW":

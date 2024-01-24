@@ -3,7 +3,7 @@ from typing import Literal, Optional
 
 from invoke_training.config.pipelines.base_pipeline_config import BasePipelineConfig
 from invoke_training.config.shared.data.data_loader_config import TextualInversionSDDataLoaderConfig
-from invoke_training.config.shared.optimizer.optimizer_config import AdamOptimizer, ProdigyOptimizer
+from invoke_training.config.shared.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
 
 
 class TextualInversionTrainingConfig(BasePipelineConfig):
@@ -74,7 +74,7 @@ class TextualInversionTrainingConfig(BasePipelineConfig):
     For example, if you are training on a dataset of images of pokemon, you might use `pokemon sketch white background`.
     """
 
-    optimizer: AdamOptimizer | ProdigyOptimizer = AdamOptimizer()
+    optimizer: AdamOptimizerConfig | ProdigyOptimizerConfig = AdamOptimizerConfig()
 
     lr_scheduler: typing.Literal[
         "linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"
