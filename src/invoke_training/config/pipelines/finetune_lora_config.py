@@ -60,12 +60,6 @@ class LoRATrainingConfig(BasePipelineConfig):
     """The learning rate to use for the UNet model. If set, this overrides the optimizer's default learning rate.
     """
 
-    train_unet_non_attention_blocks: bool = False
-    """Whether to inject LoRA layers into the non-attention UNet blocks for training. Enabling will produce a more
-    expressive LoRA model at the cost of slower training, higher training VRAM requirements, and a larger LoRA weight
-    file.
-    """
-
     lora_rank_dim: int = 4
     """The rank dimension to use for the LoRA layers. Increasing the rank dimension increases the model's expressivity,
     but also increases the size of the generated LoRA model.
