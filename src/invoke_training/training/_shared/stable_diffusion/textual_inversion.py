@@ -175,7 +175,15 @@ def restore_original_embeddings(
     """
     index_no_updates = torch.ones((len(tokenizer),), dtype=torch.bool)
     index_no_updates[min(placeholder_token_ids) : max(placeholder_token_ids) + 1] = False
+    index_updates = ~index_no_updates
     with torch.no_grad():
-        accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[index_no_updates] = orig_embeds_params[
-            index_no_updates
-        ]
+        unwrapped_text_encoder = accelerator.unwrap_model(text_encoder)
+        unwrapped_text_encoder.get_input_embeddings().weight[index_no_updates] = orig_embeds_params[index_no_updates]
+
+        target_std = unwrapped_text_encoder.get_input_embeddings().weight[index_no_updates].std()
+        new_embeddings = unwrapped_text_encoder.get_input_embeddings().weight[index_updates]
+        target_over_new_std = target_std / new_embeddings.std()
+
+        # Scale the new embeddings towards the target embeddings. Raise to the 0.1 power to avoid large changes.
+        new_embeddings = new_embeddings * (target_over_new_std**0.1)
+        unwrapped_text_encoder.get_input_embeddings().weight[index_updates] = new_embeddings

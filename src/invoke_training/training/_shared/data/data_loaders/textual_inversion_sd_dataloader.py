@@ -76,7 +76,6 @@ def get_preset_ti_caption_templates(preset: Literal["object", "style"]) -> list[
             "a cool painting in the style of {}",
             "a close-up painting in the style of {}",
             "a bright painting in the style of {}",
-            "a cropped painting in the style of {}",
             "a good painting in the style of {}",
             "a close-up painting in the style of {}",
             "a rendition in the style of {}",
@@ -84,6 +83,14 @@ def get_preset_ti_caption_templates(preset: Literal["object", "style"]) -> list[
             "a small painting in the style of {}",
             "a weird painting in the style of {}",
             "a large painting in the style of {}",
+            "a photo in the style of {}",
+            "an image in the style of {}",
+            "a drawing in the style of {}",
+            "a sketch in the style of {}",
+            "a digital work in the style of {}",
+            "a digital rendering in the style of {}",
+            "a photograph in the style of {}",
+            "photography in the style of {}",
         ]
     else:
         raise ValueError(f"Unrecognized learnable property type: '{preset}'.")

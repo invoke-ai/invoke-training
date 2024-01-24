@@ -3,6 +3,7 @@ from typing import Annotated, Union
 from pydantic import Field
 
 from invoke_training.config._experimental.dpo.config import DirectPreferenceOptimizationLoRASDConfig
+from invoke_training.config.pipelines.finetune_lora_and_ti_config import FinetuneLoraAndTiSdxlConfig
 from invoke_training.config.pipelines.finetune_lora_config import (
     FinetuneLoRASDConfig,
     FinetuneLoRASDXLConfig,
@@ -18,6 +19,7 @@ PipelineConfig = Annotated[
         FinetuneLoRASDXLConfig,
         TextualInversionSDConfig,
         TextualInversionSDXLConfig,
+        FinetuneLoraAndTiSdxlConfig,
         DirectPreferenceOptimizationLoRASDConfig,
     ],
     Field(discriminator="type"),
