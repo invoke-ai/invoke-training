@@ -1,3 +1,4 @@
+import typing
 from typing import Annotated, Literal, Optional, Union
 
 from pydantic import Field
@@ -7,7 +8,7 @@ from invoke_training.config.shared.data.data_loader_config import (
     DreamboothSDDataLoaderConfig,
     ImageCaptionSDDataLoaderConfig,
 )
-from invoke_training.config.shared.optimizer.optimizer_config import OptimizerConfig
+from invoke_training.config.shared.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
 
 
 class LoRATrainingConfig(BasePipelineConfig):
@@ -51,6 +52,8 @@ class LoRATrainingConfig(BasePipelineConfig):
     """Whether to add LoRA layers to the text encoder and train it.
     """
 
+    optimizer: AdamOptimizerConfig | ProdigyOptimizerConfig = AdamOptimizerConfig()
+
     text_encoder_learning_rate: Optional[float] = None
     """The learning rate to use for the text encoder model. If set, this overrides the optimizer's default learning
     rate.
@@ -60,10 +63,13 @@ class LoRATrainingConfig(BasePipelineConfig):
     """The learning rate to use for the UNet model. If set, this overrides the optimizer's default learning rate.
     """
 
-    train_unet_non_attention_blocks: bool = False
-    """Whether to inject LoRA layers into the non-attention UNet blocks for training. Enabling will produce a more
-    expressive LoRA model at the cost of slower training, higher training VRAM requirements, and a larger LoRA weight
-    file.
+    lr_scheduler: typing.Literal[
+        "linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"
+    ] = "constant"
+
+    lr_warmup_steps: int = 0
+    """The number of warmup steps in the learning rate scheduler. Only applied to schedulers that support warmup.
+    See lr_scheduler.
     """
 
     lora_rank_dim: int = 4
@@ -159,7 +165,6 @@ class LoRATrainingConfig(BasePipelineConfig):
 
 class FinetuneLoRASDConfig(LoRATrainingConfig):
     type: Literal["FINETUNE_LORA_SD"] = "FINETUNE_LORA_SD"
-    optimizer: OptimizerConfig
     data_loader: Annotated[
         Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig], Field(discriminator="type")
     ]
@@ -167,7 +172,6 @@ class FinetuneLoRASDConfig(LoRATrainingConfig):
 
 class FinetuneLoRASDXLConfig(LoRATrainingConfig):
     type: Literal["FINETUNE_LORA_SDXL"] = "FINETUNE_LORA_SDXL"
-    optimizer: OptimizerConfig
     data_loader: Annotated[
         Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig], Field(discriminator="type")
     ]

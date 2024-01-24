@@ -2,7 +2,6 @@ import torch
 
 from invoke_training.config.shared.data.data_loader_config import AspectRatioBucketConfig, DreamboothSDDataLoaderConfig
 from invoke_training.config.shared.data.dataset_config import ImageDirDatasetConfig
-from invoke_training.config.shared.data.transform_config import SDImageTransformConfig
 from invoke_training.training._shared.data.data_loaders.dreambooth_sd_dataloader import (
     build_dreambooth_sd_dataloader,
 )
@@ -18,7 +17,6 @@ def test_build_dreambooth_sd_dataloader(image_dir):  # noqa: F811
         class_caption="test class prompt",
         # For testing, we just use the same directory for the instance and class datasets.
         class_dataset=ImageDirDatasetConfig(dataset_dir=str(image_dir)),
-        image_transforms=SDImageTransformConfig(resolution=512),
     )
     data_loader = build_dreambooth_sd_dataloader(config=config, batch_size=2)
 
@@ -53,7 +51,6 @@ def test_build_dreambooth_sd_dataloader_no_class_dataset(image_dir):  # noqa: F8
     config = DreamboothSDDataLoaderConfig(
         instance_caption="test instance prompt",
         instance_dataset=ImageDirDatasetConfig(dataset_dir=str(image_dir)),
-        image_transforms=SDImageTransformConfig(resolution=512),
     )
     data_loader = build_dreambooth_sd_dataloader(config=config, batch_size=2)
 
@@ -93,7 +90,6 @@ def test_build_dreambooth_sd_dataloader_with_bucketing(image_dir):  # noqa: F811
         aspect_ratio_buckets=AspectRatioBucketConfig(
             target_resolution=256, start_dim=128, end_dim=512, divisible_by=64
         ),
-        image_transforms=SDImageTransformConfig(),
     )
     data_loader = build_dreambooth_sd_dataloader(config=config, batch_size=2, shuffle=False, sequential_batching=True)
 

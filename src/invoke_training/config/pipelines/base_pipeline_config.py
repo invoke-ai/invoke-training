@@ -1,7 +1,7 @@
+import typing
 from typing import Optional
 
 from invoke_training.config.shared.config_base_model import ConfigBaseModel
-from invoke_training.config.shared.training_output_config import TrainingOutputConfig
 
 
 class BasePipelineConfig(ConfigBaseModel):
@@ -14,8 +14,12 @@ class BasePipelineConfig(ConfigBaseModel):
     set to `null`, training will be non-deterministic.
     """
 
-    output: TrainingOutputConfig
-    """Configuration for the training run outputs (output directory, log format, checkpoint format, etc.).
+    base_output_dir: str
+    """The output directory where the training outputs (model checkpoints, logs, intermediate predictions) will be
+    written. A subdirectory will be created with a timestamp for each new training run.
+    """
 
-    See [`TrainingOutputConfig`][invoke_training.config.shared.training_output_config.TrainingOutputConfig] for details.
+    report_to: typing.Literal["all", "tensorboard", "wandb", "comet_ml"] = "tensorboard"
+    """The integration to report results and logs to. This value is passed to Hugging Face Accelerate. See
+    `accelerate.Accelerator.log_with` for more details.
     """

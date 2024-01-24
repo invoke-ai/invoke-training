@@ -4,7 +4,6 @@ from invoke_training.config._experimental.dpo.config import (
     HFHubImagePairPreferenceDatasetConfig,
     ImagePairPreferenceSDDataLoaderConfig,
 )
-from invoke_training.config.shared.data.transform_config import SDImageTransformConfig
 from invoke_training.training._shared.data.data_loaders.image_pair_preference_sd_dataloader import (
     build_image_pair_preference_sd_dataloader,
 )
@@ -13,10 +12,7 @@ from invoke_training.training._shared.data.data_loaders.image_pair_preference_sd
 def test_build_image_pair_preference_sd_dataloader():
     """Smoke test of build_image_pair_preference_sd_dataloader(...)."""
 
-    config = ImagePairPreferenceSDDataLoaderConfig(
-        dataset=HFHubImagePairPreferenceDatasetConfig(),
-        image_transforms=SDImageTransformConfig(resolution=512),
-    )
+    config = ImagePairPreferenceSDDataLoaderConfig(dataset=HFHubImagePairPreferenceDatasetConfig())
     data_loader = build_image_pair_preference_sd_dataloader(config, 4)
 
     example = next(iter(data_loader))

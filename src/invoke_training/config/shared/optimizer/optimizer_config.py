@@ -3,27 +3,8 @@ import typing
 from invoke_training.config.shared.config_base_model import ConfigBaseModel
 
 
-class AdamOptimizer(ConfigBaseModel):
+class AdamOptimizerConfig(ConfigBaseModel):
     optimizer_type: typing.Literal["AdamW"] = "AdamW"
-
-    beta1: float = 0.9
-    beta2: float = 0.999
-    weight_decay: float = 1e-2
-    epsilon: float = 1e-8
-
-
-class ProdigyOptimizer(ConfigBaseModel):
-    optimizer_type: typing.Literal["Prodigy"] = "Prodigy"
-
-    weight_decay: float = 0.0
-    use_bias_correction: bool = False
-    safeguard_warmup: bool = False
-
-
-class OptimizerConfig(ConfigBaseModel):
-    """Configuration for a training optimizer."""
-
-    optimizer: typing.Union[AdamOptimizer, ProdigyOptimizer] = AdamOptimizer()
 
     learning_rate: float = 1e-4
     """Initial learning rate to use (after the potential warmup period). Note that in some training pipelines this can
@@ -31,16 +12,20 @@ class OptimizerConfig(ConfigBaseModel):
     (E.g. see `text_encoder_learning_rate` and `unet_learning_rate`)
     """
 
-    lr_scheduler: typing.Literal[
-        "linear",
-        "cosine",
-        "cosine_with_restarts",
-        "polynomial",
-        "constant",
-        "constant_with_warmup",
-    ] = "constant"
+    beta1: float = 0.9
+    beta2: float = 0.999
+    weight_decay: float = 1e-2
+    epsilon: float = 1e-8
 
-    lr_warmup_steps: int = 0
-    """The number of warmup steps in the learning rate scheduler. Only applied to schedulers that support warmup.
-    See lr_scheduler.
+
+class ProdigyOptimizerConfig(ConfigBaseModel):
+    optimizer_type: typing.Literal["Prodigy"] = "Prodigy"
+
+    learning_rate: float = 1.0
+    """The learning rate. For the Prodigy optimizer, the learning rate is adjusted dynamically. A value of 1.0 is
+    recommended.
     """
+
+    weight_decay: float = 0.0
+    use_bias_correction: bool = False
+    safeguard_warmup: bool = False

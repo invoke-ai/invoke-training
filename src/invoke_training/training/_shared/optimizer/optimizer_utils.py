@@ -1,29 +1,31 @@
 import torch
 from prodigyopt import Prodigy
 
-from invoke_training.config.shared.optimizer.optimizer_config import OptimizerConfig
+from invoke_training.config.shared.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
 
 
-def initialize_optimizer(config: OptimizerConfig, trainable_params: list) -> torch.optim.Optimizer:
+def initialize_optimizer(
+    config: AdamOptimizerConfig | ProdigyOptimizerConfig, trainable_params: list
+) -> torch.optim.Optimizer:
     """Initialize an optimizer based on the provided config."""
 
-    if config.optimizer.optimizer_type == "AdamW":
+    if config.optimizer_type == "AdamW":
         optimizer = torch.optim.AdamW(
             trainable_params,
             lr=config.learning_rate,
-            betas=(config.optimizer.beta1, config.optimizer.beta2),
-            weight_decay=config.optimizer.weight_decay,
-            eps=config.optimizer.epsilon,
+            betas=(config.beta1, config.beta2),
+            weight_decay=config.weight_decay,
+            eps=config.epsilon,
         )
-    elif config.optimizer.optimizer_type == "Prodigy":
+    elif config.optimizer_type == "Prodigy":
         optimizer = Prodigy(
             trainable_params,
             lr=config.learning_rate,
-            weight_decay=config.optimizer.weight_decay,
-            use_bias_correction=config.optimizer.use_bias_correction,
-            safeguard_warmup=config.optimizer.safeguard_warmup,
+            weight_decay=config.weight_decay,
+            use_bias_correction=config.use_bias_correction,
+            safeguard_warmup=config.safeguard_warmup,
         )
     else:
-        raise ValueError(f"'{config.optimizer}' is not a supported optimizer.")
+        raise ValueError(f"'{config.optimizer_type}' is not a supported optimizer.")
 
     return optimizer
