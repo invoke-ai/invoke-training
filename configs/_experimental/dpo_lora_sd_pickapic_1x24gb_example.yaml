@@ -10,13 +10,12 @@ seed: 1
 base_output_dir: output/dpo
 
 optimizer:
+  optimizer_type: AdamW
   learning_rate: 1e-4
-  lr_warmup_steps: 200
-  lr_scheduler: cosine
+  weight_decay: 1e-2
 
-  optimizer:
-    optimizer_type: AdamW
-    weight_decay: 1e-2
+lr_warmup_steps: 200
+lr_scheduler: cosine
 
 data_loader:
   type: IMAGE_PAIR_PREFERENCE_SD_DATA_LOADER
