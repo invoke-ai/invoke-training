@@ -259,11 +259,6 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
     vae_output_cache_dir_name = None
     if config.cache_vae_outputs:
         raise NotImplementedError("VAE caching is not implemented for Diffusion-DPO training yet.")
-        # if config.data_loader.image_transforms.random_flip:
-        #     raise ValueError("'cache_vae_outputs' cannot be True if 'random_flip' is True.")
-        # if not config.data_loader.image_transforms.center_crop:
-        #     raise ValueError("'cache_vae_outputs' cannot be True if 'center_crop' is False.")
-
         # # We use a temporary directory for the cache. The directory will automatically be cleaned up when
         # # tmp_vae_output_cache_dir is destroyed.
         # tmp_vae_output_cache_dir = tempfile.TemporaryDirectory()

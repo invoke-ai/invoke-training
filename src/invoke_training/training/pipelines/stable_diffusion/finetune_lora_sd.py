@@ -285,9 +285,9 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
     # Prepare VAE output cache.
     vae_output_cache_dir_name = None
     if config.cache_vae_outputs:
-        if config.data_loader.image_transforms.random_flip:
+        if config.data_loader.random_flip:
             raise ValueError("'cache_vae_outputs' cannot be True if 'random_flip' is True.")
-        if not config.data_loader.image_transforms.center_crop:
+        if not config.data_loader.center_crop:
             raise ValueError("'cache_vae_outputs' cannot be True if 'center_crop' is False.")
 
         # We use a temporary directory for the cache. The directory will automatically be cleaned up when

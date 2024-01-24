@@ -23,8 +23,7 @@ data_loader:
   dataset:
     type: HF_HUB_IMAGE_CAPTION_DATASET
     dataset_name: lambdalabs/pokemon-blip-captions
-  image_transforms:
-    resolution: 512
+  resolution: 512
   dataloader_num_workers: 4
 
 # General

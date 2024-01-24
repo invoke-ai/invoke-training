@@ -22,10 +22,9 @@ data_loader:
   captions:
     type: TEXTUAL_INVERSION_PRESET_CAPTION_TRANSFORM
     preset: object
-  image_transforms:
-    resolution: 1024
-    center_crop: True
-    random_flip: False
+  resolution: 1024
+  center_crop: True
+  random_flip: False
   shuffle_caption_transform: null
   dataloader_num_workers: 4
 

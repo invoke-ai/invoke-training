@@ -5,22 +5,6 @@ from pydantic import Field
 from invoke_training.config.shared.config_base_model import ConfigBaseModel
 
 
-class SDImageTransformConfig(ConfigBaseModel):
-    resolution: int | tuple[int, int] = 512
-    """The resolution for input images. Either a scalar integer representing the square resolution height and width, or
-    a (height, width) tuple. All of the images in the dataset will be resized to this resolution.
-    """
-
-    center_crop: bool = True
-    """If True, input images will be center-cropped to resolution.
-    If False, input images will be randomly cropped to resolution.
-    """
-
-    random_flip: bool = False
-    """Whether random flip augmentations should be applied to input images.
-    """
-
-
 class TextualInversionCaptionTransformConfig(ConfigBaseModel):
     type: Literal["TEXTUAL_INVERSION_CAPTION_TRANSFORM"] = "TEXTUAL_INVERSION_CAPTION_TRANSFORM"
 

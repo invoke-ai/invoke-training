@@ -6,7 +6,6 @@ from invoke_training.config.shared.data.dataset_config import (
     ImageDirDatasetConfig,
 )
 from invoke_training.config.shared.data.transform_config import (
-    SDImageTransformConfig,
     ShuffleCaptionTransformConfig,
     TextualInversionCaptionConfig,
 )
@@ -49,9 +48,22 @@ class ImageCaptionSDDataLoaderConfig(ConfigBaseModel):
 
     dataset: ImageCaptionDatasetConfig
 
-    image_transforms: SDImageTransformConfig
-
     aspect_ratio_buckets: AspectRatioBucketConfig | None = None
+
+    resolution: int | tuple[int, int] = 512
+    """The resolution for input images. Either a scalar integer representing the square resolution height and width, or
+    a (height, width) tuple. All of the images in the dataset will be resized to this resolution unless the
+    `aspect_ratio_buckets` config is set.
+    """
+
+    center_crop: bool = True
+    """If True, input images will be center-cropped to the target resolution.
+    If False, input images will be randomly cropped to the target resolution.
+    """
+
+    random_flip: bool = False
+    """Whether random flip augmentations should be applied to input images.
+    """
 
     caption_prefix: str | None = None
     """A prefix that will be prepended to all captions. If None, no prefix will be added.
@@ -75,11 +87,24 @@ class DreamboothSDDataLoaderConfig(ConfigBaseModel):
     """The loss weight applied to class dataset examples. Instance dataset examples have an implicit loss weight of 1.0.
     """
 
-    image_transforms: SDImageTransformConfig
-
     aspect_ratio_buckets: AspectRatioBucketConfig | None = None
     """The aspect ratio bucketing configuration. If None, aspect ratio bucketing is disabled, and all images will be
     resized to the same resolution.
+    """
+
+    resolution: int | tuple[int, int] = 512
+    """The resolution for input images. Either a scalar integer representing the square resolution height and width, or
+    a (height, width) tuple. All of the images in the dataset will be resized to this resolution unless the
+    `aspect_ratio_buckets` config is set.
+    """
+
+    center_crop: bool = True
+    """If True, input images will be center-cropped to the target resolution.
+    If False, input images will be randomly cropped to the target resolution.
+    """
+
+    random_flip: bool = False
+    """Whether random flip augmentations should be applied to input images.
     """
 
     dataloader_num_workers: int = 0
@@ -100,13 +125,24 @@ class TextualInversionSDDataLoaderConfig(ConfigBaseModel):
     - [`TextualInversionCaptionPrefixTransformConfig`][invoke_training.config.shared.data.transform_config.TextualInversionCaptionPrefixTransformConfig]: Prepend the textual inversion token(s) to all existing dataset captions.
     """  # noqa: E501
 
-    image_transforms: SDImageTransformConfig
-    """The image transforms to apply to all images.
-    """
-
     aspect_ratio_buckets: AspectRatioBucketConfig | None = None
     """The aspect ratio bucketing configuration. If None, aspect ratio bucketing is disabled, and all images will be
     resized to the same resolution.
+    """
+
+    resolution: int | tuple[int, int] = 512
+    """The resolution for input images. Either a scalar integer representing the square resolution height and width, or
+    a (height, width) tuple. All of the images in the dataset will be resized to this resolution unless the
+    `aspect_ratio_buckets` config is set.
+    """
+
+    center_crop: bool = True
+    """If True, input images will be center-cropped to the target resolution.
+    If False, input images will be randomly cropped to the target resolution.
+    """
+
+    random_flip: bool = False
+    """Whether random flip augmentations should be applied to input images.
     """
 
     shuffle_caption_transform: Optional[ShuffleCaptionTransformConfig] = None

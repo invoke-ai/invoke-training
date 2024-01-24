@@ -4,7 +4,6 @@ from pydantic import Field
 
 from invoke_training.config.pipelines.finetune_lora_config import LoRATrainingConfig
 from invoke_training.config.shared.config_base_model import ConfigBaseModel
-from invoke_training.config.shared.data.transform_config import SDImageTransformConfig
 
 
 class HFHubImagePairPreferenceDatasetConfig(ConfigBaseModel):
@@ -27,7 +26,20 @@ class ImagePairPreferenceSDDataLoaderConfig(ConfigBaseModel):
         Union[HFHubImagePairPreferenceDatasetConfig, ImagePairPreferenceDatasetConfig], Field(discriminator="type")
     ]
 
-    image_transforms: SDImageTransformConfig
+    resolution: int | tuple[int, int] = 512
+    """The resolution for input images. Either a scalar integer representing the square resolution height and width, or
+    a (height, width) tuple. All of the images in the dataset will be resized to this resolution unless the
+    `aspect_ratio_buckets` config is set.
+    """
+
+    center_crop: bool = True
+    """If True, input images will be center-cropped to the target resolution.
+    If False, input images will be randomly cropped to the target resolution.
+    """
+
+    random_flip: bool = False
+    """Whether random flip augmentations should be applied to input images.
+    """
 
     dataloader_num_workers: int = 0
     """Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
