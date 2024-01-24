@@ -143,12 +143,12 @@ def _initialize_placeholder_tokens(
 
 def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
     # Create a timestamped directory for all outputs.
-    out_dir = os.path.join(config.output.base_output_dir, f"{time.time()}")
+    out_dir = os.path.join(config.base_output_dir, f"{time.time()}")
     ckpt_dir = os.path.join(out_dir, "checkpoints")
     os.makedirs(ckpt_dir)
 
     accelerator = initialize_accelerator(
-        out_dir, config.gradient_accumulation_steps, config.mixed_precision, config.output.report_to
+        out_dir, config.gradient_accumulation_steps, config.mixed_precision, config.report_to
     )
     logger = initialize_logging(__name__, accelerator)
 
@@ -294,14 +294,14 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
     epoch_checkpoint_tracker = CheckpointTracker(
         base_dir=ckpt_dir,
         prefix="checkpoint_epoch",
-        extension=f".{config.output.save_model_as}",
+        extension=".safetensors",
         max_checkpoints=config.max_checkpoints,
     )
 
     step_checkpoint_tracker = CheckpointTracker(
         base_dir=ckpt_dir,
         prefix="checkpoint_step",
-        extension=f".{config.output.save_model_as}",
+        extension=".safetensors",
         max_checkpoints=config.max_checkpoints,
     )
 

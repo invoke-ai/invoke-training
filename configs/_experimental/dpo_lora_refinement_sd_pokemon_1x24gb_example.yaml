@@ -4,8 +4,7 @@
 
 type: DIRECT_PREFERENCE_OPTIMIZATION_LORA_SD
 seed: 1
-output:
-  base_output_dir: output/dpo
+base_output_dir: output/dpo
 
 optimizer:
   learning_rate: 1e-4

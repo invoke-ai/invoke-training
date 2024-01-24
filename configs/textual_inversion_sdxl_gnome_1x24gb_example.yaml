@@ -4,8 +4,7 @@
 
 type: TEXTUAL_INVERSION_SDXL
 seed: 1
-output:
-  base_output_dir: output/ti_sdxl_bruce_the_gnome
+base_output_dir: output/ti_sdxl_bruce_the_gnome
 
 optimizer:
   learning_rate: 2e-3

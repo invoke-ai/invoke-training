@@ -9,8 +9,7 @@
 
 type: FINETUNE_LORA_SD
 seed: 1
-output:
-  base_output_dir: output/finetune_lora_sd_pokemon/
+base_output_dir: output/finetune_lora_sd_pokemon/
 
 optimizer:
   learning_rate: 1.0
