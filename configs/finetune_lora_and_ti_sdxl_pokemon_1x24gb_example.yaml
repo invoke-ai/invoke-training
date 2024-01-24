@@ -40,7 +40,9 @@ gradient_accumulation_steps: 1
 mixed_precision: fp16
 xformers: False
 gradient_checkpointing: True
-max_train_steps: 3000
+# Dataset size is 833. Set max_train_steps to train for 2 epochs.
+# ceil(833 / 4) * 3
+max_train_steps: 627
 save_every_n_epochs: 1
 validate_every_n_epochs: 1
 save_every_n_steps: null
