@@ -480,9 +480,9 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     # (https://github.com/huggingface/accelerate/blame/49cb83a423f2946059117d8bb39b7c8747d29d80/src/accelerate/scheduler.py#L72-L82),
     # so the scaling here simply reverses that behaviour.
     lr_scheduler: torch.optim.lr_scheduler.LRScheduler = get_scheduler(
-        config.optimizer.lr_scheduler,
+        config.lr_scheduler,
         optimizer=optimizer,
-        num_warmup_steps=config.optimizer.lr_warmup_steps * accelerator.num_processes,
+        num_warmup_steps=config.lr_warmup_steps * accelerator.num_processes,
         num_training_steps=config.max_train_steps * accelerator.num_processes,
     )
 
@@ -599,12 +599,12 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
                 if config.train_unet:
                     # When training the UNet, it will always be the first parameter group.
                     log["lr/unet"] = float(lrs[0])
-                    if config.optimizer.optimizer.optimizer_type == "Prodigy":
+                    if config.optimizer.optimizer_type == "Prodigy":
                         log["lr/d*lr/unet"] = optimizer.param_groups[0]["d"] * optimizer.param_groups[0]["lr"]
                 if config.train_text_encoder:
                     # When training the text encoder, it will always be the last parameter group.
                     log["lr/text_encoder"] = float(lrs[-1])
-                    if config.optimizer.optimizer.optimizer_type == "Prodigy":
+                    if config.optimizer.optimizer_type == "Prodigy":
                         log["lr/d*lr/text_encoder"] = optimizer.param_groups[-1]["d"] * optimizer.param_groups[-1]["lr"]
 
                 accelerator.log(log, step=global_step)

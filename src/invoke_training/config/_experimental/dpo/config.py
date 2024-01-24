@@ -5,7 +5,6 @@ from pydantic import Field
 from invoke_training.config.pipelines.finetune_lora_config import LoRATrainingConfig
 from invoke_training.config.shared.config_base_model import ConfigBaseModel
 from invoke_training.config.shared.data.transform_config import SDImageTransformConfig
-from invoke_training.config.shared.optimizer.optimizer_config import OptimizerConfig
 
 
 class HFHubImagePairPreferenceDatasetConfig(ConfigBaseModel):
@@ -37,7 +36,7 @@ class ImagePairPreferenceSDDataLoaderConfig(ConfigBaseModel):
 
 class DirectPreferenceOptimizationLoRASDConfig(LoRATrainingConfig):
     type: Literal["DIRECT_PREFERENCE_OPTIMIZATION_LORA_SD"] = "DIRECT_PREFERENCE_OPTIMIZATION_LORA_SD"
-    optimizer: OptimizerConfig
+
     data_loader: ImagePairPreferenceSDDataLoaderConfig
 
     initial_lora: str | None = None

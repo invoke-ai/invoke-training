@@ -7,12 +7,11 @@ seed: 1
 base_output_dir: output/ti_sd_bruce_the_gnome
 
 optimizer:
+  optimizer_type: AdamW
   learning_rate: 4e-3
-  lr_warmup_steps: 200
-  lr_scheduler: cosine
 
-  optimizer:
-    optimizer_type: AdamW
+lr_warmup_steps: 200
+lr_scheduler: cosine
 
 data_loader:
   type: TEXTUAL_INVERSION_SD_DATA_LOADER

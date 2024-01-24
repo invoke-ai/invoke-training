@@ -9,16 +9,14 @@
 #   - Achieve reasonable results *quickly* (<15mins) for demo purposes.
 type: FINETUNE_LORA_SDXL
 seed: 1
-base_output_dir: output/finetune_lora_sdxl_pokemon/
+base_output_dir: output/finetune_lora_sdxl_pokemon/  
 
 optimizer:
+  optimizer_type: Prodigy
   learning_rate: 1.0
-
-  optimizer:
-    optimizer_type: Prodigy
-    weight_decay: 0.01
-    use_bias_correction: True
-    safeguard_warmup: True
+  weight_decay: 0.01
+  use_bias_correction: True
+  safeguard_warmup: True
 
 data_loader:
   type: IMAGE_CAPTION_SD_DATA_LOADER
