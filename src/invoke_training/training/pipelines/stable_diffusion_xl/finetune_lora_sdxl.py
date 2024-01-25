@@ -294,7 +294,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     accelerator = initialize_accelerator(
         out_dir, config.gradient_accumulation_steps, config.mixed_precision, config.report_to
     )
-    logger = initialize_logging(__name__, accelerator)
+    logger = initialize_logging(os.path.basename(__file__), accelerator)
 
     # Set the accelerate seed.
     if config.seed is not None:
