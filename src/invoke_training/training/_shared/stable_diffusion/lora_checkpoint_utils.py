@@ -178,6 +178,10 @@ def convert_sd_peft_checkpoint_to_kohya_state_dict(
     dtype: torch.dtype = torch.float32,
 ) -> dict[str, torch.Tensor]:
     """Convert SD v1 PEFT models to a Kohya-format LoRA state dict."""
+
+    if not in_checkpoint_dir.exists():
+        raise ValueError(f"'{in_checkpoint_dir}' does not exist.")
+
     kohya_state_dict = {}
     for kohya_prefix, peft_model_key in [("lora_unet", SD_PEFT_UNET_KEY), ("lora_te", SD_PEFT_TEXT_ENCODER_KEY)]:
         peft_model_dir = in_checkpoint_dir / peft_model_key
