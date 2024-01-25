@@ -185,21 +185,17 @@ def run_training(config: FinetuneLoraAndTiSdxlConfig):  # noqa: C901
     trainable_param_groups = []
     all_trainable_models: set[torch.nn.Module] = set()
 
-    def inject_lora_layers(model, lora_config: peft.LoraConfig, lr: float | None = None) -> peft.PeftModel:
+    def inject_lora_layers(model, lora_config: peft.LoraConfig, lr: float) -> peft.PeftModel:
         peft_model = peft.get_peft_model(model, lora_config)
         peft_model.print_trainable_parameters()
 
         # Populate `trainable_param_groups`, to be passed to the optimizer.
-        param_group = {"params": list(filter(lambda p: p.requires_grad, peft_model.parameters()))}
-        if lr is not None:
-            param_group["lr"] = lr
+        param_group = {"params": list(filter(lambda p: p.requires_grad, peft_model.parameters())), "lr": lr}
         trainable_param_groups.append(param_group)
 
         # Populate all_trainable_models.
         all_trainable_models.add(peft_model)
-
         peft_model.train()
-
         return peft_model
 
     if config.train_unet:
@@ -244,9 +240,10 @@ def run_training(config: FinetuneLoraAndTiSdxlConfig):  # noqa: C901
         all_trainable_models.add(text_encoder_2)
 
         for te in [text_encoder_1, text_encoder_2]:
-            param_group = {"params": te.get_input_embeddings().parameters()}
-            if config.textual_inversion_learning_rate is not None:
-                param_group["lr"] = config.textual_inversion_learning_rate
+            param_group = {
+                "params": te.get_input_embeddings().parameters(),
+                "lr": config.textual_inversion_learning_rate,
+            }
             trainable_param_groups.append(param_group)
 
     # Make sure all trainable params are in float32.
@@ -371,6 +368,11 @@ def run_training(config: FinetuneLoraAndTiSdxlConfig):  # noqa: C901
     )
     progress_bar.set_description("Steps")
 
+    ti_train_steps = config.max_train_steps
+    if config.ti_train_steps_ratio is not None:
+        ti_train_steps = math.ceil(config.max_train_steps * config.ti_train_steps_ratio)
+        logger.info(f"The TI training pivot point is set at {ti_train_steps} steps.")
+
     # Keep original embeddings as reference.
     with torch.no_grad():
         orig_embeds_params_1 = accelerator.unwrap_model(text_encoder_1).get_input_embeddings().weight.data.clone()
@@ -383,6 +385,17 @@ def run_training(config: FinetuneLoraAndTiSdxlConfig):  # noqa: C901
 
         train_loss = 0.0
         for data_batch in data_loader:
+            if global_step == ti_train_steps and config.train_ti:
+                logger.info("Reached TI training pivot point. Setting TI learning rate to 0.0.")
+                # TODO(ryand): The TI embeddings continue to be updated slightly by the normalization step in
+                # restore_original_embeddings(...). The updates should be very small and converge quickly, so this
+                # should be fine. But, at some point we should tidy this up.
+                for ti_param_group in optimizer.param_groups[-2:]:
+                    # The TI param groups should be the last two param groups. But, this is pretty brittle, so this
+                    # assertion adds a bit of safety.
+                    assert len(ti_param_group["params"]) == 1
+                    ti_param_group["lr"] = 0.0
+
             with accelerator.accumulate(unet, text_encoder_1, text_encoder_2):
                 loss = train_forward(
                     accelerator,

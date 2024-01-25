@@ -64,6 +64,14 @@ class LoraAndTiTrainingConfig(BasePipelineConfig):
     train_ti: bool = True
     """Whether to train the textual inversion embeddings."""
 
+    ti_train_steps_ratio: float | None = None
+    """The fraction of the total training steps for which the TI embeddings will be trained. For example, if we are
+    training for a total of 5000 steps and `ti_train_steps_ratio=0.5`, then the TI embeddings will be trained for 2500
+    steps and the will be frozen for the remaining steps.
+
+    If `None`, then the TI embeddings will be trained for the entire duration of training.
+    """
+
     optimizer: AdamOptimizerConfig | ProdigyOptimizerConfig = AdamOptimizerConfig()
 
     text_encoder_learning_rate: float = 1e-5
