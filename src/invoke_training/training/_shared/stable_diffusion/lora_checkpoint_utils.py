@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import peft
@@ -35,6 +36,24 @@ SD_PEFT_TEXT_ENCODER_KEY = "text_encoder"
 SDXL_PEFT_UNET_KEY = "unet"
 SDXL_PEFT_TEXT_ENCODER_1_KEY = "text_encoder_1"
 SDXL_PEFT_TEXT_ENCODER_2_KEY = "text_encoder_2"
+
+SD_KOHYA_UNET_KEY = "lora_unet"
+SD_KOHYA_TEXT_ENCODER_KEY = "lora_te"
+
+SDXL_KOHYA_UNET_KEY = "lora_unet"
+SDXL_KOHYA_TEXT_ENCODER_1_KEY = "lora_te1"
+SDXL_KOHYA_TEXT_ENCODER_2_KEY = "lora_te2"
+
+SD_PEFT_TO_KOHYA_KEYS = {
+    SD_PEFT_UNET_KEY: SD_KOHYA_UNET_KEY,
+    SD_PEFT_TEXT_ENCODER_KEY: SD_KOHYA_TEXT_ENCODER_KEY,
+}
+
+SDXL_PEFT_TO_KOHYA_KEYS = {
+    SDXL_PEFT_UNET_KEY: SDXL_KOHYA_UNET_KEY,
+    SDXL_PEFT_TEXT_ENCODER_1_KEY: SDXL_KOHYA_TEXT_ENCODER_1_KEY,
+    SDXL_PEFT_TEXT_ENCODER_2_KEY: SDXL_KOHYA_TEXT_ENCODER_2_KEY,
+}
 
 
 def save_multi_model_peft_checkpoint(checkpoint_dir: Path | str, models: dict[str, peft.PeftModel]):
@@ -177,27 +196,35 @@ def convert_sd_peft_checkpoint_to_kohya_state_dict(
     out_checkpoint_file: Path,
     dtype: torch.dtype = torch.float32,
 ) -> dict[str, torch.Tensor]:
-    """Convert SD v1 PEFT models to a Kohya-format LoRA state dict."""
+    """Convert SD v1 or SDXL PEFT models to a Kohya-format LoRA state dict."""
+    # Get the immediate subdirectories of the checkpoint directory. We assume that each subdirectory is a PEFT model.
+    peft_model_dirs = os.listdir(in_checkpoint_dir)
+    peft_model_dirs = [in_checkpoint_dir / d for d in peft_model_dirs]  # Convert to Path objects.
+    peft_model_dirs = [d for d in peft_model_dirs if d.is_dir()]  # Filter out non-directories.
 
-    if not in_checkpoint_dir.exists():
-        raise ValueError(f"'{in_checkpoint_dir}' does not exist.")
+    if len(peft_model_dirs) == 0:
+        raise ValueError(f"No checkpoint files found in directory '{in_checkpoint_dir}'.")
 
     kohya_state_dict = {}
-    for kohya_prefix, peft_model_key in [("lora_unet", SD_PEFT_UNET_KEY), ("lora_te", SD_PEFT_TEXT_ENCODER_KEY)]:
-        peft_model_dir = in_checkpoint_dir / peft_model_key
+    for peft_model_dir in peft_model_dirs:
+        if peft_model_dir.name in SD_PEFT_TO_KOHYA_KEYS:
+            kohya_prefix = SD_PEFT_TO_KOHYA_KEYS[peft_model_dir.name]
+        elif peft_model_dir.name in SDXL_PEFT_TO_KOHYA_KEYS:
+            kohya_prefix = SDXL_PEFT_TO_KOHYA_KEYS[peft_model_dir.name]
+        else:
+            raise ValueError(f"Unrecognized checkpoint directory: '{peft_model_dir}'.")
 
-        if peft_model_dir.exists():
-            # Note: This logic to load the LoraConfig and weights directly is based on how it is done here:
-            # https://github.com/huggingface/peft/blob/8665e2b5719faa4e4b91749ddec09442927b53e0/src/peft/peft_model.py#L672-L689
-            # This may need to be updated in the future to support other adapter types (LoKr, LoHa, etc.).
-            # Also, I could see this interface breaking in the future.
-            lora_config = peft.LoraConfig.from_pretrained(peft_model_dir)
-            lora_weights = peft.utils.load_peft_weights(peft_model_dir, device="cpu")
+        # Note: This logic to load the LoraConfig and weights directly is based on how it is done here:
+        # https://github.com/huggingface/peft/blob/8665e2b5719faa4e4b91749ddec09442927b53e0/src/peft/peft_model.py#L672-L689
+        # This may need to be updated in the future to support other adapter types (LoKr, LoHa, etc.).
+        # Also, I could see this interface breaking in the future.
+        lora_config = peft.LoraConfig.from_pretrained(peft_model_dir)
+        lora_weights = peft.utils.load_peft_weights(peft_model_dir, device="cpu")
 
-            kohya_state_dict.update(
-                _convert_peft_state_dict_to_kohya_state_dict(
-                    lora_config=lora_config, peft_state_dict=lora_weights, prefix=kohya_prefix, dtype=dtype
-                )
+        kohya_state_dict.update(
+            _convert_peft_state_dict_to_kohya_state_dict(
+                lora_config=lora_config, peft_state_dict=lora_weights, prefix=kohya_prefix, dtype=dtype
             )
+        )
 
     save_state_dict(kohya_state_dict, out_checkpoint_file)
