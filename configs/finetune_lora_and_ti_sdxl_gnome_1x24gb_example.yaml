@@ -37,10 +37,11 @@ gradient_accumulation_steps: 1
 mixed_precision: fp16
 xformers: False
 gradient_checkpointing: True
-max_train_steps: 500
-save_every_n_epochs: 20
-validate_every_n_epochs: 20
-save_every_n_steps: null
+
+max_train_steps: 2000
+save_every_n_steps: 200
+validate_every_n_steps: 200
+
 max_checkpoints: 50
 validation_prompts:
   - A photo of bruce_the_gnome at the beach
