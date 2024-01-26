@@ -15,7 +15,7 @@ from accelerate.utils import set_seed
 from diffusers import UNet2DConditionModel
 from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
-from transformers import CLIPPreTrainedModel, CLIPTextModel
+from transformers import CLIPTextModel
 
 from invoke_training.config.pipelines.finetune_lora_and_ti_config import FinetuneLoraAndTiSdxlConfig
 from invoke_training.training._shared.accelerator.accelerator_utils import (
@@ -98,32 +98,6 @@ def _save_sdxl_lora_and_ti_checkpoint(
             "clip_g": learned_embeds_2.detach().cpu(),
         }
         save_state_dict(learned_embeds_dict, ti_checkpoint_path)
-
-
-# encode_prompt was adapted from:
-# https://github.com/huggingface/diffusers/blob/7b07f9812a58bfa96c06ed8ffe9e6b584286e2fd/examples/text_to_image/train_text_to_image_lora_sdxl.py#L470-L496
-def _encode_prompt(text_encoders: list[CLIPPreTrainedModel], prompt_token_ids_list: list[torch.Tensor]):
-    prompt_embeds_list = []
-
-    for i, text_encoder in enumerate(text_encoders):
-        text_input_ids = prompt_token_ids_list[i]
-
-        prompt_embeds = text_encoder(
-            text_input_ids.to(text_encoder.device),
-            output_hidden_states=True,
-        )
-
-        # We are only ALWAYS interested in the pooled output of the final text encoder.
-        # TODO(ryand): Document this logic more clearly.
-        pooled_prompt_embeds = prompt_embeds[0]
-        prompt_embeds = prompt_embeds.hidden_states[-2]
-        bs_embed, seq_len, _ = prompt_embeds.shape
-        prompt_embeds = prompt_embeds.view(bs_embed, seq_len, -1)
-        prompt_embeds_list.append(prompt_embeds)
-
-    prompt_embeds = torch.concat(prompt_embeds_list, dim=-1)
-    pooled_prompt_embeds = pooled_prompt_embeds.view(bs_embed, -1)
-    return prompt_embeds, pooled_prompt_embeds
 
 
 def run_training(config: FinetuneLoraAndTiSdxlConfig):  # noqa: C901
