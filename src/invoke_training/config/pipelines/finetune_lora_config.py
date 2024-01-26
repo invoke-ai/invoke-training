@@ -75,6 +75,15 @@ class LoRATrainingConfig(BasePipelineConfig):
     See lr_scheduler.
     """
 
+    min_snr_gamma: float | None = 5.0
+    """Min-SNR weighting for diffusion training was introduced in https://arxiv.org/abs/2303.09556. This strategy
+    improves the speed of training convergence by adjusting the weight of each sample.
+
+    `min_snr_gamma` acts like an an upper bound on the weight of samples with low noise levels.
+
+    If `None`, then Min-SNR weighting will not be applied. If enabled, the recommended value is `min_snr_gamma = 5.0`.
+    """
+
     lora_rank_dim: int = 4
     """The rank dimension to use for the LoRA layers. Increasing the rank dimension increases the model's expressivity,
     but also increases the size of the generated LoRA model.
