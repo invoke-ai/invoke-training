@@ -52,9 +52,11 @@ def expand_placeholders_in_caption(caption: str, tokenizer: CLIPTokenizer) -> st
                 replacement += f" {token}_{i}"
                 i += 1
 
-            # If the replacement is already in the caption, this probably means that someone didn't realize that
-            # placeholder expansion is handled here.
-            assert replacement not in caption
+            if replacement != token:
+                # If the replacement is different from the original token, then we double check that the replacement
+                # isn't already in the caption. If the replacement is already in the caption, this probably means that
+                # someone didn't realize that placeholder expansion is handled here.
+                assert replacement not in caption
 
             caption = caption.replace(token, replacement)
 
