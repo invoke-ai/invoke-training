@@ -20,7 +20,7 @@ from invoke_training.training._shared.data.utils.resolution import Resolution
 
 
 def generate_validation_images_sd(
-    epoch: int,
+    step: int,
     out_dir: str,
     accelerator: Accelerator,
     vae: AutoencoderKL,
@@ -30,21 +30,10 @@ def generate_validation_images_sd(
     unet: UNet2DConditionModel,
     config: FinetuneLoRASDConfig,
     logger: logging.Logger,
+    prefix="epoch",
 ):
     """Generate validation images for the purpose of tracking image generation behaviour on fixed prompts throughout
     training.
-
-    Args:
-        epoch (int): Epoch number, for reporting purposes.
-        out_dir (str): The output directory where the validation images will be stored.
-        accelerator (Accelerator): Accelerator
-        vae (AutoencoderKL):
-        text_encoder (CLIPTextModel):
-        tokenizer (CLIPTokenizer):
-        noise_scheduler (DDPMScheduler):
-        unet (UNet2DConditionModel):
-        config (FinetuneLoRASDConfig): Training configs.
-        logger (logging.Logger): Logger.
     """
     logger.info("Generating validation images.")
 
@@ -98,7 +87,7 @@ def generate_validation_images_sd(
             validation_dir = os.path.join(
                 out_dir,
                 "validation",
-                f"epoch_{epoch:0>8}",
+                f"{prefix}_{step:0>8}",
                 f"prompt_{prompt_idx:0>4}",
             )
             os.makedirs(validation_dir)
@@ -110,9 +99,9 @@ def generate_validation_images_sd(
                 if tracker.name == "tensorboard":
                     np_images = np.stack([np.asarray(img) for img in images])
                     tracker.writer.add_images(
-                        f"validation (prompt {prompt_idx})",
+                        f"validation ({prefix}) (prompt {prompt_idx})",
                         np_images,
-                        epoch,
+                        step,
                         dataformats="NHWC",
                     )
 
@@ -132,7 +121,7 @@ def generate_validation_images_sd(
 
 
 def generate_validation_images_sdxl(
-    epoch: int,
+    step: int,
     out_dir: str,
     accelerator: Accelerator,
     vae: AutoencoderKL,
@@ -144,6 +133,7 @@ def generate_validation_images_sdxl(
     unet: UNet2DConditionModel,
     config: FinetuneLoRASDXLConfig,
     logger: logging.Logger,
+    prefix: str = "epoch",
 ):
     """Generate validation images for the purpose of tracking image generation behaviour on fixed prompts throughout
     training.
@@ -199,7 +189,7 @@ def generate_validation_images_sdxl(
             validation_dir = os.path.join(
                 out_dir,
                 "validation",
-                f"epoch_{epoch:0>8}",
+                f"{prefix}_{step:0>8}",
                 f"prompt_{prompt_idx:0>4}",
             )
             os.makedirs(validation_dir)
@@ -211,9 +201,9 @@ def generate_validation_images_sdxl(
                 if tracker.name == "tensorboard":
                     np_images = np.stack([np.asarray(img) for img in images])
                     tracker.writer.add_images(
-                        f"validation (prompt {prompt_idx})",
+                        f"validation ({prefix}) (prompt {prompt_idx})",
                         np_images,
-                        epoch,
+                        step,
                         dataformats="NHWC",
                     )
 

@@ -514,6 +514,17 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
 
     log_aspect_ratio_buckets(logger=logger, batch_sampler=data_loader.batch_sampler)
 
+    assert sum([config.max_train_steps is not None, config.max_train_epochs is not None]) == 1
+    assert sum([config.save_every_n_steps is not None, config.save_every_n_epochs is not None]) == 1
+    assert sum([config.validate_every_n_steps is not None, config.validate_every_n_epochs is not None]) == 1
+
+    # A "step" represents a single weight update operation (i.e. takes into account gradient accumulation steps).
+    # math.ceil(...) is used in calculating the num_steps_per_epoch, because by default an optimizer step is taken when
+    # the end of the dataloader is reached, even if gradient_accumulation_steps hasn't been reached.
+    num_steps_per_epoch = math.ceil(len(data_loader) / config.gradient_accumulation_steps)
+    num_train_steps = config.max_train_steps or config.max_train_epochs * num_steps_per_epoch
+    num_train_epochs = math.ceil(num_train_steps / num_steps_per_epoch)
+
     # TODO(ryand): Test in a distributed training environment and more clearly document the rationale for scaling steps
     # by the number of processes. This scaling logic was copied from the diffusers example training code, but it appears
     # in many places so I don't know where it originated. Internally, accelerate makes one LR scheduler step per process
@@ -523,7 +534,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         config.lr_scheduler,
         optimizer=optimizer,
         num_warmup_steps=config.lr_warmup_steps * accelerator.num_processes,
-        num_training_steps=config.max_train_steps * accelerator.num_processes,
+        num_training_steps=num_train_steps * accelerator.num_processes,
     )
 
     prepared_result: tuple[
@@ -552,13 +563,6 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     )
     unet, text_encoder_1, text_encoder_2, optimizer, data_loader, lr_scheduler = prepared_result
 
-    # Calculate the number of epochs and total training steps. A "step" represents a single weight update operation
-    # (i.e. takes into account gradient accumulation steps).
-    # math.ceil(...) is used in calculating the num_steps_per_epoch, because by default an optimizer step is taken when
-    # the end of the dataloader is reached, even if gradient_accumulation_steps hasn't been reached.
-    num_steps_per_epoch = math.ceil(len(data_loader) / config.gradient_accumulation_steps)
-    num_train_epochs = math.ceil(config.max_train_steps / num_steps_per_epoch)
-
     if accelerator.is_main_process:
         accelerator.init_trackers("lora_training")
         # Tensorboard uses markdown formatting, so we wrap the config json in a code block.
@@ -581,18 +585,19 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
     # Train!
     total_batch_size = config.train_batch_size * accelerator.num_processes * config.gradient_accumulation_steps
     logger.info("***** Running training *****")
-    logger.info(f"  Num examples = {len(data_loader)}")
+    logger.info(f"  Num batches = {len(data_loader)}")
     logger.info(f"  Instantaneous batch size per device = {config.train_batch_size}")
     logger.info(f"  Gradient accumulation steps = {config.gradient_accumulation_steps}")
     logger.info(f"  Parallel processes = {accelerator.num_processes}")
     logger.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
-    logger.info(f"  Total optimization steps = {config.max_train_steps}")
+    logger.info(f"  Total optimization steps = {num_train_steps}")
+    logger.info(f"  Total epochs = {num_train_epochs}")
 
     global_step = 0
     first_epoch = 0
 
     progress_bar = tqdm(
-        range(global_step, config.max_train_steps),
+        range(global_step, num_train_steps),
         # Only show the progress bar once on each machine.
         disable=not accelerator.is_local_main_process,
     )
@@ -666,13 +671,36 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
                             lora_checkpoint_format=config.lora_checkpoint_format,
                         )
 
+                if (
+                    config.validate_every_n_steps is not None
+                    and (global_step + 1) % config.validate_every_n_steps == 0
+                    and len(config.validation_prompts) > 0
+                ):
+                    accelerator.wait_for_everyone()
+                    if accelerator.is_main_process:
+                        generate_validation_images_sdxl(
+                            step=global_step + 1,
+                            out_dir=out_dir,
+                            accelerator=accelerator,
+                            vae=vae,
+                            text_encoder_1=text_encoder_1,
+                            text_encoder_2=text_encoder_2,
+                            tokenizer_1=tokenizer_1,
+                            tokenizer_2=tokenizer_2,
+                            noise_scheduler=noise_scheduler,
+                            unet=unet,
+                            config=config,
+                            logger=logger,
+                            prefix="step",
+                        )
+
             logs = {
                 "step_loss": loss.detach().item(),
                 "lr": lr_scheduler.get_last_lr()[0],
             }
             progress_bar.set_postfix(**logs)
 
-            if global_step >= config.max_train_steps:
+            if global_step >= num_train_steps:
                 break
 
         # Save a checkpoint every n epochs.
@@ -690,10 +718,14 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
                 accelerator.wait_for_everyone()
 
         # Generate validation images every n epochs.
-        if len(config.validation_prompts) > 0 and (epoch + 1) % config.validate_every_n_epochs == 0:
+        if (
+            config.validate_every_n_epochs is not None
+            and (epoch + 1) % config.validate_every_n_epochs == 0
+            and len(config.validation_prompts) > 0
+        ):
             if accelerator.is_main_process:
                 generate_validation_images_sdxl(
-                    epoch=epoch + 1,
+                    step=epoch + 1,
                     out_dir=out_dir,
                     accelerator=accelerator,
                     vae=vae,
@@ -705,6 +737,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
                     unet=unet,
                     config=config,
                     logger=logger,
+                    prefix="epoch",
                 )
 
     accelerator.end_training()
