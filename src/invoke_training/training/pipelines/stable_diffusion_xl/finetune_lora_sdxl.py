@@ -6,7 +6,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
 import peft
 import torch
@@ -43,6 +43,7 @@ from invoke_training.training._shared.optimizer.optimizer_utils import initializ
 from invoke_training.training._shared.stable_diffusion.lora_checkpoint_utils import (
     TEXT_ENCODER_TARGET_MODULES,
     UNET_TARGET_MODULES,
+    save_sdxl_kohya_checkpoint,
     save_sdxl_peft_checkpoint,
 )
 from invoke_training.training._shared.stable_diffusion.model_loading_utils import (
@@ -60,6 +61,7 @@ def _save_sdxl_lora_checkpoint(
     text_encoder_2: peft.PeftModel | None,
     logger: logging.Logger,
     checkpoint_tracker: CheckpointTracker,
+    lora_checkpoint_format: Literal["invoke_peft", "kohya"],
 ):
     # Prune checkpoints and get new checkpoint path.
     num_pruned = checkpoint_tracker.prune(1)
@@ -67,7 +69,16 @@ def _save_sdxl_lora_checkpoint(
         logger.info(f"Pruned {num_pruned} checkpoint(s).")
     save_path = checkpoint_tracker.get_path(idx)
 
-    save_sdxl_peft_checkpoint(Path(save_path), unet=unet, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2)
+    if lora_checkpoint_format == "invoke_peft":
+        save_sdxl_peft_checkpoint(
+            Path(save_path), unet=unet, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2
+        )
+    elif lora_checkpoint_format == "kohya":
+        save_sdxl_kohya_checkpoint(
+            Path(save_path), unet=unet, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2
+        )
+    else:
+        raise ValueError(f"Unsupported lora_checkpoint_format: '{lora_checkpoint_format}'.")
 
 
 def _build_data_loader(
@@ -528,12 +539,14 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
         base_dir=ckpt_dir,
         prefix="checkpoint_epoch",
         max_checkpoints=config.max_checkpoints,
+        extension=".safetensors" if config.lora_checkpoint_format == "kohya" else None,
     )
 
     step_checkpoint_tracker = CheckpointTracker(
         base_dir=ckpt_dir,
         prefix="checkpoint_step",
         max_checkpoints=config.max_checkpoints,
+        extension=".safetensors" if config.lora_checkpoint_format == "kohya" else None,
     )
 
     # Train!
@@ -620,6 +633,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
                             text_encoder_2=text_encoder_2,
                             logger=logger,
                             checkpoint_tracker=step_checkpoint_tracker,
+                            lora_checkpoint_format=config.lora_checkpoint_format,
                         )
 
             logs = {
@@ -641,6 +655,7 @@ def run_training(config: FinetuneLoRASDXLConfig):  # noqa: C901
                     text_encoder_2=text_encoder_2,
                     logger=logger,
                     checkpoint_tracker=epoch_checkpoint_tracker,
+                    lora_checkpoint_format=config.lora_checkpoint_format,
                 )
                 accelerator.wait_for_everyone()
 

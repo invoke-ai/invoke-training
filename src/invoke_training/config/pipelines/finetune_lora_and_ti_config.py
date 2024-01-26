@@ -23,6 +23,9 @@ class LoraAndTiTrainingConfig(BasePipelineConfig):
     """The Hugging Face Hub model variant to use. Only applies if `model` is a Hugging Face Hub model name.
     """
 
+    lora_checkpoint_format: Literal["invoke_peft", "kohya"] = "kohya"
+    """The format of the LoRA checkpoint to save. Choose between `invoke_peft` or `kohya`."""
+
     # Helpful discussion for understanding how this works at inference time:
     # https://github.com/huggingface/diffusers/pull/3144#discussion_r1172413509
     num_vectors: int = 1

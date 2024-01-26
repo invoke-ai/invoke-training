@@ -191,6 +191,66 @@ def _convert_peft_state_dict_to_kohya_state_dict(
     return kohya_ss_state_dict
 
 
+def _convert_peft_models_to_kohya_state_dict(
+    kohya_prefixes: list[str], models: list[peft.PeftModel]
+) -> dict[str, torch.Tensor]:
+    kohya_state_dict = {}
+    default_adapter_name = "default"
+
+    for kohya_prefix, peft_model in zip(kohya_prefixes, models, strict=True):
+        lora_config = peft_model.peft_config[default_adapter_name]
+        assert isinstance(lora_config, peft.LoraConfig)
+
+        peft_state_dict = peft.get_peft_model_state_dict(peft_model, adapter_name=default_adapter_name)
+
+        kohya_state_dict.update(
+            _convert_peft_state_dict_to_kohya_state_dict(
+                lora_config=lora_config,
+                peft_state_dict=peft_state_dict,
+                prefix=kohya_prefix,
+                dtype=torch.float32,
+            )
+        )
+
+    return kohya_state_dict
+
+
+def save_sd_kohya_checkpoint(checkpoint_path: Path, unet: peft.PeftModel | None, text_encoder: peft.PeftModel | None):
+    kohya_prefixes = []
+    models = []
+    for kohya_prefix, peft_model in zip([SD_KOHYA_UNET_KEY, SD_KOHYA_TEXT_ENCODER_KEY], [unet, text_encoder]):
+        if peft_model is not None:
+            kohya_prefixes.append(kohya_prefix)
+            models.append(peft_model)
+
+    kohya_state_dict = _convert_peft_models_to_kohya_state_dict(kohya_prefixes=kohya_prefixes, models=models)
+
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    save_state_dict(kohya_state_dict, checkpoint_path)
+
+
+def save_sdxl_kohya_checkpoint(
+    checkpoint_path: Path,
+    unet: peft.PeftModel | None,
+    text_encoder_1: peft.PeftModel | None,
+    text_encoder_2: peft.PeftModel | None,
+):
+    kohya_prefixes = []
+    models = []
+    for kohya_prefix, peft_model in zip(
+        [SDXL_KOHYA_UNET_KEY, SDXL_KOHYA_TEXT_ENCODER_1_KEY, SDXL_KOHYA_TEXT_ENCODER_2_KEY],
+        [unet, text_encoder_1, text_encoder_2],
+    ):
+        if peft_model is not None:
+            kohya_prefixes.append(kohya_prefix)
+            models.append(peft_model)
+
+    kohya_state_dict = _convert_peft_models_to_kohya_state_dict(kohya_prefixes=kohya_prefixes, models=models)
+
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    save_state_dict(kohya_state_dict, checkpoint_path)
+
+
 def convert_sd_peft_checkpoint_to_kohya_state_dict(
     in_checkpoint_dir: Path,
     out_checkpoint_file: Path,
