@@ -44,6 +44,9 @@ class LoRATrainingConfig(BasePipelineConfig):
     generation time with the resultant LoRA model.
     """
 
+    lora_checkpoint_format: Literal["invoke_peft", "kohya"] = "kohya"
+    """The format of the LoRA checkpoint to save. Choose between `invoke_peft` or `kohya`."""
+
     train_unet: bool = True
     """Whether to add LoRA layers to the UNet model and train it.
     """

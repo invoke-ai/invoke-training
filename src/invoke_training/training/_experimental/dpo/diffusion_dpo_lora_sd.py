@@ -7,6 +7,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
+from typing import Literal
 
 import peft
 import torch
@@ -32,6 +33,7 @@ from invoke_training.training._shared.stable_diffusion.lora_checkpoint_utils imp
     TEXT_ENCODER_TARGET_MODULES,
     UNET_TARGET_MODULES,
     load_sd_peft_checkpoint,
+    save_sd_kohya_checkpoint,
     save_sd_peft_checkpoint,
 )
 from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_models_sd
@@ -46,6 +48,7 @@ def _save_sd_lora_checkpoint(
     text_encoder: peft.PeftModel | None,
     logger: logging.Logger,
     checkpoint_tracker: CheckpointTracker,
+    lora_checkpoint_format: Literal["invoke_peft", "kohya"],
 ):
     # Prune checkpoints and get new checkpoint path.
     num_pruned = checkpoint_tracker.prune(1)
@@ -53,7 +56,12 @@ def _save_sd_lora_checkpoint(
         logger.info(f"Pruned {num_pruned} checkpoint(s).")
     save_path = checkpoint_tracker.get_path(idx)
 
-    save_sd_peft_checkpoint(Path(save_path), unet=unet, text_encoder=text_encoder)
+    if lora_checkpoint_format == "invoke_peft":
+        save_sd_peft_checkpoint(Path(save_path), unet=unet, text_encoder=text_encoder)
+    elif lora_checkpoint_format == "kohya":
+        save_sd_kohya_checkpoint(Path(save_path), unet=unet, text_encoder=text_encoder)
+    else:
+        raise ValueError(f"Unsupported lora_checkpoint_format: '{lora_checkpoint_format}'.")
 
 
 def train_forward_dpo(  # noqa: C901
@@ -421,14 +429,14 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
     epoch_checkpoint_tracker = CheckpointTracker(
         base_dir=ckpt_dir,
         prefix="checkpoint_epoch",
-        extension=".safetensors",
+        extension=".safetensors" if config.lora_checkpoint_format == "kohya" else None,
         max_checkpoints=config.max_checkpoints,
     )
 
     step_checkpoint_tracker = CheckpointTracker(
         base_dir=ckpt_dir,
         prefix="checkpoint_step",
-        extension=".safetensors",
+        extension=".safetensors" if config.lora_checkpoint_format == "kohya" else None,
         max_checkpoints=config.max_checkpoints,
     )
 
@@ -513,6 +521,7 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
                             text_encoder=accelerator.unwrap_model(text_encoder) if training_text_encoder else None,
                             logger=logger,
                             checkpoint_tracker=step_checkpoint_tracker,
+                            lora_checkpoint_format=config.lora_checkpoint_format,
                         )
 
             logs = {
@@ -534,6 +543,7 @@ def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C90
                     text_encoder=accelerator.unwrap_model(text_encoder) if training_text_encoder else None,
                     logger=logger,
                     checkpoint_tracker=epoch_checkpoint_tracker,
+                    lora_checkpoint_format=config.lora_checkpoint_format,
                 )
 
         # Generate validation images every n epochs.

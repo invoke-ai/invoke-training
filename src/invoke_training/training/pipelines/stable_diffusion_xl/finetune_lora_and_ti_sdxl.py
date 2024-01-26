@@ -5,6 +5,7 @@ import math
 import os
 import time
 from pathlib import Path
+from typing import Literal
 
 import peft
 import torch
@@ -32,6 +33,7 @@ from invoke_training.training._shared.optimizer.optimizer_utils import initializ
 from invoke_training.training._shared.stable_diffusion.lora_checkpoint_utils import (
     TEXT_ENCODER_TARGET_MODULES,
     UNET_TARGET_MODULES,
+    save_sdxl_kohya_checkpoint,
     save_sdxl_peft_checkpoint,
 )
 from invoke_training.training._shared.stable_diffusion.model_loading_utils import (
@@ -54,6 +56,7 @@ def _save_sdxl_lora_and_ti_checkpoint(
     accelerator: Accelerator,
     logger: logging.Logger,
     checkpoint_tracker: CheckpointTracker,
+    lora_checkpoint_format: Literal["invoke_peft", "kohya"],
 ):
     # Prune checkpoints and get new checkpoint path.
     num_pruned = checkpoint_tracker.prune(1)
@@ -61,12 +64,22 @@ def _save_sdxl_lora_and_ti_checkpoint(
         logger.info(f"Pruned {num_pruned} checkpoint(s).")
     save_path = checkpoint_tracker.get_path(idx)
 
-    save_sdxl_peft_checkpoint(
-        Path(save_path),
-        unet=unet if config.train_unet else None,
-        text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
-        text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
-    )
+    if lora_checkpoint_format == "invoke_peft":
+        save_sdxl_peft_checkpoint(
+            Path(save_path),
+            unet=unet if config.train_unet else None,
+            text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
+            text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
+        )
+    elif lora_checkpoint_format == "kohya":
+        save_sdxl_kohya_checkpoint(
+            Path(save_path) / "lora.safetensors",
+            unet=unet if config.train_unet else None,
+            text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
+            text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
+        )
+    else:
+        raise ValueError(f"Unsupported lora_checkpoint_format: '{lora_checkpoint_format}'.")
 
     if config.train_ti:
         ti_checkpoint_path = Path(save_path) / "embeddings.safetensors"
@@ -487,6 +500,7 @@ def run_training(config: FinetuneLoraAndTiSdxlConfig):  # noqa: C901
                             accelerator=accelerator,
                             logger=logger,
                             checkpoint_tracker=step_checkpoint_tracker,
+                            lora_checkpoint_format=config.lora_checkpoint_format,
                         )
 
             logs = {
@@ -512,6 +526,7 @@ def run_training(config: FinetuneLoraAndTiSdxlConfig):  # noqa: C901
                     accelerator=accelerator,
                     logger=logger,
                     checkpoint_tracker=epoch_checkpoint_tracker,
+                    lora_checkpoint_format=config.lora_checkpoint_format,
                 )
                 accelerator.wait_for_everyone()
 
