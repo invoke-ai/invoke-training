@@ -2,11 +2,12 @@ import typing
 from typing import Literal, Optional
 
 from invoke_training.config.pipelines.base_pipeline_config import BasePipelineConfig
+from invoke_training.config.shared.common_training_config_mixin import CommonTrainingConfigMixin
 from invoke_training.config.shared.data.data_loader_config import TextualInversionSDDataLoaderConfig
 from invoke_training.config.shared.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
 
 
-class TextualInversionTrainingConfig(BasePipelineConfig):
+class TextualInversionTrainingConfig(BasePipelineConfig, CommonTrainingConfigMixin):
     """The base configuration for any Textual Inversion training run."""
 
     model: str
@@ -129,20 +130,6 @@ class TextualInversionTrainingConfig(BasePipelineConfig):
     gradient checkpointing slows down training by ~20%.
     """
 
-    max_train_steps: int = 5000
-    """Total number of training steps to perform. (One training step is one gradient update.)
-    """
-
-    save_every_n_epochs: Optional[int] = 1
-    """The interval (in epochs) at which to save checkpoints. If `None`, checkpoint won't be triggered by this setting.
-    It is recommend to only set one of `save_every_n_epochs` and `save_every_n_steps` to a non-`None` value.
-    """
-
-    save_every_n_steps: Optional[int] = None
-    """The interval (in steps) at which to save checkpoints. If `None`, checkpoint won't be triggered by this setting.
-    It is recommend to only set one of `save_every_n_epochs` and `save_every_n_steps` to a non-`None` value.
-    """
-
     max_checkpoints: Optional[int] = None
     """The maximum number of checkpoints to keep. New checkpoints will replace earlier checkpoints to stay under this
     limit. Note that this limit is applied to 'step' and 'epoch' checkpoints separately.
@@ -159,16 +146,11 @@ class TextualInversionTrainingConfig(BasePipelineConfig):
 
     validation_prompts: list[str] = []
     """A list of prompts that will be used to generate images throughout training for the purpose of tracking progress.
-    See also `validate_every_n_epochs`.
     """
 
     num_validation_images_per_prompt: int = 4
     """The number of validation images to generate for each prompt in `validation_prompts`. Careful, validation can
     become very slow if this number is too large.
-    """
-
-    validate_every_n_epochs: int = 1
-    """The interval (in epochs) at which validation images will be generated.
     """
 
     train_batch_size: int = 4

@@ -31,15 +31,17 @@ gradient_accumulation_steps: 1
 mixed_precision: fp16
 xformers: False
 gradient_checkpointing: True
-# Dataset size is 833. Set max_train_steps to train for 2 epochs.
-# ceil(833 / 6) * 2
-max_train_steps: 417
-save_every_n_epochs: 1
-save_every_n_steps: null
-max_checkpoints: 100
+# max_train_epochs: 3
+# save_every_n_epochs: 1
+# validate_every_n_epochs: 1
+
+max_train_steps: 100
+save_every_n_steps: 50
+validate_every_n_steps: 25
+
+max_checkpoints: 5
 validation_prompts:
   - A cute yoda pokemon creature.
   - A cute astronaut pokemon creature.
-validate_every_n_epochs: 1
 train_batch_size: 6
 num_validation_images_per_prompt: 3
