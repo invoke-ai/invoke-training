@@ -46,11 +46,22 @@ class LoraAndTiTrainingConfig(BasePipelineConfig):
     exist in the tokenizer's vocabulary.
     """
 
-    initializer_token: str
+    initializer_token: str | None = None
     """A vocabulary token to use as an initializer for the placeholder token. It should be a single word that roughly
     describes the object or style that you're trying to train on. Must map to a single tokenizer token.
 
     For example, if you are training on a dataset of images of your pet dog, a good choice would be `dog`.
+    """
+
+    initial_phrase: str | None = None
+    """Note: Exactly one of `initializer_token` or `initial_phrase` should be set.
+
+    A phrase that will be used to initialize the placeholder token embedding. The phrase will be tokenized, and the
+    corresponding embeddings will be used to initialize the placeholder tokens. The number of embedding vectors will be
+    inferred from the length of the tokenized phrase, so keep the phrase short. The consequences of training a large
+    number of embedding vectors are discussed in the `num_vectors` field documentation.
+
+    For example, if you are training on a dataset of images of pokemon, you might use `pokemon sketch white background`.
     """
 
     train_unet: bool = True
@@ -63,6 +74,14 @@ class LoraAndTiTrainingConfig(BasePipelineConfig):
 
     train_ti: bool = True
     """Whether to train the textual inversion embeddings."""
+
+    ti_train_steps_ratio: float | None = None
+    """The fraction of the total training steps for which the TI embeddings will be trained. For example, if we are
+    training for a total of 5000 steps and `ti_train_steps_ratio=0.5`, then the TI embeddings will be trained for 2500
+    steps and the will be frozen for the remaining steps.
+
+    If `None`, then the TI embeddings will be trained for the entire duration of training.
+    """
 
     optimizer: AdamOptimizerConfig | ProdigyOptimizerConfig = AdamOptimizerConfig()
 
