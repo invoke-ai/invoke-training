@@ -85,6 +85,15 @@ class TextualInversionTrainingConfig(BasePipelineConfig):
     See lr_scheduler.
     """
 
+    min_snr_gamma: float | None = 5.0
+    """Min-SNR weighting for diffusion training was introduced in https://arxiv.org/abs/2303.09556. This strategy
+    improves the speed of training convergence by adjusting the weight of each sample.
+
+    `min_snr_gamma` acts like an an upper bound on the weight of samples with low noise levels.
+
+    If `None`, then Min-SNR weighting will not be applied. If enabled, the recommended value is `min_snr_gamma = 5.0`.
+    """
+
     cache_vae_outputs: bool = False
     """If True, the VAE will be applied to all of the images in the dataset before starting training and the results
     will be cached to disk. This reduces the VRAM requirements during training (don't have to keep the VAE in VRAM), and

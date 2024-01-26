@@ -339,18 +339,19 @@ def run_training(config: TextualInversionSDXLConfig):  # noqa: C901
         for data_batch in data_loader:
             with accelerator.accumulate(trainable_models):
                 loss = train_forward(
-                    accelerator,
-                    data_batch,
-                    vae,
-                    noise_scheduler,
-                    tokenizer_1,
-                    tokenizer_2,
-                    text_encoder_1,
-                    text_encoder_2,
-                    unet,
-                    weight_dtype,
-                    config.data_loader.resolution,
-                    config.prediction_type,
+                    accelerator=accelerator,
+                    data_batch=data_batch,
+                    vae=vae,
+                    noise_scheduler=noise_scheduler,
+                    tokenizer_1=tokenizer_1,
+                    tokenizer_2=tokenizer_2,
+                    text_encoder_1=text_encoder_1,
+                    text_encoder_2=text_encoder_2,
+                    unet=unet,
+                    weight_dtype=weight_dtype,
+                    resolution=config.data_loader.resolution,
+                    prediction_type=config.prediction_type,
+                    min_snr_gamma=config.min_snr_gamma,
                 )
 
                 # Gather the losses across all processes for logging (if we use distributed training).

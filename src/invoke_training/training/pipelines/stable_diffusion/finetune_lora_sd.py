@@ -42,6 +42,7 @@ from invoke_training.training._shared.stable_diffusion.lora_checkpoint_utils imp
     save_sd_kohya_checkpoint,
     save_sd_peft_checkpoint,
 )
+from invoke_training.training._shared.stable_diffusion.min_snr_weighting import compute_snr
 from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_models_sd
 from invoke_training.training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training.training._shared.stable_diffusion.validation import generate_validation_images_sd
@@ -147,7 +148,7 @@ def cache_vae_outputs(cache_dir: str, data_loader: DataLoader, vae: AutoencoderK
             )
 
 
-def train_forward(
+def train_forward(  # noqa: C901
     config: FinetuneLoRASDConfig,
     data_batch: dict,
     vae: AutoencoderKL,
@@ -156,6 +157,7 @@ def train_forward(
     text_encoder: CLIPTextModel,
     unet: UNet2DConditionModel,
     weight_dtype: torch.dtype,
+    min_snr_gamma: float | None = None,
 ) -> torch.Tensor:
     """Run the forward training pass for a single data_batch.
 
@@ -207,12 +209,39 @@ def train_forward(
     # Predict the noise residual.
     model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
+    min_snr_weights = None
+    if min_snr_gamma is not None:
+        # Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.
+        # Since we predict the noise instead of x_0, the original formulation is slightly changed.
+        # This is discussed in Section 4.2 of the same paper.
+
+        snr = compute_snr(noise_scheduler, timesteps)
+
+        # Note: We divide by snr here per Section 4.2 of the paper, since we are predicting the noise instead of x_0.
+        # w_t = min(1, SNR(t)) / SNR(t)
+        min_snr_weights = torch.clamp(snr, max=min_snr_gamma) / snr
+
+        if noise_scheduler.config.prediction_type == "epsilon":
+            pass
+        elif noise_scheduler.config.prediction_type == "v_prediction":
+            # Velocity objective needs to be floored to an SNR weight of one.
+            min_snr_weights = min_snr_weights + 1
+        else:
+            raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
+
     loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="none")
+
+    # Mean-reduce the loss along all dimensions except for the batch dimension.
+    loss = loss.mean(dim=list(range(1, len(loss.shape))))
+
+    # Apply min_snr_weights.
+    if min_snr_weights is not None:
+        loss = loss * min_snr_weights
+
+    # Apply per-example loss weights.
     if "loss_weight" in data_batch:
-        # Mean-reduce the loss along all dimensions except for the batch dimension.
-        loss = loss.mean([1, 2, 3])
-        # Apply per-example weights.
         loss = loss * data_batch["loss_weight"]
+
     return loss.mean()
 
 
@@ -479,14 +508,15 @@ def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
         for data_batch in data_loader:
             with accelerator.accumulate(unet, text_encoder):
                 loss = train_forward(
-                    config,
-                    data_batch,
-                    vae,
-                    noise_scheduler,
-                    tokenizer,
-                    text_encoder,
-                    unet,
-                    weight_dtype,
+                    config=config,
+                    data_batch=data_batch,
+                    vae=vae,
+                    noise_scheduler=noise_scheduler,
+                    tokenizer=tokenizer,
+                    text_encoder=text_encoder,
+                    unet=unet,
+                    weight_dtype=weight_dtype,
+                    min_snr_gamma=config.min_snr_gamma,
                 )
 
                 # Gather the losses across all processes for logging (if we use distributed training).
