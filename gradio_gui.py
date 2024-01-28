@@ -5,7 +5,6 @@ import subprocess
 import yaml
 import os
 import threading
-import time
 
 def create_config(type, seed, base_output_dir, learning_rate, optimizer_type, weight_decay, 
                   use_bias_correction, safeguard_warmup, data_loader_type, dataset_type, dataset_name, 
@@ -48,7 +47,7 @@ def create_config(type, seed, base_output_dir, learning_rate, optimizer_type, we
         "save_every_n_epochs": save_every_n_epochs,
         "save_every_n_steps": save_every_n_steps,
         "max_checkpoints": max_checkpoints,
-        "validation_prompts": validation_prompts.split(','),
+        "validation_prompts": validation_prompts,
         "validate_every_n_epochs": validate_every_n_epochs,
         "train_batch_size": train_batch_size,
         "num_validation_images_per_prompt": num_validation_images_per_prompt
@@ -116,7 +115,7 @@ def load_config(file_path):
     config_values[22] = config.get("save_every_n_epochs", config_values[22])
     config_values[23] = config.get("save_every_n_steps", config_values[23])
     config_values[24] = config.get("max_checkpoints", config_values[24])
-    config_values[25] = ", ".join(config.get("validation_prompts", []))
+    config_values[25] = config.get("validation_prompts", config_values[25])
     config_values[26] = config.get("validate_every_n_epochs", config_values[26])
     config_values[27] = config.get("train_batch_size", config_values[27])
     config_values[28] = config.get("num_validation_images_per_prompt", config_values[28])
@@ -158,11 +157,14 @@ def save_config(type, seed, base_output_dir, learning_rate, optimizer_type, weig
         return "Error saving configuration: " + str(e)
 
 def run_training(config_yaml, output_textbox):
-    command = [["invoke-train", "--cfg-file", config_yaml]]
+    # Adjusted the command list as previously suggested
+    command = ["invoke-train", "--cfg-file", config_yaml]
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
 
     for line in iter(process.stdout.readline, ''):
-        output_textbox.update(value=line)
+        # Check if output_textbox is not None before updating
+        if output_textbox is not None:
+            output_textbox.update(value=line)
     process.stdout.close()
     process.wait()
 
