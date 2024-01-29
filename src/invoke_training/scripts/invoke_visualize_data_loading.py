@@ -20,7 +20,7 @@ from invoke_training._shared.data.data_loaders.image_pair_preference_sd_dataload
 from invoke_training._shared.data.data_loaders.textual_inversion_sd_dataloader import (
     build_textual_inversion_sd_dataloader,
 )
-from invoke_training.config.pipelines.pipeline_config import PipelineConfig
+from invoke_training.config.pipeline_config import PipelineConfig
 
 
 def save_image(torch_image: torch.Tensor, out_path: Path):
