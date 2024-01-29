@@ -13,12 +13,12 @@ This training process has been tested on an NVIDIA GPU with 8GB of VRAM.
 Follow the [`invoke-training` installation instructions](./installation.md).
 
 ### 2. Config file
-We will use the [configs/finetune_lora_sd_pokemon_1x8gb_example.yaml](https://github.com/invoke-ai/invoke-training/blob/main/configs/finetune_lora_sd_pokemon_1x8gb_example.yaml) (SD v1.5, 8GB VRAM) configuration file for this tutorial. This configuration file controls all of the parameters of the training process and has been pre-configured for this tutorial. If you're curious, you can learn more about the configuration file format in the [full pipeline tutorials](../tutorials/index.md) or the [configuration reference](../reference/config/index.md) docs.
+We will use the [configs/sd_lora_pokemon_1x8gb.yaml](https://github.com/invoke-ai/invoke-training/blob/main/configs/sd_lora_pokemon_1x8gb.yaml) (SD v1.5, 8GB VRAM) configuration file for this tutorial. This configuration file controls all of the parameters of the training process and has been pre-configured for this tutorial. If you're curious, you can learn more about the configuration file format in the [full pipeline tutorials](../tutorials/index.md) or the [configuration reference](../reference/config/index.md) docs.
 
 ### 3. Start training!
 Start the training pipeline:
 ```bash
-invoke-train --cfg-file configs/finetune_lora_sd_pokemon_1x8gb_example.yaml
+invoke-train --cfg-file configs/sd_lora_pokemon_1x8gb.yaml
 ```
 
 ### 4. Monitor training

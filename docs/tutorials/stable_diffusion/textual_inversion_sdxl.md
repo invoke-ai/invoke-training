@@ -22,12 +22,12 @@ Here are a few tips for preparing a Textual Inversion dataset:
 
 Below is the training configuration that we'll use for this tutorial.
 
-Raw config file: [configs/textual_inversion_sdxl_gnome_1x24gb_example.yaml](https://github.com/invoke-ai/invoke-training/blob/main/configs/textual_inversion_sdxl_gnome_1x24gb_example.yaml).
+Raw config file: [configs/sdxl_textual_inversion_gnome_1x24gb.yaml](https://github.com/invoke-ai/invoke-training/blob/main/configs/sdxl_textual_inversion_gnome_1x24gb.yaml).
 
 Full config reference docs: [Textual Inversion SDXL Config](../../reference/config/pipelines/sdxl_textual_inversion.md)
 
-```yaml title="textual_inversion_sdxl_gnome_1x24gb_example.yaml"
---8<-- "configs/textual_inversion_sdxl_gnome_1x24gb_example.yaml"
+```yaml title="sdxl_textual_inversion_gnome_1x24gb.yaml"
+--8<-- "configs/sdxl_textual_inversion_gnome_1x24gb.yaml"
 ```
 
 ## 3 - Start Training
@@ -37,7 +37,7 @@ Full config reference docs: [Textual Inversion SDXL Config](../../reference/conf
 Launch the Textual Inversion training pipeline:
 ```bash
 # From inside the invoke-training/ source directory:
-invoke-train -c configs/textual_inversion_sdxl_gnome_1x24gb_example.yaml
+invoke-train -c configs/sdxl_textual_inversion_gnome_1x24gb.yaml
 ```
 
 Training takes ~40 mins on an NVIDIA RTX 4090.
