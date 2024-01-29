@@ -5,20 +5,14 @@ import yaml
 from pydantic import TypeAdapter
 
 from invoke_training.config.pipeline_config import PipelineConfig
-from invoke_training.pipelines._experimental.sd_dpo_lora.train import (
-    train as run_diffusion_dpo_sd,
-)
-from invoke_training.pipelines.stable_diffusion.lora.train import train as run_finetune_lora_sd
-from invoke_training.pipelines.stable_diffusion.textual_inversion.train import (
-    train as run_textual_inversion_sd,
-)
-from invoke_training.pipelines.stable_diffusion_xl.lora.train import train as run_finetune_lora_sdxl
+from invoke_training.pipelines._experimental.sd_dpo_lora.train import train as train_sd_ddpo_lora
+from invoke_training.pipelines.stable_diffusion.lora.train import train as train_sd_lora
+from invoke_training.pipelines.stable_diffusion.textual_inversion.train import train as train_sd_ti
+from invoke_training.pipelines.stable_diffusion_xl.lora.train import train as train_sdxl_lora
 from invoke_training.pipelines.stable_diffusion_xl.lora_and_textual_inversion.train import (
-    train as run_finetune_lora_and_ti_sdxl,
+    train as train_sdxl_lora_and_ti,
 )
-from invoke_training.pipelines.stable_diffusion_xl.textual_inversion.train import (
-    train as run_textual_inversion_sdxl,
-)
+from invoke_training.pipelines.stable_diffusion_xl.textual_inversion.train import train as train_sdxl_ti
 
 
 def parse_args():
@@ -44,18 +38,18 @@ def main():
     train_config = pipeline_adapter.validate_python(cfg)
 
     if train_config.type == "SD_LORA":
-        run_finetune_lora_sd(train_config)
+        train_sd_lora(train_config)
     elif train_config.type == "SDXL_LORA":
-        run_finetune_lora_sdxl(train_config)
+        train_sdxl_lora(train_config)
     elif train_config.type == "SD_TEXTUAL_INVERSION":
-        run_textual_inversion_sd(train_config)
+        train_sd_ti(train_config)
     elif train_config.type == "SDXL_TEXTUAL_INVERSION":
-        run_textual_inversion_sdxl(train_config)
+        train_sdxl_ti(train_config)
     elif train_config.type == "SDXL_LORA_AND_TEXTUAL_INVERSION":
-        run_finetune_lora_and_ti_sdxl(train_config)
+        train_sdxl_lora_and_ti(train_config)
     elif train_config.type == "SD_DIRECT_PREFERENCE_OPTIMIZATION_LORA":
         print(f"Running EXPERIMENTAL pipeline: '{train_config.type}'.")
-        run_diffusion_dpo_sd(train_config)
+        train_sd_ddpo_lora(train_config)
     else:
         raise ValueError(f"Unexpected pipeline type: '{train_config.type}'.")
 
