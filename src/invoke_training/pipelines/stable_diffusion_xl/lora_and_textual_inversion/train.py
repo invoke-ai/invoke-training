@@ -102,7 +102,7 @@ def _save_sdxl_lora_and_ti_checkpoint(
         save_state_dict(learned_embeds_dict, ti_checkpoint_path)
 
 
-def run_training(config: SdxlLoraAndTextualInversionConfig):  # noqa: C901
+def train(config: SdxlLoraAndTextualInversionConfig):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     # TODO(ryan): Update this check to work with single-file SD checkpoints.
     # check_base_model_version(

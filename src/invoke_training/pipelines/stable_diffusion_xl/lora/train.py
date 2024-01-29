@@ -317,7 +317,7 @@ def train_forward(  # noqa: C901
     return loss.mean()
 
 
-def run_training(config: SdxlLoraConfig):  # noqa: C901
+def train(config: SdxlLoraConfig):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     # TODO(ryan): Update this check to work with single-file SD checkpoints.
     # check_base_model_version(

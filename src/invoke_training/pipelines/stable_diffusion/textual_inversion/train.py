@@ -120,7 +120,7 @@ def _initialize_placeholder_tokens(
     return placeholder_tokens, placeholder_token_ids
 
 
-def run_training(config: SdTextualInversionConfig):  # noqa: C901
+def train(config: SdTextualInversionConfig):  # noqa: C901
     # Create a timestamped directory for all outputs.
     out_dir = os.path.join(config.base_output_dir, f"{time.time()}")
     ckpt_dir = os.path.join(out_dir, "checkpoints")
