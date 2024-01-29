@@ -3,7 +3,7 @@ import torch
 from invoke_training._shared.data.data_loaders.image_pair_preference_sd_dataloader import (
     build_image_pair_preference_sd_dataloader,
 )
-from invoke_training.config._experimental.dpo.config import (
+from invoke_training.pipelines._experimental.sd_dpo_lora.config import (
     HFHubImagePairPreferenceDatasetConfig,
     ImagePairPreferenceSDDataLoaderConfig,
 )

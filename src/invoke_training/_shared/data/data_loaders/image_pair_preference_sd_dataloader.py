@@ -11,7 +11,7 @@ from invoke_training._shared.data.datasets.transform_dataset import TransformDat
 from invoke_training._shared.data.transforms.load_cache_transform import LoadCacheTransform
 from invoke_training._shared.data.transforms.sd_image_transform import SDImageTransform
 from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
-from invoke_training.config._experimental.dpo.config import ImagePairPreferenceSDDataLoaderConfig
+from invoke_training.pipelines._experimental.sd_dpo_lora.config import ImagePairPreferenceSDDataLoaderConfig
 
 
 def sd_image_pair_preference_collate_fn(examples):

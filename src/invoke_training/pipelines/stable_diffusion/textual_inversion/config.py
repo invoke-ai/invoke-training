@@ -1,5 +1,4 @@
-import typing
-from typing import Literal, Optional
+from typing import Literal
 
 from invoke_training.config.pipelines.base_pipeline_config import BasePipelineConfig
 from invoke_training.config.shared.common_training_config_mixin import CommonTrainingConfigMixin
@@ -7,8 +6,10 @@ from invoke_training.config.shared.data.data_loader_config import TextualInversi
 from invoke_training.config.shared.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
 
 
-class TextualInversionTrainingConfig(BasePipelineConfig, CommonTrainingConfigMixin):
-    """The base configuration for any Textual Inversion training run."""
+class SdTextualInversionConfig(BasePipelineConfig, CommonTrainingConfigMixin):
+    type: Literal["TEXTUAL_INVERSION_SD"] = "TEXTUAL_INVERSION_SD"
+    """Must be `TEXTUAL_INVERSION_SD`. This is what differentiates training pipeline types.
+    """
 
     model: str
     """Name or path of the base model to train. Can be in diffusers format, or a single stable diffusion checkpoint
@@ -46,7 +47,7 @@ class TextualInversionTrainingConfig(BasePipelineConfig, CommonTrainingConfigMix
     exist in the tokenizer's vocabulary.
     """
 
-    initializer_token: Optional[str] = None
+    initializer_token: str | None = None
     """Note: Exactly one of `initializer_token`, `initial_embedding_file`, or `initial_phrase` should be set.
 
     A vocabulary token to use as an initializer for the placeholder token. It should be a single word that roughly
@@ -55,7 +56,7 @@ class TextualInversionTrainingConfig(BasePipelineConfig, CommonTrainingConfigMix
     For example, if you are training on a dataset of images of your pet dog, a good choice would be `dog`.
     """
 
-    initial_embedding_file: Optional[str] = None
+    initial_embedding_file: str | None = None
     """Note: Exactly one of `initializer_token`, `initial_embedding_file`, or `initial_phrase` should be set.
 
     Path to an existing TI embedding that will be used to initialize the embedding being trained. The placeholder
@@ -64,7 +65,7 @@ class TextualInversionTrainingConfig(BasePipelineConfig, CommonTrainingConfigMix
     Either `initializer_token` or `initial_embedding_file` should be set.
     """
 
-    initial_phrase: Optional[str] = None
+    initial_phrase: str | None = None
     """Note: Exactly one of `initializer_token`, `initial_embedding_file`, or `initial_phrase` should be set.
 
     A phrase that will be used to initialize the placeholder token embedding. The phrase will be tokenized, and the
@@ -77,7 +78,7 @@ class TextualInversionTrainingConfig(BasePipelineConfig, CommonTrainingConfigMix
 
     optimizer: AdamOptimizerConfig | ProdigyOptimizerConfig = AdamOptimizerConfig()
 
-    lr_scheduler: typing.Literal[
+    lr_scheduler: Literal[
         "linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"
     ] = "constant"
 
@@ -114,7 +115,7 @@ class TextualInversionTrainingConfig(BasePipelineConfig, CommonTrainingConfigMix
     `train_batch_size` when training with limited VRAM.
     """
 
-    mixed_precision: Optional[Literal["no", "fp16", "bf16", "fp8"]] = None
+    mixed_precision: Literal["no", "fp16", "bf16", "fp8"] | None = None
     """The mixed precision mode to use. This value is passed to Hugging Face Accelerate.
     See
     [`accelerate.Accelerator.mixed_precision`](https://huggingface.co/docs/accelerate/package_reference/accelerator#accelerate.Accelerator.mixed_precision)
@@ -130,17 +131,17 @@ class TextualInversionTrainingConfig(BasePipelineConfig, CommonTrainingConfigMix
     gradient checkpointing slows down training by ~20%.
     """
 
-    max_checkpoints: Optional[int] = None
+    max_checkpoints: int | None = None
     """The maximum number of checkpoints to keep. New checkpoints will replace earlier checkpoints to stay under this
     limit. Note that this limit is applied to 'step' and 'epoch' checkpoints separately.
     """
 
-    prediction_type: Optional[Literal["epsilon", "v_prediction"]] = None
+    prediction_type: Literal["epsilon", "v_prediction"] | None = None
     """The prediction type that will be used for training. If `None`, the prediction type will be inferred from the
     scheduler.
     """
 
-    max_grad_norm: Optional[float] = None
+    max_grad_norm: float | None = None
     """Maximum gradient norm for gradient clipping. Set to `None` for no clipping.
     """
 
@@ -157,36 +158,10 @@ class TextualInversionTrainingConfig(BasePipelineConfig, CommonTrainingConfigMix
     """The training batch size.
     """
 
-
-class TextualInversionSDConfig(TextualInversionTrainingConfig):
-    type: Literal["TEXTUAL_INVERSION_SD"] = "TEXTUAL_INVERSION_SD"
-    """Must be `TEXTUAL_INVERSION_SD`. This is what differentiates training pipeline types.
-    """
-
     data_loader: TextualInversionSDDataLoaderConfig
     """The data configuration.
 
     See
     [`TextualInversionSDDataLoaderConfig`][invoke_training.config.shared.data.data_loader_config.TextualInversionSDDataLoaderConfig]
     for details.
-    """
-
-
-class TextualInversionSDXLConfig(TextualInversionTrainingConfig):
-    type: Literal["TEXTUAL_INVERSION_SDXL"] = "TEXTUAL_INVERSION_SDXL"
-    """Must be `TEXTUAL_INVERSION_SDXL`. This is what differentiates training pipeline types.
-    """
-
-    data_loader: TextualInversionSDDataLoaderConfig
-    """The data configuration.
-
-    See
-    [`TextualInversionSDDataLoaderConfig`][invoke_training.config.shared.data.data_loader_config.TextualInversionSDDataLoaderConfig]
-    for details.
-    """
-
-    vae_model: Optional[str] = None
-    """The name of the Hugging Face Hub VAE model to train against. If set, this will override the VAE bundled with the
-    base model (specified by the `model` parameter). This config option is provided for SDXL models, because SDXL 1.0
-    shipped with a VAE that produces NaNs in fp16 mode, so it is common to replace this VAE with a fixed version.
     """

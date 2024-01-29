@@ -1,19 +1,18 @@
-import typing
-from typing import Literal, Optional
+from typing import Annotated, Literal, Union
+
+from pydantic import Field
 
 from invoke_training.config.pipelines.base_pipeline_config import BasePipelineConfig
 from invoke_training.config.shared.common_training_config_mixin import CommonTrainingConfigMixin
 from invoke_training.config.shared.data.data_loader_config import (
-    TextualInversionSDDataLoaderConfig,
+    DreamboothSDDataLoaderConfig,
+    ImageCaptionSDDataLoaderConfig,
 )
-from invoke_training.config.shared.optimizer.optimizer_config import (
-    AdamOptimizerConfig,
-    ProdigyOptimizerConfig,
-)
+from invoke_training.config.shared.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
 
 
-class LoraAndTiTrainingConfig(BasePipelineConfig, CommonTrainingConfigMixin):
-    """The base configuration for any LoRA training run."""
+class SdxlLoraConfig(BasePipelineConfig, CommonTrainingConfigMixin):
+    type: Literal["FINETUNE_LORA_SDXL"] = "FINETUNE_LORA_SDXL"
 
     model: str = "runwayml/stable-diffusion-v1-5"
     """Name or path of the base model to train. Can be in diffusers format, or a single stable diffusion checkpoint
@@ -24,49 +23,29 @@ class LoraAndTiTrainingConfig(BasePipelineConfig, CommonTrainingConfigMixin):
     """The Hugging Face Hub model variant to use. Only applies if `model` is a Hugging Face Hub model name.
     """
 
+    # Note: Pydantic handles mutable default values well:
+    # https://docs.pydantic.dev/latest/concepts/models/#fields-with-non-hashable-default-values
+    base_embeddings: dict[str, str] = {}
+    """A mapping of embedding tokens to trained embedding file paths. These embeddings will be applied to the base model
+    before training.
+
+    Example:
+    ```
+    base_embeddings = {
+        "bruce_the_gnome": "/path/to/bruce_the_gnome.safetensors",
+    }
+    ```
+
+    Consider also adding the embedding tokens to the `data_loader.caption_prefix` if they are not already present in the
+    dataset captions.
+
+    Note that the embeddings themselves are not fine-tuned further, but they will impact the LoRA model training if they
+    are referenced in the dataset captions. The list of embeddings provided here should be the same list used at
+    generation time with the resultant LoRA model.
+    """
+
     lora_checkpoint_format: Literal["invoke_peft", "kohya"] = "kohya"
     """The format of the LoRA checkpoint to save. Choose between `invoke_peft` or `kohya`."""
-
-    # Helpful discussion for understanding how this works at inference time:
-    # https://github.com/huggingface/diffusers/pull/3144#discussion_r1172413509
-    num_vectors: int = 1
-    """Note: `num_vectors` can be overridden by `initial_phrase`.
-
-    The number of textual inversion embedding vectors that will be used to learn the concept.
-
-    Increasing the `num_vectors` enables the model to learn more complex concepts, but has the following drawbacks:
-
-    - greater risk of overfitting
-    - increased size of the resulting output file
-    - consumes more of the prompt capacity at inference time
-
-    Typical values for `num_vectors` are in the range [1, 16].
-
-    As a rule of thumb, `num_vectors` can be increased as the size of the dataset increases (without overfitting).
-    """
-
-    placeholder_token: str
-    """The special word to associate the learned embeddings with. Choose a unique token that is unlikely to already
-    exist in the tokenizer's vocabulary.
-    """
-
-    initializer_token: str | None = None
-    """A vocabulary token to use as an initializer for the placeholder token. It should be a single word that roughly
-    describes the object or style that you're trying to train on. Must map to a single tokenizer token.
-
-    For example, if you are training on a dataset of images of your pet dog, a good choice would be `dog`.
-    """
-
-    initial_phrase: str | None = None
-    """Note: Exactly one of `initializer_token` or `initial_phrase` should be set.
-
-    A phrase that will be used to initialize the placeholder token embedding. The phrase will be tokenized, and the
-    corresponding embeddings will be used to initialize the placeholder tokens. The number of embedding vectors will be
-    inferred from the length of the tokenized phrase, so keep the phrase short. The consequences of training a large
-    number of embedding vectors are discussed in the `num_vectors` field documentation.
-
-    For example, if you are training on a dataset of images of pokemon, you might use `pokemon sketch white background`.
-    """
 
     train_unet: bool = True
     """Whether to add LoRA layers to the UNet model and train it.
@@ -76,32 +55,18 @@ class LoraAndTiTrainingConfig(BasePipelineConfig, CommonTrainingConfigMixin):
     """Whether to add LoRA layers to the text encoder and train it.
     """
 
-    train_ti: bool = True
-    """Whether to train the textual inversion embeddings."""
-
-    ti_train_steps_ratio: float | None = None
-    """The fraction of the total training steps for which the TI embeddings will be trained. For example, if we are
-    training for a total of 5000 steps and `ti_train_steps_ratio=0.5`, then the TI embeddings will be trained for 2500
-    steps and the will be frozen for the remaining steps.
-
-    If `None`, then the TI embeddings will be trained for the entire duration of training.
-    """
-
     optimizer: AdamOptimizerConfig | ProdigyOptimizerConfig = AdamOptimizerConfig()
 
-    text_encoder_learning_rate: float = 1e-5
-    """The learning rate to use for the text encoder model.
+    text_encoder_learning_rate: float | None = None
+    """The learning rate to use for the text encoder model. If set, this overrides the optimizer's default learning
+    rate.
     """
 
-    unet_learning_rate: float = 1e-4
-    """The learning rate to use for the UNet model.
+    unet_learning_rate: float | None = None
+    """The learning rate to use for the UNet model. If set, this overrides the optimizer's default learning rate.
     """
 
-    textual_inversion_learning_rate: float = 1e-3
-    """The learning rate to use for textual inversion training of the embeddings.
-    """
-
-    lr_scheduler: typing.Literal[
+    lr_scheduler: Literal[
         "linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"
     ] = "constant"
 
@@ -149,7 +114,7 @@ class LoraAndTiTrainingConfig(BasePipelineConfig, CommonTrainingConfigMixin):
     Accelerate. This is an alternative to increasing the batch size when training with limited VRAM.
     """
 
-    mixed_precision: Optional[Literal["no", "fp16", "bf16", "fp8"]] = None
+    mixed_precision: Literal["no", "fp16", "bf16", "fp8"] | None = None
     """The mixed precision mode to use ('no','fp16','bf16 or 'fp8'). This value is passed to Hugging Face Accelerate.
     See accelerate.Accelerator for more details.
     """
@@ -163,22 +128,23 @@ class LoraAndTiTrainingConfig(BasePipelineConfig, CommonTrainingConfigMixin):
     gradient checkpointing slows down training by ~20%.
     """
 
-    max_checkpoints: Optional[int] = None
+    max_checkpoints: int | None = None
     """The maximum number of checkpoints to keep. New checkpoints will replace earlier checkpoints to stay under this
     limit. Note that this limit is applied to 'step' and 'epoch' checkpoints separately.
     """
 
-    prediction_type: Optional[Literal["epsilon", "v_prediction"]] = None
+    prediction_type: Literal["epsilon", "v_prediction"] | None = None
     """The prediction_type that will be used for training. Choose between 'epsilon' or 'v_prediction' or leave 'None'.
     If 'None', the prediction type of the scheduler: `noise_scheduler.config.prediction_type` is used.
     """
 
-    max_grad_norm: Optional[float] = None
+    max_grad_norm: float | None = None
     """Max gradient norm for clipping. Set to None for no clipping.
     """
 
     validation_prompts: list[str] = []
     """A list of prompts that will be used to generate images throughout training for the purpose of tracking progress.
+    See also 'validate_every_n_epochs'.
     """
 
     num_validation_images_per_prompt: int = 4
@@ -190,19 +156,11 @@ class LoraAndTiTrainingConfig(BasePipelineConfig, CommonTrainingConfigMixin):
     """The training batch size.
     """
 
+    data_loader: Annotated[
+        Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig], Field(discriminator="type")
+    ]
 
-class FinetuneLoraAndTiSdxlConfig(LoraAndTiTrainingConfig):
-    type: Literal["FINETUNE_LORA_AND_TI_SDXL"] = "FINETUNE_LORA_AND_TI_SDXL"
-
-    data_loader: TextualInversionSDDataLoaderConfig
-    """The data configuration.
-
-    See
-    [`TextualInversionSDDataLoaderConfig`][invoke_training.config.shared.data.data_loader_config.TextualInversionSDDataLoaderConfig]
-    for details.
-    """
-
-    vae_model: Optional[str] = None
+    vae_model: str = None
     """The name of the Hugging Face Hub VAE model to train against. This will override the VAE bundled with the base
     model (specified by the `model` parameter). This config option is provided for SDXL models, because SDXL shipped
     with a VAE that produces NaNs in fp16 mode, so it is common to replace this VAE with a fixed version.

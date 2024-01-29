@@ -16,7 +16,8 @@ from diffusers import (
 from transformers import CLIPTextModel, CLIPTokenizer
 
 from invoke_training._shared.data.utils.resolution import Resolution
-from invoke_training.config.pipelines.finetune_lora_config import FinetuneLoRASDConfig, FinetuneLoRASDXLConfig
+from invoke_training.pipelines.stable_diffusion.lora.config import SdLoraConfig
+from invoke_training.pipelines.stable_diffusion_xl.lora.config import SdxlLoraConfig
 
 
 def generate_validation_images_sd(
@@ -28,7 +29,7 @@ def generate_validation_images_sd(
     tokenizer: CLIPTokenizer,
     noise_scheduler: DDPMScheduler,
     unet: UNet2DConditionModel,
-    config: FinetuneLoRASDConfig,
+    config: SdLoraConfig,
     logger: logging.Logger,
     prefix="epoch",
 ):
@@ -131,7 +132,7 @@ def generate_validation_images_sdxl(
     tokenizer_2: CLIPTokenizer,
     noise_scheduler: DDPMScheduler,
     unet: UNet2DConditionModel,
-    config: FinetuneLoRASDXLConfig,
+    config: SdxlLoraConfig,
     logger: logging.Logger,
     prefix: str = "epoch",
 ):

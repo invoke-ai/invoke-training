@@ -38,8 +38,8 @@ from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
 from invoke_training._shared.stable_diffusion.model_loading_utils import load_models_sd
 from invoke_training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sd
-from invoke_training.config._experimental.dpo.config import DirectPreferenceOptimizationLoRASDConfig
-from invoke_training.pipelines.stable_diffusion.finetune_lora_sd import cache_text_encoder_outputs
+from invoke_training.pipelines._experimental.sd_dpo_lora.config import SdDirectPreferenceOptimizationLoraConfig
+from invoke_training.pipelines.stable_diffusion.lora.train import cache_text_encoder_outputs
 
 
 def _save_sd_lora_checkpoint(
@@ -65,7 +65,7 @@ def _save_sd_lora_checkpoint(
 
 
 def train_forward_dpo(  # noqa: C901
-    config: DirectPreferenceOptimizationLoRASDConfig,
+    config: SdDirectPreferenceOptimizationLoraConfig,
     data_batch: dict,
     vae: AutoencoderKL,
     noise_scheduler: DDPMScheduler,
@@ -185,7 +185,7 @@ def train_forward_dpo(  # noqa: C901
     return loss
 
 
-def run_training(config: DirectPreferenceOptimizationLoRASDConfig):  # noqa: C901
+def run_training(config: SdDirectPreferenceOptimizationLoraConfig):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     # TODO(ryan): Update this check to work with single-file SD checkpoints.
     # check_base_model_version(

@@ -41,11 +41,11 @@ from invoke_training._shared.stable_diffusion.min_snr_weighting import compute_s
 from invoke_training._shared.stable_diffusion.model_loading_utils import load_models_sd
 from invoke_training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sd
-from invoke_training.config.pipelines.finetune_lora_config import FinetuneLoRASDConfig
 from invoke_training.config.shared.data.data_loader_config import (
     DreamboothSDDataLoaderConfig,
     ImageCaptionSDDataLoaderConfig,
 )
+from invoke_training.pipelines.stable_diffusion.lora.config import SdLoraConfig
 
 
 def _save_sd_lora_checkpoint(
@@ -102,13 +102,13 @@ def _build_data_loader(
 
 
 def cache_text_encoder_outputs(
-    cache_dir: str, config: FinetuneLoRASDConfig, tokenizer: CLIPTokenizer, text_encoder: CLIPTextModel
+    cache_dir: str, config: SdLoraConfig, tokenizer: CLIPTokenizer, text_encoder: CLIPTextModel
 ):
     """Run the text encoder on all captions in the dataset and cache the results to disk.
 
     Args:
         cache_dir (str): The directory where the results will be cached.
-        config (FinetuneLoRASDConfig): Training config.
+        config (SdLoraConfig): Training config.
         tokenizer (CLIPTokenizer): The tokenizer.
         text_encoder (CLIPTextModel): The text_encoder.
     """
@@ -149,7 +149,7 @@ def cache_vae_outputs(cache_dir: str, data_loader: DataLoader, vae: AutoencoderK
 
 
 def train_forward(  # noqa: C901
-    config: FinetuneLoRASDConfig,
+    config: SdLoraConfig,
     data_batch: dict,
     vae: AutoencoderKL,
     noise_scheduler: DDPMScheduler,
@@ -245,7 +245,7 @@ def train_forward(  # noqa: C901
     return loss.mean()
 
 
-def run_training(config: FinetuneLoRASDConfig):  # noqa: C901
+def run_training(config: SdLoraConfig):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     # TODO(ryan): Update this check to work with single-file SD checkpoints.
     # check_base_model_version(

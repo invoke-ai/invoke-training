@@ -5,20 +5,18 @@ import yaml
 from pydantic import TypeAdapter
 
 from invoke_training.config.pipelines.pipeline_config import PipelineConfig
-from invoke_training.pipelines._experimental.dpo.diffusion_dpo_lora_sd import (
+from invoke_training.pipelines._experimental.sd_dpo_lora.train import (
     run_training as run_diffusion_dpo_sd,
 )
-from invoke_training.pipelines.stable_diffusion.finetune_lora_sd import run_training as run_finetune_lora_sd
-from invoke_training.pipelines.stable_diffusion.textual_inversion_sd import (
+from invoke_training.pipelines.stable_diffusion.lora.train import run_training as run_finetune_lora_sd
+from invoke_training.pipelines.stable_diffusion.textual_inversion.train import (
     run_training as run_textual_inversion_sd,
 )
-from invoke_training.pipelines.stable_diffusion_xl.finetune_lora_and_ti_sdxl import (
+from invoke_training.pipelines.stable_diffusion_xl.lora.train import run_training as run_finetune_lora_sdxl
+from invoke_training.pipelines.stable_diffusion_xl.lora_and_textual_inversion.train import (
     run_training as run_finetune_lora_and_ti_sdxl,
 )
-from invoke_training.pipelines.stable_diffusion_xl.finetune_lora_sdxl import (
-    run_training as run_finetune_lora_sdxl,
-)
-from invoke_training.pipelines.stable_diffusion_xl.textual_inversion_sdxl import (
+from invoke_training.pipelines.stable_diffusion_xl.textual_inversion.train import (
     run_training as run_textual_inversion_sdxl,
 )
 

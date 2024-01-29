@@ -1,5 +1,4 @@
-import typing
-from typing import Annotated, Literal, Optional, Union
+from typing import Annotated, Literal, Union
 
 from pydantic import Field
 
@@ -12,8 +11,8 @@ from invoke_training.config.shared.data.data_loader_config import (
 from invoke_training.config.shared.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
 
 
-class LoRATrainingConfig(BasePipelineConfig, CommonTrainingConfigMixin):
-    """The base configuration for any LoRA training run."""
+class SdLoraConfig(BasePipelineConfig, CommonTrainingConfigMixin):
+    type: Literal["FINETUNE_LORA_SD"] = "FINETUNE_LORA_SD"
 
     model: str = "runwayml/stable-diffusion-v1-5"
     """Name or path of the base model to train. Can be in diffusers format, or a single stable diffusion checkpoint
@@ -58,16 +57,16 @@ class LoRATrainingConfig(BasePipelineConfig, CommonTrainingConfigMixin):
 
     optimizer: AdamOptimizerConfig | ProdigyOptimizerConfig = AdamOptimizerConfig()
 
-    text_encoder_learning_rate: Optional[float] = None
+    text_encoder_learning_rate: float | None = None
     """The learning rate to use for the text encoder model. If set, this overrides the optimizer's default learning
     rate.
     """
 
-    unet_learning_rate: Optional[float] = None
+    unet_learning_rate: float | None = None
     """The learning rate to use for the UNet model. If set, this overrides the optimizer's default learning rate.
     """
 
-    lr_scheduler: typing.Literal[
+    lr_scheduler: Literal[
         "linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"
     ] = "constant"
 
@@ -115,7 +114,7 @@ class LoRATrainingConfig(BasePipelineConfig, CommonTrainingConfigMixin):
     Accelerate. This is an alternative to increasing the batch size when training with limited VRAM.
     """
 
-    mixed_precision: Optional[Literal["no", "fp16", "bf16", "fp8"]] = None
+    mixed_precision: Literal["no", "fp16", "bf16", "fp8"] | None = None
     """The mixed precision mode to use ('no','fp16','bf16 or 'fp8'). This value is passed to Hugging Face Accelerate.
     See accelerate.Accelerator for more details.
     """
@@ -129,17 +128,17 @@ class LoRATrainingConfig(BasePipelineConfig, CommonTrainingConfigMixin):
     gradient checkpointing slows down training by ~20%.
     """
 
-    max_checkpoints: Optional[int] = None
+    max_checkpoints: int | None = None
     """The maximum number of checkpoints to keep. New checkpoints will replace earlier checkpoints to stay under this
     limit. Note that this limit is applied to 'step' and 'epoch' checkpoints separately.
     """
 
-    prediction_type: Optional[Literal["epsilon", "v_prediction"]] = None
+    prediction_type: Literal["epsilon", "v_prediction"] | None = None
     """The prediction_type that will be used for training. Choose between 'epsilon' or 'v_prediction' or leave 'None'.
     If 'None', the prediction type of the scheduler: `noise_scheduler.config.prediction_type` is used.
     """
 
-    max_grad_norm: Optional[float] = None
+    max_grad_norm: float | None = None
     """Max gradient norm for clipping. Set to None for no clipping.
     """
 
@@ -157,22 +156,6 @@ class LoRATrainingConfig(BasePipelineConfig, CommonTrainingConfigMixin):
     """The training batch size.
     """
 
-
-class FinetuneLoRASDConfig(LoRATrainingConfig):
-    type: Literal["FINETUNE_LORA_SD"] = "FINETUNE_LORA_SD"
     data_loader: Annotated[
         Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig], Field(discriminator="type")
     ]
-
-
-class FinetuneLoRASDXLConfig(LoRATrainingConfig):
-    type: Literal["FINETUNE_LORA_SDXL"] = "FINETUNE_LORA_SDXL"
-    data_loader: Annotated[
-        Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig], Field(discriminator="type")
-    ]
-
-    vae_model: Optional[str] = None
-    """The name of the Hugging Face Hub VAE model to train against. This will override the VAE bundled with the base
-    model (specified by the `model` parameter). This config option is provided for SDXL models, because SDXL shipped
-    with a VAE that produces NaNs in fp16 mode, so it is common to replace this VAE with a fixed version.
-    """

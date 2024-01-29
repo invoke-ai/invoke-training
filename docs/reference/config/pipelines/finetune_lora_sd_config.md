@@ -1,1 +1,1 @@
-::: invoke_training.config.pipelines.finetune_lora_config.FinetuneLoRASDConfig
+::: invoke_training.pipelines.stable_diffusion.lora.config.SdLoraConfig

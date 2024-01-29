@@ -32,8 +32,8 @@ from invoke_training._shared.stable_diffusion.textual_inversion import (
     restore_original_embeddings,
 )
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sd
-from invoke_training.config.pipelines.textual_inversion_config import TextualInversionSDConfig
-from invoke_training.pipelines.stable_diffusion.finetune_lora_sd import cache_vae_outputs, train_forward
+from invoke_training.pipelines.stable_diffusion.lora.train import cache_vae_outputs, train_forward
+from invoke_training.pipelines.stable_diffusion.textual_inversion.config import SdTextualInversionConfig
 
 
 def _save_ti_embeddings(
@@ -65,7 +65,7 @@ def _save_ti_embeddings(
 
 
 def _initialize_placeholder_tokens(
-    config: TextualInversionSDConfig,
+    config: SdTextualInversionConfig,
     tokenizer: CLIPTokenizer,
     text_encoder: PreTrainedTokenizer,
 ) -> tuple[list[str], list[int]]:
@@ -120,7 +120,7 @@ def _initialize_placeholder_tokens(
     return placeholder_tokens, placeholder_token_ids
 
 
-def run_training(config: TextualInversionSDConfig):  # noqa: C901
+def run_training(config: SdTextualInversionConfig):  # noqa: C901
     # Create a timestamped directory for all outputs.
     out_dir = os.path.join(config.base_output_dir, f"{time.time()}")
     ckpt_dir = os.path.join(out_dir, "checkpoints")
