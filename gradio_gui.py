@@ -1,18 +1,20 @@
 # path/filename: gradio_project/config_interface.py
 
-import gradio as gr
+import os
 import subprocess
+import gradio as gr
 import yaml
 import os
-import threading
 
-def create_config(type, seed, base_output_dir, learning_rate, optimizer_type, weight_decay, 
-                  use_bias_correction, safeguard_warmup, data_loader_type, dataset_type, dataset_name, 
-                  image_resolution, model, vae_model, train_text_encoder, cache_text_encoder_outputs, 
-                  enable_cpu_offload_during_validation, gradient_accumulation_steps, mixed_precision, 
-                  xformers, gradient_checkpointing, max_train_steps, save_every_n_epochs, 
-                  save_every_n_steps, max_checkpoints, validation_prompts, validate_every_n_epochs, 
-                  train_batch_size, num_validation_images_per_prompt):
+def create_config(type, seed, base_output_dir, learning_rate, optimizer_type, weight_decay,
+                  use_bias_correction, safeguard_warmup, lr_warmup_steps, lr_scheduler, data_loader_type, dataset_type, dataset_name,
+                  image_resolution, model, vae_model, train_text_encoder, cache_text_encoder_outputs,
+                  enable_cpu_offload_during_validation, gradient_accumulation_steps, mixed_precision,
+                  xformers, gradient_checkpointing, max_train_steps, save_every_n_epochs,
+                  save_every_n_steps, max_checkpoints, validation_prompts, validate_every_n_epochs,
+                  train_batch_size, num_validation_images_per_prompt, dataset_dir, keep_in_memory,
+                  caption_prefix, instance_caption, caption_preset, caption_templates, keep_original_captions, shuffle_caption_delimiter,
+                  center_crop, random_flip, target_resolution, start_dim, end_dim, divisible_by, dataloader_num_workers):
     """
     Create and return the configuration as a YAML-formatted string based on the inputs.
     """
@@ -29,10 +31,11 @@ def create_config(type, seed, base_output_dir, learning_rate, optimizer_type, we
         "data_loader": {
             "type": data_loader_type,
             "dataset": {
-                "type": dataset_type,
-                "dataset_name": dataset_name
+                "type": dataset_type
             },
-            "image_resolution": image_resolution
+            "resolution": image_resolution,
+            "aspect_ratio_buckets": {
+            },
         },
         "model": model,
         "vae_model": vae_model,
@@ -59,8 +62,8 @@ def create_config(type, seed, base_output_dir, learning_rate, optimizer_type, we
         config["optimizer"]["use_bias_correction"] = use_bias_correction
         config["optimizer"]["safeguard_warmup"] = safeguard_warmup
     elif optimizer_type == "AdamW":
-        # For AdamW, add any specific settings or leave it as is
-        pass
+        config["lr_warmup_steps"] = lr_warmup_steps
+        config["lr_scheduler"] = lr_scheduler
 
     # Conditionally update validation prompts based on whether multiple exist
     if validation_prompts:
@@ -68,12 +71,59 @@ def create_config(type, seed, base_output_dir, learning_rate, optimizer_type, we
     else:
         config["validation_prompts"] = []
 
+    # Conditionally update dataset settings based on the dataset type
+    if data_loader_type == "IMAGE_CAPTION_SD_DATA_LOADER":
+        config["data_loader"]["dataset"]["dataset_dir"] = dataset_dir
+    else:
+        config["data_loader"]["dataset"]["dataset_name"] = dataset_name
+
+    # Conditionally append keep_in_memory when configured.
+    if keep_in_memory == True:
+        config["data_loader"]["dataset"]["keep_in_memory"] = keep_in_memory
+    else:
+        pass
+
+    # Conditionally add Dataloader specific settings
+    if data_loader_type == "IMAGE_CAPTION_SD_DATA_LOADER":
+        config["data_loader"]["caption_prefix"] = caption_prefix
+    elif data_loader_type == "TEXTUAL_INVERSION_SD_DATA_LOADER":
+        config["data_loader"]["instance_caption"] = instance_caption
+        config["data_loader"]["caption_preset"] = caption_preset
+        config["data_loader"]["caption_templates"] = caption_templates
+        config["data_loader"]["keep_original_captions"] = keep_original_captions
+        config["data_loader"]["shuffle_caption_delimiter"] = shuffle_caption_delimiter
+    elif data_loader_type == "DREAMBOOTH_SD_DATA_LOADER":
+        config["data_loader"]["instance_caption"] = instance_caption
+
+    #Conditionally add image transformation settings
+    if center_crop == True:
+        config["data_loader"]["center_crop"] = center_crop
+    else:
+        pass
+
+    if random_flip == True:
+        config["data_loader"]["random_flip"] = random_flip
+    else:
+        pass
+
+    if  target_resolution != 0:
+        config["data_loader"]["aspect_ratio_buckets"]["target_resolution"] = target_resolution
+        config["data_loader"]["aspect_ratio_buckets"]["start_dim"] = start_dim
+        config["data_loader"]["aspect_ratio_buckets"]["end_dim"] = end_dim
+        config["data_loader"]["aspect_ratio_buckets"]["divisible_by"] = divisible_by
+    else:
+        pass
+
+    if dataloader_num_workers != 0:
+        config["data_loader"]["dataloader_num_workers"] = dataloader_num_workers
+    else:
+        pass
     # Convert the config dictionary to a YAML string
     config_yaml = yaml.dump(config, sort_keys=False, default_flow_style=False)
     return config_yaml
 
 def load_config(file_path):
-    config_values = ["", 0, "", 0, "", 0, False, False, "", "", "", 0, "", "", False, False, False, 0, "", False, False, 0, 0, 0, 0, "", 0, 0, 0]
+    config_values = ["", 0, "", 0, "", 0, False, False, 200, "constant",  "", "", "", 0, "", "", False, False, False, 0, "", False, False, 0, 0, 0, 0, "", 0, 0, 0, False, "", "", "", "", False, "", False, False, 1024, 768, 1280, 64, 0]
 
     if not file_path:
         return config_values
@@ -81,7 +131,7 @@ def load_config(file_path):
     try:
         with open(file_path, 'r') as file:
             config = yaml.safe_load(file)
-    except Exception as e:
+    except Exception:
         return config_values
 
     if not isinstance(config, dict):
@@ -97,49 +147,71 @@ def load_config(file_path):
     config_values[6] = optimizer_config.get("use_bias_correction", config_values[6])
     config_values[7] = optimizer_config.get("safeguard_warmup", config_values[7])
     data_loader_config = config.get("data_loader", {})
-    config_values[8] = data_loader_config.get("type", config_values[8])
+    config_values[8] = optimizer_config.get("lr_warmup_steps", config_values[8])
+    config_values[9] = optimizer_config.get("lr_scheduler", config_values[9])
+    config_values[10] = data_loader_config.get("type", config_values[10])
     dataset_config = data_loader_config.get("dataset", {})
-    config_values[9] = dataset_config.get("type", config_values[9])
-    config_values[10] = dataset_config.get("dataset_name", config_values[10])
-    config_values[11] = data_loader_config.get("image_resolution", config_values[11])
-    config_values[12] = config.get("model", config_values[12])
-    config_values[13] = config.get("vae_model", config_values[13])
-    config_values[14] = config.get("train_text_encoder", config_values[14])
-    config_values[15] = config.get("cache_text_encoder_outputs", config_values[15])
-    config_values[16] = config.get("enable_cpu_offload_during_validation", config_values[16])
-    config_values[17] = config.get("gradient_accumulation_steps", config_values[17])
-    config_values[18] = config.get("mixed_precision", config_values[18])
-    config_values[19] = config.get("xformers", config_values[19])
-    config_values[20] = config.get("gradient_checkpointing", config_values[20])
-    config_values[21] = config.get("max_train_steps", config_values[21])
-    config_values[22] = config.get("save_every_n_epochs", config_values[22])
-    config_values[23] = config.get("save_every_n_steps", config_values[23])
-    config_values[24] = config.get("max_checkpoints", config_values[24])
-    config_values[25] = config.get("validation_prompts", config_values[25])
-    config_values[26] = config.get("validate_every_n_epochs", config_values[26])
-    config_values[27] = config.get("train_batch_size", config_values[27])
-    config_values[28] = config.get("num_validation_images_per_prompt", config_values[28])
+    config_values[11] = dataset_config.get("type", config_values[11])
+    config_values[12] = dataset_config.get("dataset_name", config_values[12])
+    config_values[13] = data_loader_config.get("resolution", config_values[13])
+    config_values[14] = config.get("model", config_values[14])
+    config_values[15] = config.get("vae_model", config_values[15])
+    config_values[16] = config.get("train_text_encoder", config_values[16])
+    config_values[17] = config.get("cache_text_encoder_outputs", config_values[17])
+    config_values[18] = config.get("enable_cpu_offload_during_validation", config_values[18])
+    config_values[19] = config.get("gradient_accumulation_steps", config_values[19])
+    config_values[20] = config.get("mixed_precision", config_values[20])
+    config_values[21] = config.get("xformers", config_values[21])
+    config_values[22] = config.get("gradient_checkpointing", config_values[22])
+    config_values[23] = config.get("max_train_steps", config_values[23])
+    config_values[24] = config.get("save_every_n_epochs", config_values[24])
+    config_values[25] = config.get("save_every_n_steps", config_values[25])
+    config_values[26] = config.get("max_checkpoints", config_values[26])
+    config_values[27] = config.get("validation_prompts", config_values[27])
+    config_values[28] = config.get("validate_every_n_epochs", config_values[28])
+    config_values[29] = config.get("train_batch_size", config_values[29])
+    config_values[30] = config.get("num_validation_images_per_prompt", config_values[30])
+    config_values[31] = dataset_config.get("keep_in_memory", config_values[31])
+    config_values[32] = data_loader_config.get("caption_prefix", config_values[32])
+    config_values[33] = data_loader_config.get("instance_caption", config_values[33])
+    config_values[34] = data_loader_config.get("caption_preset", config_values[34])
+    config_values[35] = data_loader_config.get("caption_templates", config_values[35])
+    config_values[36] = data_loader_config.get("keep_original_captions", config_values[36])
+    config_values[37] = data_loader_config.get("shuffle_caption_delimiter", config_values[37])
+    config_values[38] = data_loader_config.get("center_crop", config_values[38])
+    config_values[39] = data_loader_config.get("random_flip", config_values[39])
+    config_values[40] = data_loader_config.get("target_resolution", config_values[40])
+    config_values[41] = data_loader_config.get("start_dim", config_values[41])
+    config_values[42] = data_loader_config.get("end_dim", config_values[42])
+    config_values[43] = data_loader_config.get("divisible_by", config_values[43])
+    config_values[44] = data_loader_config.get("dataloader_num_workers", config_values[44])
 
+    print(config_values)
     return config_values
 
-def save_config(type, seed, base_output_dir, learning_rate, optimizer_type, weight_decay, 
-                use_bias_correction, safeguard_warmup, data_loader_type, dataset_type, dataset_name, 
-                image_resolution, model, vae_model, train_text_encoder, cache_text_encoder_outputs, 
-                enable_cpu_offload_during_validation, gradient_accumulation_steps, mixed_precision, 
-                xformers, gradient_checkpointing, max_train_steps, save_every_n_epochs, 
-                save_every_n_steps, max_checkpoints, validation_prompts, validate_every_n_epochs, 
-                train_batch_size, num_validation_images_per_prompt, file_path):
+def save_config(type, seed, base_output_dir, learning_rate, optimizer_type, weight_decay,
+                  use_bias_correction, safeguard_warmup, lr_warmup_steps, lr_scheduler, data_loader_type, dataset_type, dataset_name,
+                  image_resolution, model, vae_model, train_text_encoder, cache_text_encoder_outputs,
+                  enable_cpu_offload_during_validation, gradient_accumulation_steps, mixed_precision,
+                  xformers, gradient_checkpointing, max_train_steps, save_every_n_epochs,
+                  save_every_n_steps, max_checkpoints, validation_prompts, validate_every_n_epochs,
+                  train_batch_size, num_validation_images_per_prompt, keep_in_memory, caption_prefix, instance_caption, 
+                  caption_preset, caption_templates, keep_original_captions, shuffle_caption_delimiter,
+                  center_crop, random_flip, target_resolution, start_dim, end_dim, divisible_by, dataloader_num_workers,
+                  file_path):
     """
     Save the current configuration to a YAML file.
     """
     # Create the configuration using the create_config function
-    config_yaml = create_config(type, seed, base_output_dir, learning_rate, optimizer_type, weight_decay, 
-                                use_bias_correction, safeguard_warmup, data_loader_type, dataset_type, dataset_name, 
-                                image_resolution, model, vae_model, train_text_encoder, cache_text_encoder_outputs, 
-                                enable_cpu_offload_during_validation, gradient_accumulation_steps, mixed_precision, 
-                                xformers, gradient_checkpointing, max_train_steps, save_every_n_epochs, 
-                                save_every_n_steps, max_checkpoints, validation_prompts, validate_every_n_epochs, 
-                                train_batch_size, num_validation_images_per_prompt)
+    config_yaml = create_config(type, seed, base_output_dir, learning_rate, optimizer_type, weight_decay,
+                                use_bias_correction, safeguard_warmup, lr_warmup_steps, lr_scheduler, data_loader_type, dataset_type, dataset_name,
+                                image_resolution, model, vae_model, train_text_encoder, cache_text_encoder_outputs,
+                                enable_cpu_offload_during_validation, gradient_accumulation_steps, mixed_precision,
+                                xformers, gradient_checkpointing, max_train_steps, save_every_n_epochs,
+                                save_every_n_steps, max_checkpoints, validation_prompts, validate_every_n_epochs,
+                                train_batch_size, num_validation_images_per_prompt,  keep_in_memory, caption_prefix, 
+                                instance_caption, caption_preset, caption_templates, keep_original_captions, shuffle_caption_delimiter,
+                                center_crop, random_flip, target_resolution, start_dim, end_dim, divisible_by, dataloader_num_workers)
 
     # Define the file path for saving the configuration
     if not file_path:
@@ -157,35 +229,39 @@ def save_config(type, seed, base_output_dir, learning_rate, optimizer_type, weig
         return "Error saving configuration: " + str(e)
 
 def run_training(config_yaml, output_textbox):
-    # Adjusted the command list as previously suggested
     command = ["invoke-train", "--cfg-file", config_yaml]
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
 
     for line in iter(process.stdout.readline, ''):
-        # Check if output_textbox is not None before updating
         if output_textbox is not None:
             output_textbox.update(value=line)
     process.stdout.close()
     process.wait()
 
-def invoke_training(type, seed, base_output_dir, learning_rate, optimizer_type, weight_decay, 
-                    use_bias_correction, safeguard_warmup, data_loader_type, dataset_type, dataset_name, 
-                    image_resolution, model, vae_model, train_text_encoder, cache_text_encoder_outputs, 
-                    enable_cpu_offload_during_validation, gradient_accumulation_steps, mixed_precision, 
-                    xformers, gradient_checkpointing, max_train_steps, save_every_n_epochs, 
-                    save_every_n_steps, max_checkpoints, validation_prompts, validate_every_n_epochs, 
-                    train_batch_size, num_validation_images_per_prompt, output_textbox):
+
+def invoke_training(type, seed, base_output_dir, learning_rate, optimizer_type, weight_decay,
+                    use_bias_correction, safeguard_warmup, lr_warmup_steps, lr_scheduler, data_loader_type, dataset_type,
+                    dataset_name, image_resolution, model, vae_model, train_text_encoder, cache_text_encoder_outputs,
+                    enable_cpu_offload_during_validation, gradient_accumulation_steps, mixed_precision,
+                    xformers, gradient_checkpointing, max_train_steps, save_every_n_epochs,
+                    save_every_n_steps, max_checkpoints, validation_prompts, validate_every_n_epochs,
+                    train_batch_size, num_validation_images_per_prompt, keep_in_memory, caption_prefix, 
+                    instance_caption, caption_preset, caption_templates, keep_original_captions, shuffle_caption_delimiter,
+                    center_crop, random_flip, target_resolution, start_dim, end_dim, divisible_by, dataloader_num_workers,
+                    output_textbox):
     """
     Generate configuration data, save it to a YAML file, and invoke the training script.
     """
     # Generate the configuration using the create_config function
-    config_yaml = create_config(type, seed, base_output_dir, learning_rate, optimizer_type, weight_decay, 
-                                use_bias_correction, safeguard_warmup, data_loader_type, dataset_type, dataset_name, 
-                                image_resolution, model, vae_model, train_text_encoder, cache_text_encoder_outputs, 
-                                enable_cpu_offload_during_validation, gradient_accumulation_steps, mixed_precision, 
-                                xformers, gradient_checkpointing, max_train_steps, save_every_n_epochs, 
-                                save_every_n_steps, max_checkpoints, validation_prompts, validate_every_n_epochs, 
-                                train_batch_size, num_validation_images_per_prompt)
+    config_yaml = create_config(type, seed, base_output_dir, learning_rate, optimizer_type, weight_decay,
+                                use_bias_correction, safeguard_warmup, lr_warmup_steps, lr_scheduler, data_loader_type,
+                                dataset_type, dataset_name, image_resolution, model, vae_model, train_text_encoder, cache_text_encoder_outputs,
+                                enable_cpu_offload_during_validation, gradient_accumulation_steps, mixed_precision,
+                                xformers, gradient_checkpointing, max_train_steps, save_every_n_epochs,
+                                save_every_n_steps, max_checkpoints, validation_prompts, validate_every_n_epochs,
+                                train_batch_size, num_validation_images_per_prompt, keep_in_memory, caption_prefix, 
+                                instance_caption, caption_preset, caption_templates, keep_original_captions, shuffle_caption_delimiter,
+                                center_crop, random_flip, target_resolution, start_dim, end_dim, divisible_by, dataloader_num_workers)
 
     if not config_yaml or config_yaml.strip() == "":
         raise ValueError("Failed to generate configuration data.")
@@ -194,25 +270,21 @@ def invoke_training(type, seed, base_output_dir, learning_rate, optimizer_type, 
     with open(config_file, "w") as file:
         file.write(config_yaml)
 
-    # Start the training in a background thread
-    thread = threading.Thread(target=run_training, args=(config_file, output_textbox), daemon=True)
-    thread.start()
+    # Start the training directly
+    run_training(config_file, output_textbox)
 
 
-# Gradio Interface -- 
+# Gradio Interface --
 # for layout guidance, visit https://www.gradio.app/guides/controlling-layout
 # for field/component docs, visit https://www.gradio.app/docs
 with gr.Blocks() as demo:
-    load_config_button = gr.File(label="Load Config", file_count="single")
-
 
     with gr.Row():
         # needs to be updated to conditionally control relevant fields based on type. currently lora sdxl
         type_input = gr.Dropdown(label="Type", choices=[
-            "FINETUNE_LORA_SDXL", "FINETUNE_LORA_SD", "FINETUNE_LORA_AND_TI_SDXL", 
+            "FINETUNE_LORA_SDXL", "FINETUNE_LORA_SD", "FINETUNE_LORA_AND_TI_SDXL",
             "TEXTUAL_INVERSION_SD", "TEXTUAL_INVERSION_SDXL"
         ])
-        seed_input = gr.Number(label="Seed", value=1)
 
 
     def change_optimizer_settings(optimizer_choice):
@@ -221,14 +293,18 @@ with gr.Blocks() as demo:
                 gr.Number(label="Learning Rate", value=1.0),
                 gr.Number(label="Weight Decay", value=0.01, visible=True),
                 gr.Checkbox(label="Use Bias Correction", value=True, visible=True),
-                gr.Checkbox(label="Safeguard Warmup", value=True, visible=True)
+                gr.Checkbox(label="Safeguard Warmup", value=True, visible=True),
+                gr.Number(visible=False),  # Hide lr_warmup_steps_input
+                gr.Dropdown(visible=False)  # Hide lr_scheduler_input
             )
         elif optimizer_choice == "AdamW":
             return (
                 gr.Number(label="Learning Rate", value=4e-3),
                 gr.Number(visible=False),  # Hide weight_decay_input
                 gr.Checkbox(visible=False),  # Hide use_bias_correction_input
-                gr.Checkbox(visible=False)   # Hide safeguard_warmup_input
+                gr.Checkbox(visible=False),   # Hide safeguard_warmup_input
+                gr.Number(label="LR Warmup Steps", visible=True),
+                gr.Dropdown(label="LR Scheduler", visible=True)
             )
         else:
             return (None, None, None, None)
@@ -251,49 +327,151 @@ with gr.Blocks() as demo:
             weight_decay_input = gr.Number(label="Weight Decay")
             use_bias_correction_input = gr.Checkbox(label="Use Bias Correction")
             safeguard_warmup_input = gr.Checkbox(label="Safeguard Warmup")
+            lr_warmup_steps_input = gr.Number(label="LR Warmup Steps", value=200, visible=False)
+            lr_scheduler_input = gr.Dropdown(label="LR Scheduler", choices=["linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"], value="constant", visible=False)
         optimizer_type_input.change(
-            fn=change_optimizer_settings, 
-            inputs=optimizer_type_input, 
-            outputs=[learning_rate_input, weight_decay_input, use_bias_correction_input, safeguard_warmup_input]
+            fn=change_optimizer_settings,
+            inputs=optimizer_type_input,
+            outputs=[learning_rate_input, weight_decay_input, use_bias_correction_input, safeguard_warmup_input, lr_warmup_steps_input, lr_scheduler_input]
         )
 
     def update_dataset_input(dataset_type):
-        if dataset_type == "Local Path":
-            return gr.Textbox(label="Enter Dataset Local Path", value=default_local_path)
+        if dataset_type == "IMAGE_DIR_DATASET":
+            return (
+            gr.Textbox(visible = False),
+            gr.Textbox(label="Enter Dataset Local Path", visible = True),
+            gr.Checkbox(label="Keep Images In Memory", visible = True),
+            gr.FileExplorer(label="Dataset Preview", visible = True)
+            )
         else:
-            return gr.Textbox(label="Dataset Name", value="Owner/RepoID (e.g., lambdalabs/pokemon-blip-captions)")
+            return (
+            gr.Textbox(label="Dataset Name", visible = True),
+            gr.Textbox(visible = False),
+            gr.Checkbox(label="Keep Images In Memory", visible = True),
+            gr.FileExplorer(visible = False)
+            )
 
-    def update_dataset_preview(dataset_type, dataset_name):
-        if dataset_type == "Local Path":
-            return gr.FileExplorer(label="Dataset Preview", root_dir=dataset_name, interactive=False, visible=True)
+    def update_dataset_preview(dataset_type, dataset_dir):
+        if dataset_type == "IMAGE_DIR_DATASET":
+            return gr.FileExplorer(label="Dataset Preview", root_dir=dataset_dir, interactive=False, visible=True)
         else:
             return gr.FileExplorer(visible=False)
 
     default_local_path = os.path.join(os.getcwd(), "sample_data")
 
+    def update_dataloader_settings(dataloader_type):
+        if dataloader_type == "IMAGE_CAPTION_SD_DATA_LOADER":
+            return (
+            gr.Textbox(label="Caption Prefix", visible=True),
+            gr.Textbox(visible=False),
+            gr.Dropdown(visible=False),
+            gr.Textbox(visible=False),
+            gr.Checkbox(visible=False),
+            gr.Textbox(visible=False)
+            )
+        elif dataloader_type == "TEXTUAL_INVERSION_SD_DATA_LOADER":
+            return (
+            gr.Textbox(visible=False),
+            gr.Textbox(visible=False),
+            gr.Dropdown(label="Caption Preset", visible=True),
+            gr.Textbox(label="Caption Templates", visible=True),
+            gr.Checkbox(label="Keep Original Captions", visible=True),
+            gr.Textbox(label="Shuffle Caption Delimiter", visible=True)
+            )
+        elif dataloader_type == "DREAMBOOTH_SD_DATA_LOADER":
+            return (
+            gr.Textbox(visible=False),
+            gr.Textbox(label="Instance Caption", visible=True),
+            gr.Dropdown(visible=False),
+            gr.Textbox(visible=False),
+            gr.Checkbox(visible=False),
+            gr.Textbox(visible=False)
+            )
+        else:
+            return (None, None, None, None, None, None)
+
+    def update_aspect_ratio_settings(aspect_ratios):
+        if aspect_ratios == True:
+            return (
+            gr.Number(label="Target Resolution", value = 1024, visible=True),
+            gr.Number(label="Start Dimension", visible=True),
+            gr.Number(label="End Dimension", visible=True),
+            gr.Number(label="Divisible By", visible=True)
+            )
+        else:
+            return (
+            gr.Number(label="Target Resolution", value = 0, visible=False),
+            gr.Number(label="Start Dimension", visible=False),
+            gr.Number(label="End Dimension", visible=False),
+            gr.Number(label="Divisible By", visible=False)
+            )
+
     with gr.Tab("Dataset Settings"):
         with gr.Column():
-            data_loader_type_input = gr.Dropdown(label="Data Loader Type", choices=["IMAGE_CAPTION_SDXL_DATA_LOADER", "IMAGE_CAPTION_SD_DATA_LOADER"], value="IMAGE_CAPTION_SDXL_DATA_LOADER")
+            data_loader_type_input = gr.Dropdown(label="Data Loader Type", choices=["IMAGE_CAPTION_SD_DATA_LOADER", "TEXTUAL_INVERSION_SD_DATA_LOADER", "DREAMBOOTH_SD_DATA_LOADER"], value="IMAGE_CAPTION_SD_DATA_LOADER")
             image_resolution_input = gr.Number(label="Image Resolution", value=1024)
-        with gr.Column():
-            dataset_type_input = gr.Dropdown(label="Dataset Type", choices=["Hugging Face Dataset", "Local Path"], value="Local Path")
-            dataset_name_input = gr.Textbox(label="Enter Dataset Local Path", value=default_local_path)
-        with gr.Column():
-            dataset_preview_panel = gr.FileExplorer(label="Dataset Preview", root_dir=default_local_path, interactive=False, height=300)
-        dataset_type_input.change(fn=update_dataset_input, inputs=dataset_type_input, outputs=dataset_name_input)
-        dataset_name_input.change(fn=update_dataset_preview, inputs=[dataset_type_input, dataset_name_input], outputs=dataset_preview_panel)
 
+        with gr.Tab("Dataset"):
+            with gr.Column():
+                dataset_type_input = gr.Dropdown(label="Dataset Type", choices=["HF_HUB_IMAGE_CAPTION_DATASET", "IMAGE_DIR_DATASET"], value="IMAGE_DIR_DATASET")
+                dataset_name_input = gr.Textbox(label="Dataset Name", value="Owner/RepoID (e.g., lambdalabs/pokemon-blip-captions)")
+                dataset_dir_input = gr.Textbox(label="Enter Dataset Local Path", value=default_local_path, show_copy_button=True)
+                keep_in_memory_input = gr.Checkbox(label="Keep Images In Memory", value=False)
+                dataset_preview_panel = gr.FileExplorer(label="Dataset Preview", root_dir=default_local_path, interactive=False, height=300)
+            dataset_type_input.change(
+                fn=update_dataset_input,
+                inputs=dataset_type_input,
+                outputs=[dataset_name_input, dataset_dir_input, keep_in_memory_input, dataset_preview_panel]
+            )
+            dataset_dir_input.change(
+                fn=update_dataset_preview,
+                inputs=[dataset_type_input, dataset_dir_input],
+                outputs=dataset_preview_panel
+            )
+        with gr.Tab("Captions"):
+            with gr.Column():
+                caption_prefix_input = gr.Textbox(label="Caption Prefix", value=None)
+                instance_caption_input = gr.Textbox(label="Instance Caption", value=None)
+                caption_preset_input = gr.Dropdown(label="Caption Preset", choices=["style", "object"])
+                caption_templates_input = gr.Textbox(label="Caption Templates", value=None)
+                keep_original_captions_input = gr.Checkbox(label="Keep Original Captions", value=False)
+                shuffle_caption_delimiter_input = gr.Textbox(label="Shuffle Caption Delimiter", value=None)
+            data_loader_type_input.change(
+                fn=update_dataloader_settings,
+                inputs=data_loader_type_input,
+                outputs=[
+                    caption_prefix_input,
+                    instance_caption_input,
+                    caption_preset_input,
+                    caption_templates_input,
+                    keep_original_captions_input,
+                    shuffle_caption_delimiter_input
+                ]
+            )
+        with gr.Tab("Image Transformations"):
+            with gr.Column():
+                center_crop_input = gr.Checkbox(label="Center Crop", value=False)
+                random_flip_input  = gr.Checkbox(label="Random Flip", value=False)
+
+            with gr.Column("Aspect Ratio Bucketing"):
+                aspect_ratios_input  = gr.Checkbox(label="Use Aspect Ratio Bucketing", value=False)
+                target_resolution_input  = gr.Number(label="Target Resolution", value=0)
+                start_dim_input  = gr.Number(label="Start Dimension", value=768)
+                end_dim_input = gr.Number(label="End Dimension", value=1280)
+                divisible_by_input  = gr.Number(label="Divisible By", value=64)
+            with gr.Column():
+                dataloader_num_workers_input = gr.Number(label="Dataloader Num Workers", value=4)
+            aspect_ratios_input.change(
+                fn=update_aspect_ratio_settings,
+                inputs=aspect_ratios_input,
+                outputs=[
+                    target_resolution_input,
+                    start_dim_input,
+                    end_dim_input,
+                    divisible_by_input
+                ]
+            )
     with gr.Tab("Training Settings"):
-
-        with gr.Row():
-
-            with gr.Column():
-                train_batch_size_input = gr.Number(label="Train Batch Size", value=1)
-                gradient_accumulation_steps_input = gr.Number(label="Gradient Accumulation Steps", value=4)
-                gradient_checkpointing_input = gr.Checkbox(label="Gradient Checkpointing", value=True)
-            with gr.Column():
-                mixed_precision_input = gr.Dropdown(label="Mixed Precision", choices=["fp16", "fp32"], value="fp16")
-                xformers_input = gr.Checkbox(label="Xformers", value=True)
 
         with gr.Row():
             with gr.Column():
@@ -301,11 +479,23 @@ with gr.Blocks() as demo:
                 save_every_n_epochs_input = gr.Number(label="Save Every N Epochs", value=1)
                 save_every_n_steps_input = gr.Number(label="Save Every N Steps", value=None)
                 max_checkpoints_input = gr.Number(label="Max Checkpoints", value=100)
-
+                seed_input = gr.Number(label="Seed", value=1)
             with gr.Column():
-                validate_every_n_epochs_input = gr.Number(label="Validate Every N Epochs", value=1)
-                validation_prompts_input = gr.Textbox(label="Validation Prompts", placeholder="Enter prompts separated by commas")
-                num_validation_images_per_prompt_input = gr.Number(label="Num Validation Images Per Prompt", value=3)
+                train_batch_size_input = gr.Number(label="Train Batch Size", value=1)
+                gradient_accumulation_steps_input = gr.Number(label="Gradient Accumulation Steps", value=4)
+                gradient_checkpointing_input = gr.Checkbox(label="Gradient Checkpointing", value=True)
+                mixed_precision_input = gr.Dropdown(label="Mixed Precision", choices=["fp16", "fp32"], value="fp16")
+                xformers_input = gr.Checkbox(label="Xformers", value=True)
+
+    with gr.Tab("Validation Settings"):
+        with gr.Row():
+            validate_every_n_epochs_input = gr.Number(label="Validate Every N Epochs", value=1)
+            num_validation_images_per_prompt_input = gr.Number(label="Num Validation Images Per Prompt", value=3)
+        with gr.Row():
+            validation_prompts_input = gr.Textbox(label="Validation Prompts", placeholder="Enter prompts separated by commas")
+
+    with gr.Tab("Load Config"):
+        load_config_button = gr.File(label="Load Config", file_count="single")
 
     generate_config_button = gr.Button("Preview Configuration")
     config_output = gr.Textbox(label="Generated Configuration", interactive=False)
@@ -321,12 +511,15 @@ with gr.Blocks() as demo:
             fn=invoke_training,
             inputs=[
                 type_input, seed_input, base_output_dir_input, learning_rate_input, optimizer_type_input, weight_decay_input,
-                use_bias_correction_input, safeguard_warmup_input, data_loader_type_input, dataset_type_input, dataset_name_input,
+                use_bias_correction_input, safeguard_warmup_input, lr_warmup_steps_input, lr_scheduler_input, data_loader_type_input, dataset_type_input, dataset_name_input,
                 image_resolution_input, model_input, vae_model_input, train_text_encoder_input, cache_text_encoder_outputs_input,
                 enable_cpu_offload_during_validation_input, gradient_accumulation_steps_input, mixed_precision_input, xformers_input,
-                gradient_checkpointing_input, max_train_steps_input, save_every_n_epochs_input, save_every_n_steps_input, 
-                max_checkpoints_input, validation_prompts_input, validate_every_n_epochs_input, train_batch_size_input, 
-                num_validation_images_per_prompt_input, training_output
+                gradient_checkpointing_input, max_train_steps_input, save_every_n_epochs_input, save_every_n_steps_input,
+                max_checkpoints_input, validation_prompts_input, validate_every_n_epochs_input, train_batch_size_input,
+                num_validation_images_per_prompt_input, keep_in_memory_input, caption_prefix_input, instance_caption_input,
+                caption_preset_input, caption_templates_input, keep_original_captions_input, shuffle_caption_delimiter_input,
+                center_crop_input, random_flip_input, target_resolution_input, start_dim_input, end_dim_input, divisible_by_input,
+                dataloader_num_workers_input
             ],
             outputs=training_output
         )
@@ -342,15 +535,18 @@ with gr.Blocks() as demo:
     # Ensure that the configuration is generated before invoking the training script
 
     generate_config_button.click(
-        fn=create_config, 
+        fn=create_config,
         inputs=[
             type_input, seed_input, base_output_dir_input, learning_rate_input, optimizer_type_input, weight_decay_input,
-            use_bias_correction_input, safeguard_warmup_input, data_loader_type_input, dataset_type_input, dataset_name_input,
+            use_bias_correction_input, safeguard_warmup_input, lr_warmup_steps_input, lr_scheduler_input, data_loader_type_input, dataset_type_input, dataset_name_input,
             image_resolution_input, model_input, vae_model_input, train_text_encoder_input, cache_text_encoder_outputs_input,
             enable_cpu_offload_during_validation_input, gradient_accumulation_steps_input, mixed_precision_input, xformers_input,
-            gradient_checkpointing_input, max_train_steps_input, save_every_n_epochs_input, save_every_n_steps_input, 
-            max_checkpoints_input, validation_prompts_input, validate_every_n_epochs_input, train_batch_size_input, 
-            num_validation_images_per_prompt_input
+            gradient_checkpointing_input, max_train_steps_input, save_every_n_epochs_input, save_every_n_steps_input,
+            max_checkpoints_input, validation_prompts_input, validate_every_n_epochs_input, train_batch_size_input,
+            num_validation_images_per_prompt_input, keep_in_memory_input, caption_prefix_input, instance_caption_input,
+            caption_preset_input, caption_templates_input, keep_original_captions_input, shuffle_caption_delimiter_input,
+            center_crop_input, random_flip_input, target_resolution_input, start_dim_input, end_dim_input, divisible_by_input,
+            dataloader_num_workers_input
         ],
         outputs=config_output
     )
@@ -366,14 +562,16 @@ with gr.Blocks() as demo:
         fn=load_config,
         inputs=[load_config_button],
         outputs=[
-            type_input, seed_input, base_output_dir_input, learning_rate_input, optimizer_type_input, 
-            weight_decay_input, use_bias_correction_input, safeguard_warmup_input, data_loader_type_input, 
-            dataset_type_input, dataset_name_input, image_resolution_input, model_input, vae_model_input, 
-            train_text_encoder_input, cache_text_encoder_outputs_input, enable_cpu_offload_during_validation_input, 
-            gradient_accumulation_steps_input, mixed_precision_input, xformers_input, 
-            gradient_checkpointing_input, max_train_steps_input, save_every_n_epochs_input, 
-            save_every_n_steps_input, max_checkpoints_input, validation_prompts_input, 
-            validate_every_n_epochs_input, train_batch_size_input, num_validation_images_per_prompt_input
+            type_input, seed_input, base_output_dir_input, learning_rate_input, optimizer_type_input, weight_decay_input,
+            use_bias_correction_input, safeguard_warmup_input, lr_warmup_steps_input, lr_scheduler_input, data_loader_type_input, dataset_type_input, dataset_name_input,
+            image_resolution_input, model_input, vae_model_input, train_text_encoder_input, cache_text_encoder_outputs_input,
+            enable_cpu_offload_during_validation_input, gradient_accumulation_steps_input, mixed_precision_input, xformers_input,
+            gradient_checkpointing_input, max_train_steps_input, save_every_n_epochs_input, save_every_n_steps_input,
+            max_checkpoints_input, validation_prompts_input, validate_every_n_epochs_input, train_batch_size_input,
+            num_validation_images_per_prompt_input, keep_in_memory_input, caption_prefix_input, instance_caption_input,
+            caption_preset_input, caption_templates_input, keep_original_captions_input, shuffle_caption_delimiter_input,
+            center_crop_input, random_flip_input, target_resolution_input, start_dim_input, end_dim_input, divisible_by_input,
+            dataloader_num_workers_input
         ]
     )
 
@@ -381,15 +579,16 @@ with gr.Blocks() as demo:
     save_config_button.click(
         fn=save_config,
         inputs=[
-            type_input, seed_input, base_output_dir_input, learning_rate_input, optimizer_type_input, 
-            weight_decay_input, use_bias_correction_input, safeguard_warmup_input, data_loader_type_input, 
-            dataset_type_input, dataset_name_input, image_resolution_input, model_input, vae_model_input, 
-            train_text_encoder_input, cache_text_encoder_outputs_input, enable_cpu_offload_during_validation_input, 
-            gradient_accumulation_steps_input, mixed_precision_input, xformers_input, 
-            gradient_checkpointing_input, max_train_steps_input, save_every_n_epochs_input, 
-            save_every_n_steps_input, max_checkpoints_input, validation_prompts_input, 
-            validate_every_n_epochs_input, train_batch_size_input, num_validation_images_per_prompt_input,
-            file_path_input  # include the file path input
+            type_input, seed_input, base_output_dir_input, learning_rate_input, optimizer_type_input, weight_decay_input,
+            use_bias_correction_input, safeguard_warmup_input, lr_warmup_steps_input, lr_scheduler_input, data_loader_type_input, dataset_type_input, dataset_name_input,
+            image_resolution_input, model_input, vae_model_input, train_text_encoder_input, cache_text_encoder_outputs_input,
+            enable_cpu_offload_during_validation_input, gradient_accumulation_steps_input, mixed_precision_input, xformers_input,
+            gradient_checkpointing_input, max_train_steps_input, save_every_n_epochs_input, save_every_n_steps_input,
+            max_checkpoints_input, validation_prompts_input, validate_every_n_epochs_input, train_batch_size_input,
+            num_validation_images_per_prompt_input, keep_in_memory_input, caption_prefix_input, instance_caption_input,
+            caption_preset_input, caption_templates_input, keep_original_captions_input, shuffle_caption_delimiter_input,
+            center_crop_input, random_flip_input, target_resolution_input, start_dim_input, end_dim_input, divisible_by_input,
+            dataloader_num_workers_input, file_path_input  # include the file path input
         ],
         outputs=save_output  # change to a Label for displaying the message
     )
