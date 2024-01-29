@@ -2,7 +2,7 @@ from datasets import VerificationMode
 
 from invoke_training._shared.data.datasets.hf_image_caption_dataset import HFImageCaptionDataset
 from invoke_training._shared.data.datasets.hf_image_pair_preference_dataset import HFImagePairPreferenceDataset
-from invoke_training.config.shared.data.dataset_config import (
+from invoke_training.config.data.dataset_config import (
     HFDirImageCaptionDatasetConfig,
     HFHubImageCaptionDatasetConfig,
 )

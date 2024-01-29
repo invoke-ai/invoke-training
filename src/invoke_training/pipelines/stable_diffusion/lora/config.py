@@ -2,13 +2,13 @@ from typing import Annotated, Literal, Union
 
 from pydantic import Field
 
-from invoke_training.config.pipelines.base_pipeline_config import BasePipelineConfig
-from invoke_training.config.shared.common_training_config_mixin import CommonTrainingConfigMixin
-from invoke_training.config.shared.data.data_loader_config import (
+from invoke_training.config.base_pipeline_config import BasePipelineConfig
+from invoke_training.config.common_training_config_mixin import CommonTrainingConfigMixin
+from invoke_training.config.data.data_loader_config import (
     DreamboothSDDataLoaderConfig,
     ImageCaptionSDDataLoaderConfig,
 )
-from invoke_training.config.shared.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
+from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
 
 
 class SdLoraConfig(BasePipelineConfig, CommonTrainingConfigMixin):

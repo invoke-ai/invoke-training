@@ -1,1 +1,1 @@
-::: invoke_training.config.shared.data.dataset_config
+::: invoke_training.config.data.dataset_config

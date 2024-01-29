@@ -2,7 +2,7 @@ from typing import Annotated, Literal, Optional, Union
 
 from pydantic import Field
 
-from invoke_training.config.shared.config_base_model import ConfigBaseModel
+from invoke_training.config.config_base_model import ConfigBaseModel
 
 
 class HFHubImageCaptionDatasetConfig(ConfigBaseModel):

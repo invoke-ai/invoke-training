@@ -1,1 +1,1 @@
-::: invoke_training.config.shared.optimizer.optimizer_config
+::: invoke_training.config.optimizer.optimizer_config

@@ -24,8 +24,8 @@ from invoke_training._shared.data.transforms.template_caption_transform import (
     TemplateCaptionTransform,
 )
 from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
-from invoke_training.config.shared.data.data_loader_config import TextualInversionSDDataLoaderConfig
-from invoke_training.config.shared.data.dataset_config import (
+from invoke_training.config.data.data_loader_config import TextualInversionSDDataLoaderConfig
+from invoke_training.config.data.dataset_config import (
     HFDirImageCaptionDatasetConfig,
     HFHubImageCaptionDatasetConfig,
     ImageDirDatasetConfig,

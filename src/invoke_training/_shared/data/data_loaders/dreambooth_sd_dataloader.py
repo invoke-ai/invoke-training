@@ -23,7 +23,7 @@ from invoke_training._shared.data.transforms.drop_field_transform import DropFie
 from invoke_training._shared.data.transforms.load_cache_transform import LoadCacheTransform
 from invoke_training._shared.data.transforms.sd_image_transform import SDImageTransform
 from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
-from invoke_training.config.shared.data.data_loader_config import DreamboothSDDataLoaderConfig
+from invoke_training.config.data.data_loader_config import DreamboothSDDataLoaderConfig
 
 
 def build_dreambooth_sd_dataloader(

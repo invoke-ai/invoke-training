@@ -1,7 +1,7 @@
 from typing import Literal, Optional
 
-from invoke_training.config.shared.config_base_model import ConfigBaseModel
-from invoke_training.config.shared.data.dataset_config import (
+from invoke_training.config.config_base_model import ConfigBaseModel
+from invoke_training.config.data.dataset_config import (
     ImageCaptionDatasetConfig,
     ImageDirDatasetConfig,
 )
@@ -30,12 +30,12 @@ class AspectRatioBucketConfig(ConfigBaseModel):
     """
     end_dim: int
     """See explanation under
-    [`start_dim`][invoke_training.config.shared.data.data_loader_config.AspectRatioBucketConfig.start_dim].
+    [`start_dim`][invoke_training.config.data.data_loader_config.AspectRatioBucketConfig.start_dim].
     """
 
     divisible_by: int
     """See explanation under
-    [`start_dim`][invoke_training.config.shared.data.data_loader_config.AspectRatioBucketConfig.start_dim].
+    [`start_dim`][invoke_training.config.data.data_loader_config.AspectRatioBucketConfig.start_dim].
     """
 
 

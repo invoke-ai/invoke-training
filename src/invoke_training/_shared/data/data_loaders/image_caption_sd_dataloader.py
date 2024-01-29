@@ -17,11 +17,11 @@ from invoke_training._shared.data.transforms.load_cache_transform import LoadCac
 from invoke_training._shared.data.transforms.sd_image_transform import SDImageTransform
 from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training._shared.data.utils.aspect_ratio_bucket_manager import AspectRatioBucketManager
-from invoke_training.config.shared.data.data_loader_config import (
+from invoke_training.config.data.data_loader_config import (
     AspectRatioBucketConfig,
     ImageCaptionSDDataLoaderConfig,
 )
-from invoke_training.config.shared.data.dataset_config import (
+from invoke_training.config.data.dataset_config import (
     HFDirImageCaptionDatasetConfig,
     HFHubImageCaptionDatasetConfig,
 )

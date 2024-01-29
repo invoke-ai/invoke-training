@@ -1,9 +1,9 @@
 from typing import Literal
 
-from invoke_training.config.pipelines.base_pipeline_config import BasePipelineConfig
-from invoke_training.config.shared.common_training_config_mixin import CommonTrainingConfigMixin
-from invoke_training.config.shared.data.data_loader_config import TextualInversionSDDataLoaderConfig
-from invoke_training.config.shared.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
+from invoke_training.config.base_pipeline_config import BasePipelineConfig
+from invoke_training.config.common_training_config_mixin import CommonTrainingConfigMixin
+from invoke_training.config.data.data_loader_config import TextualInversionSDDataLoaderConfig
+from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
 
 
 class SdxlLoraAndTextualInversionConfig(BasePipelineConfig, CommonTrainingConfigMixin):
@@ -188,7 +188,7 @@ class SdxlLoraAndTextualInversionConfig(BasePipelineConfig, CommonTrainingConfig
     """The data configuration.
 
     See
-    [`TextualInversionSDDataLoaderConfig`][invoke_training.config.shared.data.data_loader_config.TextualInversionSDDataLoaderConfig]
+    [`TextualInversionSDDataLoaderConfig`][invoke_training.config.data.data_loader_config.TextualInversionSDDataLoaderConfig]
     for details.
     """
 

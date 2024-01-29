@@ -1,7 +1,7 @@
 import torch
 from prodigyopt import Prodigy
 
-from invoke_training.config.shared.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
+from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
 
 
 def initialize_optimizer(

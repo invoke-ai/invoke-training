@@ -1,6 +1,6 @@
 import typing
 
-from invoke_training.config.shared.config_base_model import ConfigBaseModel
+from invoke_training.config.config_base_model import ConfigBaseModel
 
 
 class AdamOptimizerConfig(ConfigBaseModel):

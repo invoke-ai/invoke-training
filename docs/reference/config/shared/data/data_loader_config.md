@@ -1,1 +1,1 @@
-::: invoke_training.config.shared.data.data_loader_config
+::: invoke_training.config.data.data_loader_config

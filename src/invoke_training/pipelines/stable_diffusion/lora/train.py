@@ -41,7 +41,7 @@ from invoke_training._shared.stable_diffusion.min_snr_weighting import compute_s
 from invoke_training._shared.stable_diffusion.model_loading_utils import load_models_sd
 from invoke_training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sd
-from invoke_training.config.shared.data.data_loader_config import (
+from invoke_training.config.data.data_loader_config import (
     DreamboothSDDataLoaderConfig,
     ImageCaptionSDDataLoaderConfig,
 )
