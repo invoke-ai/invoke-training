@@ -5,18 +5,10 @@
     options:
       members:
       - type
-      - seed
-      - output
-      - optimizer
-      - data_loader
-      - model
 
+<!-- Note that we always hide "model_config", as it should not be set by the user. -->
 ::: invoke_training.pipelines.stable_diffusion.textual_inversion.config.SdTextualInversionConfig
     options:
       filters:
+      - "!^model_config"
       - "!^type"
-      - "!^seed"
-      - "!^output"
-      - "!^optimizer"
-      - "!^data_loader"
-      - "!^model"

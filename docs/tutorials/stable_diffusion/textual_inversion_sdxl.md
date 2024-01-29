@@ -24,7 +24,7 @@ Below is the training configuration that we'll use for this tutorial.
 
 Raw config file: [configs/textual_inversion_sdxl_gnome_1x24gb_example.yaml](https://github.com/invoke-ai/invoke-training/blob/main/configs/textual_inversion_sdxl_gnome_1x24gb_example.yaml).
 
-Full config reference docs: [Textual Inversion SDXL Config](../../reference/config/pipelines/textual_inversion_sdxl_config.md)
+Full config reference docs: [Textual Inversion SDXL Config](../../reference/config/pipelines/sdxl_textual_inversion.md)
 
 ```yaml title="textual_inversion_sdxl_gnome_1x24gb_example.yaml"
 --8<-- "configs/textual_inversion_sdxl_gnome_1x24gb_example.yaml"
