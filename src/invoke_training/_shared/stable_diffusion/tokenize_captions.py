@@ -1,7 +1,7 @@
 import torch
 from transformers import CLIPTokenizer
 
-from invoke_training.training._shared.stable_diffusion.textual_inversion import expand_placeholders_in_caption
+from invoke_training._shared.stable_diffusion.textual_inversion import expand_placeholders_in_caption
 
 
 def tokenize_captions(tokenizer: CLIPTokenizer, captions: list[str]) -> torch.Tensor:

@@ -4,7 +4,7 @@ import pytest
 import torch
 from transformers import CLIPTextModel, CLIPTokenizer
 
-from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_models_sd, load_models_sdxl
+from invoke_training._shared.stable_diffusion.model_loading_utils import load_models_sd, load_models_sdxl
 
 from .ti_embedding_checkpoint_fixture import sdv1_embedding_path, sdxl_embedding_path  # noqa: F401
 

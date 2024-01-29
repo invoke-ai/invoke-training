@@ -2,8 +2,8 @@ from contextlib import nullcontext
 
 import pytest
 
-from invoke_training.training._shared.data.utils.aspect_ratio_bucket_manager import AspectRatioBucketManager
-from invoke_training.training._shared.data.utils.resolution import Resolution
+from invoke_training._shared.data.utils.aspect_ratio_bucket_manager import AspectRatioBucketManager
+from invoke_training._shared.data.utils.resolution import Resolution
 
 
 @pytest.mark.parametrize(

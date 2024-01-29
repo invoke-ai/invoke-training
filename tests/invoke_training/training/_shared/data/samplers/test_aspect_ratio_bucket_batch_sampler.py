@@ -1,8 +1,8 @@
-from invoke_training.training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
+from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
     AspectRatioBucketBatchSampler,
 )
-from invoke_training.training._shared.data.utils.aspect_ratio_bucket_manager import AspectRatioBucketManager
-from invoke_training.training._shared.data.utils.resolution import Resolution
+from invoke_training._shared.data.utils.aspect_ratio_bucket_manager import AspectRatioBucketManager
+from invoke_training._shared.data.utils.resolution import Resolution
 
 
 def assert_shuffled_samples_match(samples_1, samples_2):

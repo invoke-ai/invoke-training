@@ -2,13 +2,13 @@ import math
 
 import torch
 
+from invoke_training._shared.data.data_loaders.image_caption_sd_dataloader import (
+    build_image_caption_sd_dataloader,
+)
 from invoke_training.config.shared.data.data_loader_config import (
     ImageCaptionSDDataLoaderConfig,
 )
 from invoke_training.config.shared.data.dataset_config import HFHubImageCaptionDatasetConfig
-from invoke_training.training._shared.data.data_loaders.image_caption_sd_dataloader import (
-    build_image_caption_sd_dataloader,
-)
 
 
 def test_build_image_caption_sd_dataloader():

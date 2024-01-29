@@ -15,8 +15,8 @@ from diffusers import (
 )
 from transformers import CLIPTextModel, CLIPTokenizer
 
+from invoke_training._shared.data.utils.resolution import Resolution
 from invoke_training.config.pipelines.finetune_lora_config import FinetuneLoRASDConfig, FinetuneLoRASDXLConfig
-from invoke_training.training._shared.data.utils.resolution import Resolution
 
 
 def generate_validation_images_sd(

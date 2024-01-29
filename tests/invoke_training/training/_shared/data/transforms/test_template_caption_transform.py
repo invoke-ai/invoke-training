@@ -1,6 +1,6 @@
 import pytest
 
-from invoke_training.training._shared.data.transforms.template_caption_transform import (
+from invoke_training._shared.data.transforms.template_caption_transform import (
     TemplateCaptionTransform,
 )
 

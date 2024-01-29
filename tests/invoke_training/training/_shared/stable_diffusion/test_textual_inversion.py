@@ -3,8 +3,8 @@ from pathlib import Path
 import pytest
 import torch
 
-from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_models_sd
-from invoke_training.training._shared.stable_diffusion.textual_inversion import (
+from invoke_training._shared.stable_diffusion.model_loading_utils import load_models_sd
+from invoke_training._shared.stable_diffusion.textual_inversion import (
     _expand_placeholder_token,
     initialize_placeholder_tokens_from_initial_embedding,
     initialize_placeholder_tokens_from_initial_phrase,

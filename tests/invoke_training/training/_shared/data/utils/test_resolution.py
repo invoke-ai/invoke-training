@@ -1,6 +1,6 @@
 import pytest
 
-from invoke_training.training._shared.data.utils.resolution import Resolution
+from invoke_training._shared.data.utils.resolution import Resolution
 
 
 @pytest.mark.parametrize(

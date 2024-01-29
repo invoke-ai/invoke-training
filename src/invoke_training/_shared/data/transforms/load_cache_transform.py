@@ -1,6 +1,6 @@
 import typing
 
-from invoke_training.training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
+from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 
 
 class LoadCacheTransform:

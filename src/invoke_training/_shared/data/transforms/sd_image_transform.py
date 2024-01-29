@@ -5,8 +5,8 @@ from PIL.Image import Image
 from torchvision import transforms
 from torchvision.transforms.functional import crop
 
-from invoke_training.training._shared.data.utils.aspect_ratio_bucket_manager import AspectRatioBucketManager, Resolution
-from invoke_training.training._shared.data.utils.resize import resize_to_cover
+from invoke_training._shared.data.utils.aspect_ratio_bucket_manager import AspectRatioBucketManager, Resolution
+from invoke_training._shared.data.utils.resize import resize_to_cover
 
 
 class SDImageTransform:

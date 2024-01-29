@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from invoke_training.training._shared.data.utils.resize import resize_to_cover
-from invoke_training.training._shared.data.utils.resolution import Resolution
+from invoke_training._shared.data.utils.resize import resize_to_cover
+from invoke_training._shared.data.utils.resolution import Resolution
 
 
 @pytest.mark.parametrize(

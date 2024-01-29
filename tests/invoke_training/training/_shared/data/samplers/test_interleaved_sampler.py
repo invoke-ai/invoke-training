@@ -1,4 +1,4 @@
-from invoke_training.training._shared.data.samplers.interleaved_sampler import InterleavedSampler
+from invoke_training._shared.data.samplers.interleaved_sampler import InterleavedSampler
 
 
 def test_interleaved_sampler():

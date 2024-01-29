@@ -1,10 +1,10 @@
 import torch
 
-from invoke_training.config.shared.data.data_loader_config import TextualInversionSDDataLoaderConfig
-from invoke_training.config.shared.data.dataset_config import HFHubImageCaptionDatasetConfig, ImageDirDatasetConfig
-from invoke_training.training._shared.data.data_loaders.textual_inversion_sd_dataloader import (
+from invoke_training._shared.data.data_loaders.textual_inversion_sd_dataloader import (
     build_textual_inversion_sd_dataloader,
 )
+from invoke_training.config.shared.data.data_loader_config import TextualInversionSDDataLoaderConfig
+from invoke_training.config.shared.data.dataset_config import HFHubImageCaptionDatasetConfig, ImageDirDatasetConfig
 
 from ..image_dir_fixture import image_dir  # noqa: F401
 

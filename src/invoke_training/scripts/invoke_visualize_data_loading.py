@@ -10,17 +10,17 @@ from PIL import Image
 from pydantic import TypeAdapter
 from torch.utils.data import DataLoader
 
-from invoke_training.config.pipelines.pipeline_config import PipelineConfig
-from invoke_training.training._shared.data.data_loaders.dreambooth_sd_dataloader import build_dreambooth_sd_dataloader
-from invoke_training.training._shared.data.data_loaders.image_caption_sd_dataloader import (
+from invoke_training._shared.data.data_loaders.dreambooth_sd_dataloader import build_dreambooth_sd_dataloader
+from invoke_training._shared.data.data_loaders.image_caption_sd_dataloader import (
     build_image_caption_sd_dataloader,
 )
-from invoke_training.training._shared.data.data_loaders.image_pair_preference_sd_dataloader import (
+from invoke_training._shared.data.data_loaders.image_pair_preference_sd_dataloader import (
     build_image_pair_preference_sd_dataloader,
 )
-from invoke_training.training._shared.data.data_loaders.textual_inversion_sd_dataloader import (
+from invoke_training._shared.data.data_loaders.textual_inversion_sd_dataloader import (
     build_textual_inversion_sd_dataloader,
 )
+from invoke_training.config.pipelines.pipeline_config import PipelineConfig
 
 
 def save_image(torch_image: torch.Tensor, out_path: Path):

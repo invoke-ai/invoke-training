@@ -1,4 +1,4 @@
-from invoke_training.training._shared.data.transforms.caption_prefix_transform import CaptionPrefixTransform
+from invoke_training._shared.data.transforms.caption_prefix_transform import CaptionPrefixTransform
 
 
 def test_caption_prefix_transform():

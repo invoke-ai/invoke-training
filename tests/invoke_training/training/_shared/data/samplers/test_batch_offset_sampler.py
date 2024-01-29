@@ -1,6 +1,6 @@
 from torch.utils.data.sampler import BatchSampler, SequentialSampler
 
-from invoke_training.training._shared.data.samplers.batch_offset_sampler import BatchOffsetSampler
+from invoke_training._shared.data.samplers.batch_offset_sampler import BatchOffsetSampler
 
 
 def test_batch_offset_sampler():

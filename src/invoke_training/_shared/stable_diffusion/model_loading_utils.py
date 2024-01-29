@@ -11,7 +11,7 @@ from diffusers import (
 )
 from transformers import CLIPTextModel, CLIPTokenizer
 
-from invoke_training.training._shared.checkpoints.serialization import load_state_dict
+from invoke_training._shared.checkpoints.serialization import load_state_dict
 
 
 class PipelineVersionEnum(Enum):

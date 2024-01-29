@@ -6,10 +6,10 @@ import PIL
 import pytest
 from PIL import Image
 
-from invoke_training.training._shared.data.datasets.hf_image_caption_dataset import (
+from invoke_training._shared.data.datasets.hf_image_caption_dataset import (
     HFImageCaptionDataset,
 )
-from invoke_training.training._shared.data.utils.resolution import Resolution
+from invoke_training._shared.data.utils.resolution import Resolution
 
 ################################################
 # Tests for HFImageCaptionDataset.from_dir(...)

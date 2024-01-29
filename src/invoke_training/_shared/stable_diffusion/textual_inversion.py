@@ -2,7 +2,7 @@ import torch
 from accelerate import Accelerator
 from transformers import CLIPTextModel, CLIPTokenizer, PreTrainedTokenizer
 
-from invoke_training.training._shared.checkpoints.serialization import load_state_dict
+from invoke_training._shared.checkpoints.serialization import load_state_dict
 
 
 def _expand_placeholder_token(placeholder_token: str, num_vectors: int = 1) -> list[str]:

@@ -1,6 +1,6 @@
 import PIL.Image
 
-from invoke_training.training._shared.data.datasets.image_pair_preference_dataset import ImagePairPreferenceDataset
+from invoke_training._shared.data.datasets.image_pair_preference_dataset import ImagePairPreferenceDataset
 
 from ..image_dir_fixture import image_pair_preference_dir  # noqa: F401
 

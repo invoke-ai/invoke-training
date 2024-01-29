@@ -1,12 +1,12 @@
 from datasets import VerificationMode
 
+from invoke_training._shared.data.datasets.hf_image_caption_dataset import HFImageCaptionDataset
+from invoke_training._shared.data.datasets.hf_image_pair_preference_dataset import HFImagePairPreferenceDataset
 from invoke_training.config._experimental.dpo.config import HFHubImagePairPreferenceDatasetConfig
 from invoke_training.config.shared.data.dataset_config import (
     HFDirImageCaptionDatasetConfig,
     HFHubImageCaptionDatasetConfig,
 )
-from invoke_training.training._shared.data.datasets.hf_image_caption_dataset import HFImageCaptionDataset
-from invoke_training.training._shared.data.datasets.hf_image_pair_preference_dataset import HFImagePairPreferenceDataset
 
 
 def build_hf_hub_image_caption_dataset(config: HFHubImageCaptionDatasetConfig) -> HFImageCaptionDataset:

@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from invoke_training.training._shared.checkpoints.serialization import save_state_dict
+from invoke_training._shared.checkpoints.serialization import save_state_dict
 
 
 @pytest.fixture(scope="session")

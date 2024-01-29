@@ -1,6 +1,6 @@
 from torch.utils.data.sampler import SequentialSampler
 
-from invoke_training.training._shared.data.samplers.offset_sampler import OffsetSampler
+from invoke_training._shared.data.samplers.offset_sampler import OffsetSampler
 
 
 def test_offset_sampler():

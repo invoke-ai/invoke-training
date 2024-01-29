@@ -1,4 +1,4 @@
-from invoke_training.training._shared.data.transforms.concat_fields_transform import ConcatFieldsTransform
+from invoke_training._shared.data.transforms.concat_fields_transform import ConcatFieldsTransform
 
 
 def test_caption_prefix_transform():

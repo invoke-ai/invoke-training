@@ -1,10 +1,10 @@
 import torch
 
-from invoke_training.config.shared.data.data_loader_config import AspectRatioBucketConfig, DreamboothSDDataLoaderConfig
-from invoke_training.config.shared.data.dataset_config import ImageDirDatasetConfig
-from invoke_training.training._shared.data.data_loaders.dreambooth_sd_dataloader import (
+from invoke_training._shared.data.data_loaders.dreambooth_sd_dataloader import (
     build_dreambooth_sd_dataloader,
 )
+from invoke_training.config.shared.data.data_loader_config import AspectRatioBucketConfig, DreamboothSDDataLoaderConfig
+from invoke_training.config.shared.data.dataset_config import ImageDirDatasetConfig
 
 from ..image_dir_fixture import image_dir  # noqa: F401
 
