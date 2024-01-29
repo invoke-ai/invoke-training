@@ -8,7 +8,7 @@
 # purposes.
 type: SDXL_LORA
 seed: 1
-base_output_dir: output/finetune_lora_sdxl_pokemon/
+base_output_dir: output/sdxl_lora_pokemon/
 
 optimizer:
   optimizer_type: Prodigy

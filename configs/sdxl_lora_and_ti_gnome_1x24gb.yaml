@@ -4,7 +4,7 @@
 
 type: SDXL_LORA_AND_TEXTUAL_INVERSION
 seed: 1
-base_output_dir: output/lora_and_ti_sdxl_bruce_the_gnome
+base_output_dir: output/sdxl_lora_and_ti_bruce_the_gnome
 
 optimizer:
   optimizer_type: AdamW

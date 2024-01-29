@@ -4,7 +4,7 @@
 
 type: SD_TEXTUAL_INVERSION
 seed: 1
-base_output_dir: output/ti_sd_bruce_the_gnome
+base_output_dir: output/sd_ti_bruce_the_gnome
 
 optimizer:
   optimizer_type: AdamW

@@ -9,7 +9,7 @@
 
 type: SD_LORA
 seed: 1
-base_output_dir: output/finetune_lora_sd_pokemon/
+base_output_dir: output/sd_lora_pokemon/
 
 optimizer:
   optimizer_type: Prodigy

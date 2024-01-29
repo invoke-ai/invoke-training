@@ -24,7 +24,7 @@ data_loader:
 
 # General
 model: runwayml/stable-diffusion-v1-5
-initial_lora: output/finetune_lora_sd_pokemon/1704824279.2765746/checkpoint_epoch-00000003
+initial_lora: output/sd_lora_pokemon/1704824279.2765746/checkpoint_epoch-00000003
 gradient_accumulation_steps: 2
 mixed_precision: fp16
 xformers: False

@@ -57,15 +57,15 @@ a drawing of a snail with big eyes
 # You will have to change the path timestamps in this example command.
 # TODO(ryand): This manual conversion shouldn't be necessary.
 python src/invoke_training/scripts/convert_sd_lora_to_kohya_format.py \
-  --src-ckpt-dir output/finetune_lora_sd_pokemon/1704824279.2765746/checkpoint_epoch-00000003/ \
-  --dst-ckpt-file output/finetune_lora_sd_pokemon/1704824279.2765746/checkpoint_epoch-00000003_kohya.safetensors
+  --src-ckpt-dir output/sd_lora_pokemon/1704824279.2765746/checkpoint_epoch-00000003/ \
+  --dst-ckpt-file output/sd_lora_pokemon/1704824279.2765746/checkpoint_epoch-00000003_kohya.safetensors
 
 # Generate 2 pairs of images for each prompt.
 invoke-generate-images \
   -o output/pokemon_pairs \
   -m runwayml/stable-diffusion-v1-5 \
   -v fp16 \
-  -l output/finetune_lora_sd_pokemon/1704824279.2765746/checkpoint_epoch-00000003_kohya.safetensors \
+  -l output/sd_lora_pokemon/1704824279.2765746/checkpoint_epoch-00000003_kohya.safetensors \
   --sd-version SD \
   --prompt-file path/to/prompts.txt \
   --set-size 2 \
