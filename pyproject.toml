@@ -49,6 +49,7 @@ dependencies = [
 
 [project.scripts]
 "invoke-train" = "invoke_training.scripts.invoke_train:main"
+"invoke-train-ui" = "invoke_training.scripts.invoke_train_ui:main"
 "invoke-generate-images" = "invoke_training.scripts.invoke_generate_images:main"
 "invoke-visualize-data-loading" = "invoke_training.scripts.invoke_visualize_data_loading:main"
 
