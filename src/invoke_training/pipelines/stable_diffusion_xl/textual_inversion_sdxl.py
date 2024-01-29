@@ -15,6 +15,7 @@ from transformers import CLIPPreTrainedModel, CLIPTextModel, CLIPTokenizer, PreT
 
 from invoke_training.config.pipelines.finetune_lora_and_ti_config import FinetuneLoraAndTiSdxlConfig
 from invoke_training.config.pipelines.textual_inversion_config import TextualInversionSDXLConfig
+from invoke_training.pipelines.stable_diffusion_xl.finetune_lora_sdxl import cache_vae_outputs, train_forward
 from invoke_training.training._shared.accelerator.accelerator_utils import (
     get_mixed_precision_dtype,
     initialize_accelerator,
@@ -34,7 +35,6 @@ from invoke_training.training._shared.stable_diffusion.textual_inversion import 
     restore_original_embeddings,
 )
 from invoke_training.training._shared.stable_diffusion.validation import generate_validation_images_sdxl
-from invoke_training.training.pipelines.stable_diffusion_xl.finetune_lora_sdxl import cache_vae_outputs, train_forward
 
 
 def _save_ti_embeddings(

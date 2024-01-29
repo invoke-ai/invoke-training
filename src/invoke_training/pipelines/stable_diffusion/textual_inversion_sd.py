@@ -13,6 +13,7 @@ from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer, PreTrainedTokenizer
 
 from invoke_training.config.pipelines.textual_inversion_config import TextualInversionSDConfig
+from invoke_training.pipelines.stable_diffusion.finetune_lora_sd import cache_vae_outputs, train_forward
 from invoke_training.training._shared.accelerator.accelerator_utils import (
     get_mixed_precision_dtype,
     initialize_accelerator,
@@ -33,7 +34,6 @@ from invoke_training.training._shared.stable_diffusion.textual_inversion import 
     restore_original_embeddings,
 )
 from invoke_training.training._shared.stable_diffusion.validation import generate_validation_images_sd
-from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import cache_vae_outputs, train_forward
 
 
 def _save_ti_embeddings(

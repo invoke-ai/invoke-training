@@ -19,6 +19,7 @@ from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 
 from invoke_training.config._experimental.dpo.config import DirectPreferenceOptimizationLoRASDConfig
+from invoke_training.pipelines.stable_diffusion.finetune_lora_sd import cache_text_encoder_outputs
 from invoke_training.training._shared.accelerator.accelerator_utils import (
     get_mixed_precision_dtype,
     initialize_accelerator,
@@ -39,7 +40,6 @@ from invoke_training.training._shared.stable_diffusion.lora_checkpoint_utils imp
 from invoke_training.training._shared.stable_diffusion.model_loading_utils import load_models_sd
 from invoke_training.training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training.training._shared.stable_diffusion.validation import generate_validation_images_sd
-from invoke_training.training.pipelines.stable_diffusion.finetune_lora_sd import cache_text_encoder_outputs
 
 
 def _save_sd_lora_checkpoint(
