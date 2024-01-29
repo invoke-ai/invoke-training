@@ -1,12 +1,11 @@
 from typing import Literal
 
 from invoke_training.config.base_pipeline_config import BasePipelineConfig
-from invoke_training.config.common_training_config_mixin import CommonTrainingConfigMixin
 from invoke_training.config.data.data_loader_config import TextualInversionSDDataLoaderConfig
 from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
 
 
-class SdxlTextualInversionConfig(BasePipelineConfig, CommonTrainingConfigMixin):
+class SdxlTextualInversionConfig(BasePipelineConfig):
     type: Literal["TEXTUAL_INVERSION_SDXL"] = "TEXTUAL_INVERSION_SDXL"
     """Must be `TEXTUAL_INVERSION_SDXL`. This is what differentiates training pipeline types.
     """

@@ -3,7 +3,6 @@ from typing import Annotated, Literal, Union
 from pydantic import Field
 
 from invoke_training.config.base_pipeline_config import BasePipelineConfig
-from invoke_training.config.common_training_config_mixin import CommonTrainingConfigMixin
 from invoke_training.config.config_base_model import ConfigBaseModel
 from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
 
@@ -48,7 +47,7 @@ class ImagePairPreferenceSDDataLoaderConfig(ConfigBaseModel):
     """
 
 
-class SdDirectPreferenceOptimizationLoraConfig(BasePipelineConfig, CommonTrainingConfigMixin):
+class SdDirectPreferenceOptimizationLoraConfig(BasePipelineConfig):
     type: Literal["DIRECT_PREFERENCE_OPTIMIZATION_LORA_SD"] = "DIRECT_PREFERENCE_OPTIMIZATION_LORA_SD"
 
     model: str = "runwayml/stable-diffusion-v1-5"

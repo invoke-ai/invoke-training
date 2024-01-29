@@ -1,12 +1,11 @@
 from typing import Literal
 
 from invoke_training.config.base_pipeline_config import BasePipelineConfig
-from invoke_training.config.common_training_config_mixin import CommonTrainingConfigMixin
 from invoke_training.config.data.data_loader_config import TextualInversionSDDataLoaderConfig
 from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
 
 
-class SdxlLoraAndTextualInversionConfig(BasePipelineConfig, CommonTrainingConfigMixin):
+class SdxlLoraAndTextualInversionConfig(BasePipelineConfig):
     type: Literal["FINETUNE_LORA_AND_TI_SDXL"] = "FINETUNE_LORA_AND_TI_SDXL"
 
     model: str = "runwayml/stable-diffusion-v1-5"
