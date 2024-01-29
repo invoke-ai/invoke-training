@@ -7,7 +7,7 @@
 # This config file has been optimized for 2 primary goals:
 #   - Minimize VRAM usage so that an SDXL model can be trained with only 8GB of VRAM.
 #   - Achieve reasonable results *quickly* (<15mins) for demo purposes.
-type: FINETUNE_LORA_SDXL
+type: SDXL_LORA
 seed: 1
 base_output_dir: output/finetune_lora_sdxl_pokemon/  
 

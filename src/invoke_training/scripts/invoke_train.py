@@ -43,17 +43,17 @@ def main():
     pipeline_adapter: TypeAdapter[PipelineConfig] = TypeAdapter(PipelineConfig)
     train_config = pipeline_adapter.validate_python(cfg)
 
-    if train_config.type == "FINETUNE_LORA_SD":
+    if train_config.type == "SD_LORA":
         run_finetune_lora_sd(train_config)
-    elif train_config.type == "FINETUNE_LORA_SDXL":
+    elif train_config.type == "SDXL_LORA":
         run_finetune_lora_sdxl(train_config)
-    elif train_config.type == "TEXTUAL_INVERSION_SD":
+    elif train_config.type == "SD_TEXTUAL_INVERSION":
         run_textual_inversion_sd(train_config)
-    elif train_config.type == "TEXTUAL_INVERSION_SDXL":
+    elif train_config.type == "SDXL_TEXTUAL_INVERSION":
         run_textual_inversion_sdxl(train_config)
-    elif train_config.type == "FINETUNE_LORA_AND_TI_SDXL":
+    elif train_config.type == "SDXL_LORA_AND_TEXTUAL_INVERSION":
         run_finetune_lora_and_ti_sdxl(train_config)
-    elif train_config.type == "DIRECT_PREFERENCE_OPTIMIZATION_LORA_SD":
+    elif train_config.type == "SD_DIRECT_PREFERENCE_OPTIMIZATION_LORA":
         print(f"Running EXPERIMENTAL pipeline: '{train_config.type}'.")
         run_diffusion_dpo_sd(train_config)
     else:

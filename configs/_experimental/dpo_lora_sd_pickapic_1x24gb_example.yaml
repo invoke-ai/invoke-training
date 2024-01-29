@@ -5,7 +5,7 @@
 #
 # Training takes ~2 hours on a single RTX 4090.
 
-type: DIRECT_PREFERENCE_OPTIMIZATION_LORA_SD
+type: SD_DIRECT_PREFERENCE_OPTIMIZATION_LORA
 seed: 1
 base_output_dir: output/dpo
 

@@ -48,7 +48,7 @@ class ImagePairPreferenceSDDataLoaderConfig(ConfigBaseModel):
 
 
 class SdDirectPreferenceOptimizationLoraConfig(BasePipelineConfig):
-    type: Literal["DIRECT_PREFERENCE_OPTIMIZATION_LORA_SD"] = "DIRECT_PREFERENCE_OPTIMIZATION_LORA_SD"
+    type: Literal["SD_DIRECT_PREFERENCE_OPTIMIZATION_LORA"] = "SD_DIRECT_PREFERENCE_OPTIMIZATION_LORA"
 
     model: str = "runwayml/stable-diffusion-v1-5"
     """Name or path of the base model to train. Can be in diffusers format, or a single stable diffusion checkpoint

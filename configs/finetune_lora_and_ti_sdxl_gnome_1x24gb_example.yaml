@@ -2,7 +2,7 @@
 # Base model:    SDXL 1.0
 # GPU:           1 x 24GB
 
-type: FINETUNE_LORA_AND_TI_SDXL
+type: SDXL_LORA_AND_TEXTUAL_INVERSION
 seed: 1
 base_output_dir: output/lora_and_ti_sdxl_bruce_the_gnome
 

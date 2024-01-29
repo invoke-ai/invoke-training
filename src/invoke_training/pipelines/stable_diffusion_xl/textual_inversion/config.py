@@ -6,8 +6,8 @@ from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfi
 
 
 class SdxlTextualInversionConfig(BasePipelineConfig):
-    type: Literal["TEXTUAL_INVERSION_SDXL"] = "TEXTUAL_INVERSION_SDXL"
-    """Must be `TEXTUAL_INVERSION_SDXL`. This is what differentiates training pipeline types.
+    type: Literal["SDXL_TEXTUAL_INVERSION"] = "SDXL_TEXTUAL_INVERSION"
+    """Must be `SDXL_TEXTUAL_INVERSION`. This is what differentiates training pipeline types.
     """
 
     model: str

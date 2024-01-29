@@ -6,7 +6,7 @@
 # Notes:
 # This config file has been optimized for the primary goal of achieving reasonable results *quickly* (<15mins) for demo
 # purposes.
-type: FINETUNE_LORA_SDXL
+type: SDXL_LORA
 seed: 1
 base_output_dir: output/finetune_lora_sdxl_pokemon/
 

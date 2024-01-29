@@ -11,7 +11,7 @@ from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfi
 
 
 class SdLoraConfig(BasePipelineConfig):
-    type: Literal["FINETUNE_LORA_SD"] = "FINETUNE_LORA_SD"
+    type: Literal["SD_LORA"] = "SD_LORA"
 
     model: str = "runwayml/stable-diffusion-v1-5"
     """Name or path of the base model to train. Can be in diffusers format, or a single stable diffusion checkpoint

@@ -7,7 +7,7 @@
 # This config file has been optimized for the primary goal of achieving reasonable results *quickly* (<15mins) for demo
 # purposes.
 
-type: FINETUNE_LORA_SD
+type: SD_LORA
 seed: 1
 base_output_dir: output/finetune_lora_sd_pokemon/
 

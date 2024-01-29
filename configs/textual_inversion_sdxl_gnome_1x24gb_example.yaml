@@ -2,7 +2,7 @@
 # Base model:    SDXL
 # GPU:           1 x 24GB
 
-type: TEXTUAL_INVERSION_SDXL
+type: SDXL_TEXTUAL_INVERSION
 seed: 1
 base_output_dir: output/ti_sdxl_bruce_the_gnome
 

@@ -2,7 +2,7 @@
 # Base model:    SD 1.5
 # GPU:           1 x 24GB
 
-type: DIRECT_PREFERENCE_OPTIMIZATION_LORA_SD
+type: SD_DIRECT_PREFERENCE_OPTIMIZATION_LORA
 seed: 1
 base_output_dir: output/dpo
 
