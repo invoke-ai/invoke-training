@@ -4,7 +4,7 @@ from pathlib import Path
 import yaml
 from pydantic import TypeAdapter
 
-from invoke_training.config.pipelines.pipeline_config import PipelineConfig
+from invoke_training.config.pipeline_config import PipelineConfig
 
 
 def test_pipeline_config():

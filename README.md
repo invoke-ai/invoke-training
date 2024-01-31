@@ -35,7 +35,7 @@ pip install -e ".[test]" --extra-index-url https://download.pytorch.org/whl/cu12
 
 Training is configured with type-checked YAML files, and launched with a single command:
 ```bash
-invoke-train --cfg-file configs/finetune_lora_sd_pokemon_1x8gb_example.yaml
+invoke-train --cfg-file configs/sd_lora_pokemon_1x8gb.yaml
 ```
 
 Training progress can be monitored with [Tensorboard](https://www.tensorflow.org/tensorboard):

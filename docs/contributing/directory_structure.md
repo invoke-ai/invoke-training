@@ -6,26 +6,17 @@ invoke-training/
 ├── docs/
 ├── src/
 │   └── invoke-training/
-│       ├── scripts/ # Main entrypoints.
-│       ├── core/ # Shared across multiple pipelines. High unit test coverage. Likely to be imported by downstream libraries.
-│       │   ├── lora
+│       ├── _shared/ # Utilities shared across multiple pipelines. Hight unit test coverage.
+│       ├── config/ # Config structures shared by multiple pipelines.
+│       ├── pipelines/ # Each pipeline is isolated in it's own directory with a train.py and config.py.
+│       │   ├── stable_diffusion/
+│       │   │   ├── lora/
+│       │   │   │   ├── config.py
+│       │   │   │   └── train.py
+│       │   │   └── textual_inversion/
+│       │   │       └── ...
+│       │   ├── stable_diffusion_xl/
 │       │   └── ...
-│       ├── training/
-│       │   ├── shared/
-│       │   │   ├── checkpoints # Shared utils related to checkpointing.
-│       │   │   ├── data # Data handling that is shared across multiple pipelines
-│       │   │   ├── stable_diffusion # Things that are shared by many SD pipelines.
-│       │   │   ├── stable_diffusion_lora # Things that are shared by multiple SD LoRA pipelines.
-│       │   │   └── ...
-│       │   └── pipelines/
-│       │       ├── stable_diffusion/
-│       │       │   ├── train_lora.py
-│       │       │   ├── train_textual_inversion.py
-│       │       │   └── train_pivotal_tuning.py
-│       │       └── stable_diffusion_xl/
-│       │           ├── train_lora.py
-│       │           ├── train_textual_inversion.py
-│       │           └── train_pivotal_tuning.py
-│       └── config/ # Mirrors training/ structure.
+│       └── scripts/ # Main entrypoints.
 └── tests/ # Mirrors src/ directory.
 ```

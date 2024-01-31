@@ -31,11 +31,11 @@ nav:
 - Tutorials:
   - tutorials/index.md
   - Stable Diffusion:
-    - tutorials/stable_diffusion/finetune_lora_sd.md
-    - tutorials/stable_diffusion/dreambooth_lora_sd.md
+    # - tutorials/stable_diffusion/finetune_lora_sd.md
+    # - tutorials/stable_diffusion/dreambooth_lora_sd.md
     - tutorials/stable_diffusion/textual_inversion_sdxl.md
-    - tutorials/stable_diffusion/pivotal_tuning_sd.md
-    - tutorials/stable_diffusion/the_chosen_one_sd.md
+    # - tutorials/stable_diffusion/pivotal_tuning_sd.md
+    # - tutorials/stable_diffusion/the_chosen_one_sd.md
     - tutorials/stable_diffusion/dpo_lora_sd.md
 - Concepts:
   - concepts/index.md
@@ -43,10 +43,11 @@ nav:
 - YAML Config Reference:
   - reference/config/index.md
   - pipelines:
-    - Finetune LoRA SD Config: reference/config/pipelines/finetune_lora_sd_config.md
-    - Finetune LoRA SDXL Config: reference/config/pipelines/finetune_lora_sdxl_config.md
-    - Textual Inversion SD Config: reference/config/pipelines/textual_inversion_sd_config.md
-    - Textual Inversion SDXL Config: reference/config/pipelines/textual_inversion_sdxl_config.md
+    - SD LoRA Config: reference/config/pipelines/sd_lora.md
+    - SD Textual Inversion Config: reference/config/pipelines/sd_textual_inversion.md
+    - SDXL LoRA Config: reference/config/pipelines/sdxl_lora.md
+    - SDXL Textual Inversion Config: reference/config/pipelines/sdxl_textual_inversion.md
+    - SDXL LoRA and Textual Inversion Config: reference/config/pipelines/sdxl_lora_and_textual_inversion.md
   - shared:
     - data_loader_config: reference/config/shared/data/data_loader_config.md
     - dataset_config: reference/config/shared/data/dataset_config.md

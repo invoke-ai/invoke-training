@@ -3,7 +3,7 @@ from pathlib import Path
 
 import torch
 
-from invoke_training.training._shared.stable_diffusion.lora_checkpoint_utils import (
+from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
     convert_sd_peft_checkpoint_to_kohya_state_dict,
 )
 
