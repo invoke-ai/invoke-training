@@ -1,13 +1,15 @@
 import gradio as gr
 
+from invoke_training.ui.sd_lora_tab import (
+    SdLoraTrainingTab,
+)
+
 
 def launch_app():
-    with gr.Blocks() as demo:
-        gr.Markdown(
-            """
-        # Hello World!
-        This is a demo of the Blocks interface. Blocks is a way to create a Gradio interface
-        """
-        )
+    with gr.Blocks() as app:
+        sd_lora_tab = SdLoraTrainingTab()
 
-    demo.launch()
+        # On app load, reset the configs for all tabs.
+        app.load(sd_lora_tab.on_reset_config_defaults_button_click, inputs=[], outputs=sd_lora_tab.get_all_configs())
+
+    app.launch()
