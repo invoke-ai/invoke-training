@@ -75,3 +75,30 @@ class BasePipelineConfigGroup:
             self.validate_every_n_steps_or_epochs_dropdown: validate_every_n_steps_or_epochs_dropdown,
             self.validate_every_n_steps_or_epochs: validate_every_n_steps_or_epochs,
         }
+
+    def update_config(self, config: BasePipelineConfig, ui_data: dict):
+        config.seed = ui_data.pop(self.seed)
+        config.base_output_dir = ui_data.pop(self.base_output_dir)
+
+        if ui_data.pop(self.max_train_steps_or_epochs_dropdown) == "max_train_epochs":
+            config.max_train_epochs = ui_data.pop(self.max_train_steps_or_epochs)
+            config.max_train_steps = None
+        else:
+            config.max_train_steps = ui_data.pop(self.max_train_steps_or_epochs)
+            config.max_train_epochs = None
+
+        if ui_data.pop(self.save_every_n_steps_or_epochs_dropdown) == "save_every_n_epochs":
+            config.save_every_n_epochs = ui_data.pop(self.save_every_n_steps_or_epochs)
+            config.save_every_n_steps = None
+        else:
+            config.save_every_n_steps = ui_data.pop(self.save_every_n_steps_or_epochs)
+            config.save_every_n_epochs = None
+
+        if ui_data.pop(self.validate_every_n_steps_or_epochs_dropdown) == "validate_every_n_epochs":
+            config.validate_every_n_epochs = ui_data.pop(self.validate_every_n_steps_or_epochs)
+            config.validate_every_n_steps = None
+        else:
+            config.validate_every_n_steps = ui_data.pop(self.validate_every_n_steps_or_epochs)
+            config.validate_every_n_epochs = None
+
+        return config

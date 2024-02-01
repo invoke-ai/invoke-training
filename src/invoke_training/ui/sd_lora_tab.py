@@ -79,7 +79,7 @@ class SdLoraTrainingTab:
 
             gr.Markdown("## Config Output")
             generate_config_button = gr.Button(value="Generate Config")
-            config_yaml = gr.Code(label="Config YAML", language="yaml", interactive=False)
+            self._config_yaml = gr.Code(label="Config YAML", language="yaml", interactive=False)
 
             gr.Markdown("## Run Training")
             gr.Markdown("'Start Training' starts the training process in the background. Check the terminal for logs.")
@@ -89,7 +89,9 @@ class SdLoraTrainingTab:
             self.on_reset_config_defaults_button_click, inputs=[], outputs=self.get_all_configs()
         )
         generate_config_button.click(
-            self.on_generate_config_button_click, inputs=set(self.get_all_configs()), outputs=[config_yaml]
+            self.on_generate_config_button_click,
+            inputs=set(self.get_all_configs()),
+            outputs=self.get_all_configs() + [self._config_yaml],
         )
         run_training_button.click(self.on_run_training_button_click, inputs=[], outputs=[])
 
@@ -97,19 +99,68 @@ class SdLoraTrainingTab:
     def get_default_config_file_path(cls):
         return get_config_dir_path() / "sd_lora_pokemon_1x8gb.yaml"
 
+    #################
+    # Event Handlers
+    #################
     def on_reset_config_defaults_button_click(self):
         print("Resetting config defaults for SD LoRA.")
         self._current_config = self._default_config.model_copy(deep=True)
         return self.update_config_state(self._current_config)
 
-    def on_generate_config_button_click(self, data):
+    def on_generate_config_button_click(self, data: dict):
         print("Generating config for SD LoRA.")
-        self._current_config.model = data[self.model]
 
-        return yaml.safe_dump(self._current_config.model_dump(), default_flow_style=False, sort_keys=False)
+        self._current_config.model = data.pop(self.model)
+        self._current_config.hf_variant = data.pop(self.hf_variant)
+        self._current_config.train_unet = data.pop(self.train_unet)
+        self._current_config.unet_learning_rate = data.pop(self.unet_learning_rate)
+        self._current_config.train_text_encoder = data.pop(self.train_text_encoder)
+        self._current_config.text_encoder_learning_rate = data.pop(self.text_encoder_learning_rate)
+        self._current_config.lr_scheduler = data.pop(self.lr_scheduler)
+        self._current_config.lr_warmup_steps = data.pop(self.lr_warmup_steps)
+        self._current_config.max_grad_norm = data.pop(self.max_grad_norm)
+        self._current_config.train_batch_size = data.pop(self.train_batch_size)
+        self._current_config.cache_text_encoder_outputs = data.pop(self.cache_text_encoder_outputs)
+        self._current_config.cache_vae_outputs = data.pop(self.cache_vae_outputs)
+        self._current_config.enable_cpu_offload_during_validation = data.pop(self.enable_cpu_offload_during_validation)
+        self._current_config.gradient_accumulation_steps = data.pop(self.gradient_accumulation_steps)
+        self._current_config.mixed_precision = data.pop(self.mixed_precision)
+        self._current_config.gradient_checkpointing = data.pop(self.gradient_checkpointing)
+        self._current_config.lora_rank_dim = data.pop(self.lora_rank_dim)
+        self._current_config.num_validation_images_per_prompt = data.pop(self.num_validation_images_per_prompt)
+
+        validation_prompts: list[str] = data.pop(self.validation_prompts).split("\n")
+        validation_prompts = [x.strip() for x in validation_prompts if x.strip() != ""]
+        self._current_config.validation_prompts = validation_prompts
+
+        self.base_pipeline_config_group.update_config(self._current_config, data)
+        self._current_config.optimizer = self.optimizer_config_group.update_config(data)
+
+        # We pop items from data as we use them so that we can sanity check that all the input data was transferred to
+        # the config.
+        assert len(data) == 0
+
+        # Roundtrip to make sure that the config is valid.
+        self._current_config = SdLoraConfig.model_validate(self._current_config.model_dump())
+
+        # Update the UI to reflect the new state of the config (in case some values were rounded or otherwise modified
+        # in the process).
+        update_dict = self.update_config_state(self._current_config)
+        update_dict.update(
+            {
+                self._config_yaml: yaml.safe_dump(
+                    self._current_config.model_dump(), default_flow_style=False, sort_keys=False
+                )
+            }
+        )
+        return update_dict
 
     def on_run_training_button_click(self):
         self._run_training_cb(self._current_config)
+
+    ########
+    # Utils
+    ########
 
     def get_all_configs(self):
         # HACK(ryand): This is a hack to avoid having to write a bunch of boilerplate code. We are assuming that all
