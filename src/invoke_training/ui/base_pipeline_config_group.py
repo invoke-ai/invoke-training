@@ -37,7 +37,7 @@ class BasePipelineConfigGroup:
             self.validate_every_n_steps_or_epochs,
         ]
 
-    def update_config_state(self, config: BasePipelineConfig):
+    def update_ui_with_config_data(self, config: BasePipelineConfig):
         if config.max_train_epochs is not None:
             max_train_steps_or_epochs_dropdown = "max_train_epochs"
             max_train_steps_or_epochs = config.max_train_epochs
@@ -76,7 +76,7 @@ class BasePipelineConfigGroup:
             self.validate_every_n_steps_or_epochs: validate_every_n_steps_or_epochs,
         }
 
-    def update_config(self, config: BasePipelineConfig, ui_data: dict):
+    def update_config_with_ui_data(self, config: BasePipelineConfig, ui_data: dict):
         config.seed = ui_data.pop(self.seed)
         config.base_output_dir = ui_data.pop(self.base_output_dir)
 

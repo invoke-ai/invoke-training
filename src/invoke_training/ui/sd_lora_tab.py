@@ -105,47 +105,18 @@ class SdLoraTrainingTab:
     def on_reset_config_defaults_button_click(self):
         print("Resetting config defaults for SD LoRA.")
         self._current_config = self._default_config.model_copy(deep=True)
-        return self.update_config_state(self._current_config)
+        return self.update_ui_with_config_data(self._current_config)
 
     def on_generate_config_button_click(self, data: dict):
         print("Generating config for SD LoRA.")
-
-        self._current_config.model = data.pop(self.model)
-        self._current_config.hf_variant = data.pop(self.hf_variant)
-        self._current_config.train_unet = data.pop(self.train_unet)
-        self._current_config.unet_learning_rate = data.pop(self.unet_learning_rate)
-        self._current_config.train_text_encoder = data.pop(self.train_text_encoder)
-        self._current_config.text_encoder_learning_rate = data.pop(self.text_encoder_learning_rate)
-        self._current_config.lr_scheduler = data.pop(self.lr_scheduler)
-        self._current_config.lr_warmup_steps = data.pop(self.lr_warmup_steps)
-        self._current_config.max_grad_norm = data.pop(self.max_grad_norm)
-        self._current_config.train_batch_size = data.pop(self.train_batch_size)
-        self._current_config.cache_text_encoder_outputs = data.pop(self.cache_text_encoder_outputs)
-        self._current_config.cache_vae_outputs = data.pop(self.cache_vae_outputs)
-        self._current_config.enable_cpu_offload_during_validation = data.pop(self.enable_cpu_offload_during_validation)
-        self._current_config.gradient_accumulation_steps = data.pop(self.gradient_accumulation_steps)
-        self._current_config.mixed_precision = data.pop(self.mixed_precision)
-        self._current_config.gradient_checkpointing = data.pop(self.gradient_checkpointing)
-        self._current_config.lora_rank_dim = data.pop(self.lora_rank_dim)
-        self._current_config.num_validation_images_per_prompt = data.pop(self.num_validation_images_per_prompt)
-
-        validation_prompts: list[str] = data.pop(self.validation_prompts).split("\n")
-        validation_prompts = [x.strip() for x in validation_prompts if x.strip() != ""]
-        self._current_config.validation_prompts = validation_prompts
-
-        self.base_pipeline_config_group.update_config(self._current_config, data)
-        self._current_config.optimizer = self.optimizer_config_group.update_config(data)
-
-        # We pop items from data as we use them so that we can sanity check that all the input data was transferred to
-        # the config.
-        assert len(data) == 0
+        self.update_config_with_ui_data(data)
 
         # Roundtrip to make sure that the config is valid.
         self._current_config = SdLoraConfig.model_validate(self._current_config.model_dump())
 
         # Update the UI to reflect the new state of the config (in case some values were rounded or otherwise modified
         # in the process).
-        update_dict = self.update_config_state(self._current_config)
+        update_dict = self.update_ui_with_config_data(self._current_config)
         update_dict.update(
             {
                 self._config_yaml: yaml.safe_dump(
@@ -175,7 +146,40 @@ class SdLoraTrainingTab:
             + self.optimizer_config_group.get_all_configs()
         )
 
-    def update_config_state(self, config: SdLoraConfig):
+    def update_config_with_ui_data(self, ui_data: dict):
+        self._current_config.model = ui_data.pop(self.model)
+        self._current_config.hf_variant = ui_data.pop(self.hf_variant)
+        self._current_config.train_unet = ui_data.pop(self.train_unet)
+        self._current_config.unet_learning_rate = ui_data.pop(self.unet_learning_rate)
+        self._current_config.train_text_encoder = ui_data.pop(self.train_text_encoder)
+        self._current_config.text_encoder_learning_rate = ui_data.pop(self.text_encoder_learning_rate)
+        self._current_config.lr_scheduler = ui_data.pop(self.lr_scheduler)
+        self._current_config.lr_warmup_steps = ui_data.pop(self.lr_warmup_steps)
+        self._current_config.max_grad_norm = ui_data.pop(self.max_grad_norm)
+        self._current_config.train_batch_size = ui_data.pop(self.train_batch_size)
+        self._current_config.cache_text_encoder_outputs = ui_data.pop(self.cache_text_encoder_outputs)
+        self._current_config.cache_vae_outputs = ui_data.pop(self.cache_vae_outputs)
+        self._current_config.enable_cpu_offload_during_validation = ui_data.pop(
+            self.enable_cpu_offload_during_validation
+        )
+        self._current_config.gradient_accumulation_steps = ui_data.pop(self.gradient_accumulation_steps)
+        self._current_config.mixed_precision = ui_data.pop(self.mixed_precision)
+        self._current_config.gradient_checkpointing = ui_data.pop(self.gradient_checkpointing)
+        self._current_config.lora_rank_dim = ui_data.pop(self.lora_rank_dim)
+        self._current_config.num_validation_images_per_prompt = ui_data.pop(self.num_validation_images_per_prompt)
+
+        validation_prompts: list[str] = ui_data.pop(self.validation_prompts).split("\n")
+        validation_prompts = [x.strip() for x in validation_prompts if x.strip() != ""]
+        self._current_config.validation_prompts = validation_prompts
+
+        self.base_pipeline_config_group.update_config_with_ui_data(self._current_config, ui_data)
+        self._current_config.optimizer = self.optimizer_config_group.update_config_with_ui_data(ui_data)
+
+        # We pop items from ui_data as we use them so that we can sanity check that all the input data was transferred
+        # to the config.
+        assert len(ui_data) == 0
+
+    def update_ui_with_config_data(self, config: SdLoraConfig):
         unet_learning_rate = config.unet_learning_rate
         if unet_learning_rate is None:
             config.optimizer.learning_rate
@@ -207,8 +211,8 @@ class SdLoraTrainingTab:
             self.validation_prompts: validation_prompts,
             self.num_validation_images_per_prompt: config.num_validation_images_per_prompt,
         }
-        update_dict.update(self.base_pipeline_config_group.update_config_state(config))
-        update_dict.update(self.optimizer_config_group.update_config_state(config.optimizer))
+        update_dict.update(self.base_pipeline_config_group.update_ui_with_config_data(config))
+        update_dict.update(self.optimizer_config_group.update_ui_with_config_data(config.optimizer))
 
         # Sanity check to prevent errors in all of the boilerplate code.
         assert set(update_dict.keys()) == set(self.get_all_configs())

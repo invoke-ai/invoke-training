@@ -15,13 +15,13 @@ class OptimizerConfigGroup:
             self.learning_rate,
         ]
 
-    def update_config_state(self, config: AdamOptimizerConfig | ProdigyOptimizerConfig):
+    def update_ui_with_config_data(self, config: AdamOptimizerConfig | ProdigyOptimizerConfig):
         return {
             self.optimizer: config.optimizer_type,
             self.learning_rate: config.learning_rate,
         }
 
-    def update_config(self, ui_data: dict) -> AdamOptimizerConfig | ProdigyOptimizerConfig:
+    def update_config_with_ui_data(self, ui_data: dict) -> AdamOptimizerConfig | ProdigyOptimizerConfig:
         optimizer_type = ui_data.pop(self.optimizer)
         learning_rate = ui_data.pop(self.learning_rate)
         if optimizer_type == "AdamW":
