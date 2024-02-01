@@ -1,6 +1,9 @@
+import typing
+
 import gradio as gr
 import yaml
 
+from invoke_training.config.pipeline_config import PipelineConfig
 from invoke_training.pipelines.stable_diffusion.lora.config import SdLoraConfig
 from invoke_training.ui.base_pipeline_config_group import BasePipelineConfigGroup
 from invoke_training.ui.optimizer_config_group import OptimizerConfigGroup
@@ -12,10 +15,18 @@ def get_default_config_file_path():
 
 
 class SdLoraTrainingTab:
-    def __init__(self):
+    def __init__(self, run_training_cb: typing.Callable[[PipelineConfig], None]):
+        """The SD_LORA tab for the training app.
+
+        Args:
+            run_training_cb (typing.Callable[[PipelineConfig], None]): A callback function to run the training process.
+        """
+        self._run_training_cb = run_training_cb
+
         default_config = load_config_from_yaml(get_default_config_file_path())
         assert isinstance(default_config, SdLoraConfig)
         self._default_config = default_config
+        self._current_config = default_config.model_copy(deep=True)
 
         with gr.Tab(label="SD LoRA"):
             gr.Markdown("# SD LoRA Training Config")
@@ -39,25 +50,31 @@ class SdLoraTrainingTab:
             generate_config_button = gr.Button(value="Generate Config")
             config_yaml = gr.Code(label="Config YAML", language="yaml", interactive=False)
 
+            gr.Markdown("## Run Training")
+            gr.Markdown("'Start Training' starts the training process in the background. Check the terminal for logs.")
+            run_training_button = gr.Button(value="Start Training")
+
         reset_config_defaults_button.click(
             self.on_reset_config_defaults_button_click, inputs=[], outputs=self.get_all_configs()
         )
         generate_config_button.click(
             self.on_generate_config_button_click, inputs=set(self.get_all_configs()), outputs=[config_yaml]
         )
+        run_training_button.click(self.on_run_training_button_click, inputs=[], outputs=[])
 
     def on_reset_config_defaults_button_click(self):
         print("Resetting config defaults for SD LoRA.")
-        return self.update_config_state(self._default_config)
+        self._current_config = self._default_config.model_copy(deep=True)
+        return self.update_config_state(self._current_config)
 
     def on_generate_config_button_click(self, data):
         print("Generating config for SD LoRA.")
-        # TODO: Don't start from the default config. Or, maybe we should but give users the ability to upload their own
-        # default config.
-        config = self._default_config.model_copy(deep=True)
-        config.model = data[self.model]
+        self._current_config.model = data[self.model]
 
-        return yaml.safe_dump(config.model_dump(), default_flow_style=False, sort_keys=False)
+        return yaml.safe_dump(self._current_config.model_dump(), default_flow_style=False, sort_keys=False)
+
+    def on_run_training_button_click(self):
+        self._run_training_cb(self._current_config)
 
     def get_all_configs(self):
         return (

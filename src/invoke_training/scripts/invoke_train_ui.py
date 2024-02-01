@@ -1,8 +1,9 @@
-from invoke_training.ui.app import launch_app
+from invoke_training.ui.app import App
 
 
 def main():
-    launch_app()
+    app = App()
+    app.launch()
 
 
 if __name__ == "__main__":
