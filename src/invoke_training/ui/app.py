@@ -20,7 +20,9 @@ class App:
 
             # On app load, reset the configs for all tabs.
             app.load(
-                sd_lora_tab.on_reset_config_defaults_button_click, inputs=[], outputs=sd_lora_tab.get_all_configs()
+                sd_lora_tab.on_reset_config_defaults_button_click,
+                inputs=[],
+                outputs=sd_lora_tab.sd_lora_config_group.get_ui_components(),
             )
 
         self._app = app
