@@ -10,10 +10,6 @@ from invoke_training.ui.optimizer_config_group import OptimizerConfigGroup
 from invoke_training.ui.utils import get_config_dir_path, load_config_from_yaml
 
 
-def get_default_config_file_path():
-    return get_config_dir_path() / "sd_lora_pokemon_1x8gb.yaml"
-
-
 class SdLoraTrainingTab:
     def __init__(self, run_training_cb: typing.Callable[[PipelineConfig], None]):
         """The SD_LORA tab for the training app.
@@ -23,7 +19,7 @@ class SdLoraTrainingTab:
         """
         self._run_training_cb = run_training_cb
 
-        default_config = load_config_from_yaml(get_default_config_file_path())
+        default_config = load_config_from_yaml(self.get_default_config_file_path())
         assert isinstance(default_config, SdLoraConfig)
         self._default_config = default_config
         self._current_config = default_config.model_copy(deep=True)
@@ -61,6 +57,10 @@ class SdLoraTrainingTab:
             self.on_generate_config_button_click, inputs=set(self.get_all_configs()), outputs=[config_yaml]
         )
         run_training_button.click(self.on_run_training_button_click, inputs=[], outputs=[])
+
+    @classmethod
+    def get_default_config_file_path(cls):
+        return get_config_dir_path() / "sd_lora_pokemon_1x8gb.yaml"
 
     def on_reset_config_defaults_button_click(self):
         print("Resetting config defaults for SD LoRA.")
