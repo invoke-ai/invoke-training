@@ -3,10 +3,12 @@ import typing
 import gradio as gr
 
 from invoke_training.pipelines.stable_diffusion.lora.config import SdLoraConfig
-from invoke_training.ui.base_pipeline_config_group import BasePipelineConfigGroup
-from invoke_training.ui.image_caption_sd_data_loader_config_group import ImageCaptionSDDataLoaderConfigGroup
-from invoke_training.ui.optimizer_config_group import OptimizerConfigGroup
-from invoke_training.ui.ui_config_element import UIConfigElement
+from invoke_training.ui.config_groups.base_pipeline_config_group import BasePipelineConfigGroup
+from invoke_training.ui.config_groups.image_caption_sd_data_loader_config_group import (
+    ImageCaptionSDDataLoaderConfigGroup,
+)
+from invoke_training.ui.config_groups.optimizer_config_group import OptimizerConfigGroup
+from invoke_training.ui.config_groups.ui_config_element import UIConfigElement
 from invoke_training.ui.utils import get_typing_literal_options
 
 

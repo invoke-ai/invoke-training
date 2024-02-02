@@ -5,7 +5,7 @@ import yaml
 
 from invoke_training.config.pipeline_config import PipelineConfig
 from invoke_training.pipelines.stable_diffusion.lora.config import SdLoraConfig
-from invoke_training.ui.sd_lora_config_group import SdLoraConfigGroup
+from invoke_training.ui.config_groups.sd_lora_config_group import SdLoraConfigGroup
 from invoke_training.ui.utils import get_config_dir_path, load_config_from_yaml
 
 

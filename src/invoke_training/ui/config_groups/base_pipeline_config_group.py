@@ -4,7 +4,7 @@ import gradio as gr
 
 from invoke_training.config.base_pipeline_config import BasePipelineConfig
 from invoke_training.config.pipeline_config import PipelineConfig
-from invoke_training.ui.ui_config_element import UIConfigElement
+from invoke_training.ui.config_groups.ui_config_element import UIConfigElement
 
 
 class BasePipelineConfigGroup(UIConfigElement):

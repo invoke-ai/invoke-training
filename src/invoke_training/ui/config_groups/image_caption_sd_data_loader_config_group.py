@@ -3,7 +3,7 @@ from typing import Any
 import gradio as gr
 
 from invoke_training.config.data.data_loader_config import ImageCaptionSDDataLoaderConfig
-from invoke_training.ui.ui_config_element import UIConfigElement
+from invoke_training.ui.config_groups.ui_config_element import UIConfigElement
 
 
 class ImageCaptionSDDataLoaderConfigGroup(UIConfigElement):
