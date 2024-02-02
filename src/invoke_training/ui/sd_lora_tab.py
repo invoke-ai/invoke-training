@@ -37,12 +37,18 @@ class SdLoraTrainingTab:
             generate_config_button = gr.Button(value="Generate Config")
             self._config_yaml = gr.Code(label="Config YAML", language="yaml", interactive=False)
 
-            gr.Markdown("## Run Training")
-            gr.Markdown("'Start Training' starts the training process in the background. Check the terminal for logs.")
+            gr.Markdown(
+                """# Run Training
+
+                'Start Training' starts the training process in the background. Check the terminal for logs.
+
+                **Warning: Click 'Generate Config' to capture all of the latest changes before starting training.**
+                """
+            )
             run_training_button = gr.Button(value="Start Training")
 
             gr.Markdown(
-                """## Visualize Results
+                """# Visualize Results
 
             Once you've started training, you can see the results by launching tensorboard with the following
             command:
