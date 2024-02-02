@@ -7,7 +7,10 @@ import gradio as gr
 import yaml
 
 from invoke_training.config.pipeline_config import PipelineConfig
-from invoke_training.ui.sd_lora_tab import SdLoraTrainingTab
+from invoke_training.pipelines.stable_diffusion.lora.config import SdLoraConfig
+from invoke_training.ui.config_groups.sd_lora_config_group import SdLoraConfigGroup
+from invoke_training.ui.pipeline_tab import PipelineTab
+from invoke_training.ui.utils import get_config_dir_path
 
 
 class App:
@@ -16,7 +19,15 @@ class App:
         self._training_process = None
 
         with gr.Blocks(analytics_enabled=False) as app:
-            SdLoraTrainingTab(run_training_cb=self._run_training, app=app)
+            with gr.Tab(label="SD LoRA"):
+                PipelineTab(
+                    name="SD LoRA",
+                    default_config_file_path=str(get_config_dir_path() / "sd_lora_pokemon_1x8gb.yaml"),
+                    pipeline_config_cls=SdLoraConfig,
+                    config_group_cls=SdLoraConfigGroup,
+                    run_training_cb=self._run_training,
+                    app=app,
+                )
 
         self._app = app
 
