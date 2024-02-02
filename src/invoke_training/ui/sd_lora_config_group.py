@@ -4,6 +4,7 @@ import gradio as gr
 
 from invoke_training.pipelines.stable_diffusion.lora.config import SdLoraConfig
 from invoke_training.ui.base_pipeline_config_group import BasePipelineConfigGroup
+from invoke_training.ui.image_caption_sd_data_loader_config_group import ImageCaptionSDDataLoaderConfigGroup
 from invoke_training.ui.optimizer_config_group import OptimizerConfigGroup
 from invoke_training.ui.ui_config_element import UIConfigElement
 from invoke_training.ui.utils import get_typing_literal_options
@@ -17,6 +18,10 @@ class SdLoraConfigGroup(UIConfigElement):
         self.model = gr.Textbox(label="model", info="TODO: Add more info", type="text", interactive=True)
         self.hf_variant = gr.Textbox(label="hf_variant", type="text", interactive=True)
         self.base_pipeline_config_group = BasePipelineConfigGroup()
+
+        gr.Markdown("## Data Configs")
+        # TODO: This element should support all data loader types.
+        self.image_caption_sd_data_loader_config_group = ImageCaptionSDDataLoaderConfigGroup()
 
         gr.Markdown("## Optimization Configs")
         self.optimizer_config_group = OptimizerConfigGroup()
@@ -82,6 +87,9 @@ class SdLoraConfigGroup(UIConfigElement):
             self.validation_prompts: "\n".join(config.validation_prompts),
             self.num_validation_images_per_prompt: config.num_validation_images_per_prompt,
         }
+        update_dict.update(
+            self.image_caption_sd_data_loader_config_group.update_ui_components_with_config_data(config.data_loader)
+        )
         update_dict.update(self.base_pipeline_config_group.update_ui_components_with_config_data(config))
         update_dict.update(self.optimizer_config_group.update_ui_components_with_config_data(config.optimizer))
 
@@ -118,6 +126,9 @@ class SdLoraConfigGroup(UIConfigElement):
         validation_prompts = [x.strip() for x in validation_prompts if x.strip() != ""]
         new_config.validation_prompts = validation_prompts
 
+        new_config.data_loader = self.image_caption_sd_data_loader_config_group.update_config_with_ui_component_data(
+            new_config.data_loader, ui_data
+        )
         new_config = self.base_pipeline_config_group.update_config_with_ui_component_data(new_config, ui_data)
         new_config.optimizer = self.optimizer_config_group.update_config_with_ui_component_data(
             new_config.optimizer, ui_data
