@@ -2,7 +2,7 @@ import typing
 
 import gradio as gr
 
-from invoke_training.pipelines.stable_diffusion.lora.config import SdLoraConfig
+from invoke_training.pipelines.stable_diffusion_xl.lora.config import SdxlLoraConfig
 from invoke_training.ui.config_groups.base_pipeline_config_group import BasePipelineConfigGroup
 from invoke_training.ui.config_groups.image_caption_sd_data_loader_config_group import (
     ImageCaptionSDDataLoaderConfigGroup,
@@ -12,7 +12,7 @@ from invoke_training.ui.config_groups.ui_config_element import UIConfigElement
 from invoke_training.ui.utils import get_typing_literal_options
 
 
-class SdLoraConfigGroup(UIConfigElement):
+class SdxlLoraConfigGroup(UIConfigElement):
     def __init__(self):
         """The SD_LORA configs."""
 
@@ -20,6 +20,7 @@ class SdLoraConfigGroup(UIConfigElement):
         with gr.Group():
             self.model = gr.Textbox(label="model", info="TODO: Add more info", type="text", interactive=True)
             self.hf_variant = gr.Textbox(label="hf_variant", type="text", interactive=True)
+            self.vae_model = gr.Textbox(label="vae_model", type="text", interactive=True)
             self.base_pipeline_config_group = BasePipelineConfigGroup()
             self.max_checkpoints = gr.Number(label="max_checkpoints", interactive=True, precision=0)
 
@@ -43,7 +44,7 @@ class SdLoraConfigGroup(UIConfigElement):
             )
             self.mixed_precision = gr.Dropdown(
                 label="mixed_precision",
-                choices=get_typing_literal_options(SdLoraConfig, "mixed_precision"),
+                choices=get_typing_literal_options(SdxlLoraConfig, "mixed_precision"),
                 interactive=True,
             )
 
@@ -58,7 +59,7 @@ class SdLoraConfigGroup(UIConfigElement):
             with gr.Row():
                 self.lr_scheduler = gr.Dropdown(
                     label="lr_scheduler",
-                    choices=get_typing_literal_options(SdLoraConfig, "lr_scheduler"),
+                    choices=get_typing_literal_options(SdxlLoraConfig, "lr_scheduler"),
                     interactive=True,
                 )
                 self.lr_warmup_steps = gr.Number(label="lr_warmup_steps", interactive=True)
@@ -76,10 +77,13 @@ class SdLoraConfigGroup(UIConfigElement):
                 label="num_validation_images_per_prompt", precision=0, interactive=True
             )
 
-    def update_ui_components_with_config_data(self, config: SdLoraConfig) -> dict[gr.components.Component, typing.Any]:
+    def update_ui_components_with_config_data(
+        self, config: SdxlLoraConfig
+    ) -> dict[gr.components.Component, typing.Any]:
         update_dict = {
             self.model: config.model,
             self.hf_variant: config.hf_variant,
+            self.vae_model: config.vae_model,
             self.max_checkpoints: config.max_checkpoints,
             self.train_unet: config.train_unet,
             self.unet_learning_rate: config.unet_learning_rate,
@@ -112,12 +116,13 @@ class SdLoraConfigGroup(UIConfigElement):
         return update_dict
 
     def update_config_with_ui_component_data(
-        self, orig_config: SdLoraConfig, ui_data: dict[gr.components.Component, typing.Any]
-    ) -> SdLoraConfig:
+        self, orig_config: SdxlLoraConfig, ui_data: dict[gr.components.Component, typing.Any]
+    ) -> SdxlLoraConfig:
         new_config = orig_config.model_copy(deep=True)
 
         new_config.model = ui_data.pop(self.model)
         new_config.hf_variant = ui_data.pop(self.hf_variant) or None
+        new_config.vae_model = ui_data.pop(self.vae_model) or None
         new_config.max_checkpoints = ui_data.pop(self.max_checkpoints)
         new_config.train_unet = ui_data.pop(self.train_unet)
         new_config.unet_learning_rate = ui_data.pop(self.unet_learning_rate)

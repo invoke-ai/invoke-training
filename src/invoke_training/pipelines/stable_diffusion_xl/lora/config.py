@@ -159,7 +159,7 @@ class SdxlLoraConfig(BasePipelineConfig):
         Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig], Field(discriminator="type")
     ]
 
-    vae_model: str = None
+    vae_model: str | None = None
     """The name of the Hugging Face Hub VAE model to train against. This will override the VAE bundled with the base
     model (specified by the `model` parameter). This config option is provided for SDXL models, because SDXL shipped
     with a VAE that produces NaNs in fp16 mode, so it is common to replace this VAE with a fixed version.
