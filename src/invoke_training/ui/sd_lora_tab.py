@@ -37,6 +37,20 @@ class SdLoraTrainingTab:
             gr.Markdown("'Start Training' starts the training process in the background. Check the terminal for logs.")
             run_training_button = gr.Button(value="Start Training")
 
+            gr.Markdown(
+                """## Visualize Results
+
+            Once you've started training, you can see the results by launching tensorboard with the following
+            command:
+
+            ```bash
+            tensorboard --logdir /path/to/output_dir
+            ```
+
+            Alternatively, you can browse the output directory directly to find model checkpoints, logs, and validation
+            images.
+            """
+            )
         reset_config_defaults_button.click(
             self.on_reset_config_defaults_button_click,
             inputs=[],
