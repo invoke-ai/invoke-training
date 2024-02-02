@@ -1,9 +1,13 @@
+from typing import Any
+
 import gradio as gr
 
 from invoke_training.config.base_pipeline_config import BasePipelineConfig
+from invoke_training.config.pipeline_config import PipelineConfig
+from invoke_training.ui.ui_config_element import UIConfigElement
 
 
-class BasePipelineConfigGroup:
+class BasePipelineConfigGroup(UIConfigElement):
     def __init__(self):
         self.seed = gr.Number(label="seed", precision=0, interactive=True)
         self.base_output_dir = gr.Textbox(label="base_output_dir", interactive=True)
@@ -25,19 +29,7 @@ class BasePipelineConfigGroup:
             )
             self.validate_every_n_steps_or_epochs = gr.Number(label="Steps or Epochs", precision=0, interactive=True)
 
-    def get_all_configs(self):
-        return [
-            self.seed,
-            self.base_output_dir,
-            self.max_train_steps_or_epochs_dropdown,
-            self.max_train_steps_or_epochs,
-            self.save_every_n_steps_or_epochs_dropdown,
-            self.save_every_n_steps_or_epochs,
-            self.validate_every_n_steps_or_epochs_dropdown,
-            self.validate_every_n_steps_or_epochs,
-        ]
-
-    def update_ui_with_config_data(self, config: BasePipelineConfig):
+    def update_ui_components_with_config_data(self, config: BasePipelineConfig) -> dict[gr.components.Component, Any]:
         if config.max_train_epochs is not None:
             max_train_steps_or_epochs_dropdown = "max_train_epochs"
             max_train_steps_or_epochs = config.max_train_epochs
@@ -76,29 +68,33 @@ class BasePipelineConfigGroup:
             self.validate_every_n_steps_or_epochs: validate_every_n_steps_or_epochs,
         }
 
-    def update_config_with_ui_data(self, config: BasePipelineConfig, ui_data: dict):
-        config.seed = ui_data.pop(self.seed)
-        config.base_output_dir = ui_data.pop(self.base_output_dir)
+    def update_config_with_ui_component_data(
+        self, orig_config: PipelineConfig, ui_data: dict[gr.components.Component, Any]
+    ) -> PipelineConfig:
+        new_config = orig_config.model_copy(deep=True)
+
+        new_config.seed = ui_data.pop(self.seed)
+        new_config.base_output_dir = ui_data.pop(self.base_output_dir)
 
         if ui_data.pop(self.max_train_steps_or_epochs_dropdown) == "max_train_epochs":
-            config.max_train_epochs = ui_data.pop(self.max_train_steps_or_epochs)
-            config.max_train_steps = None
+            new_config.max_train_epochs = ui_data.pop(self.max_train_steps_or_epochs)
+            new_config.max_train_steps = None
         else:
-            config.max_train_steps = ui_data.pop(self.max_train_steps_or_epochs)
-            config.max_train_epochs = None
+            new_config.max_train_steps = ui_data.pop(self.max_train_steps_or_epochs)
+            new_config.max_train_epochs = None
 
         if ui_data.pop(self.save_every_n_steps_or_epochs_dropdown) == "save_every_n_epochs":
-            config.save_every_n_epochs = ui_data.pop(self.save_every_n_steps_or_epochs)
-            config.save_every_n_steps = None
+            new_config.save_every_n_epochs = ui_data.pop(self.save_every_n_steps_or_epochs)
+            new_config.save_every_n_steps = None
         else:
-            config.save_every_n_steps = ui_data.pop(self.save_every_n_steps_or_epochs)
-            config.save_every_n_epochs = None
+            new_config.save_every_n_steps = ui_data.pop(self.save_every_n_steps_or_epochs)
+            new_config.save_every_n_epochs = None
 
         if ui_data.pop(self.validate_every_n_steps_or_epochs_dropdown) == "validate_every_n_epochs":
-            config.validate_every_n_epochs = ui_data.pop(self.validate_every_n_steps_or_epochs)
-            config.validate_every_n_steps = None
+            new_config.validate_every_n_epochs = ui_data.pop(self.validate_every_n_steps_or_epochs)
+            new_config.validate_every_n_steps = None
         else:
-            config.validate_every_n_steps = ui_data.pop(self.validate_every_n_steps_or_epochs)
-            config.validate_every_n_epochs = None
+            new_config.validate_every_n_steps = ui_data.pop(self.validate_every_n_steps_or_epochs)
+            new_config.validate_every_n_epochs = None
 
-        return config
+        return new_config

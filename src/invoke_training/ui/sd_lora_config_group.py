@@ -60,16 +60,6 @@ class SdLoraConfigGroup(UIConfigElement):
             label="num_validation_images_per_prompt", precision=0, interactive=True
         )
 
-    def get_ui_components(self) -> list[gr.components.Component]:
-        # TODO: This can use the default implementation from UIConfigElement once the sub-groups are fixed.
-        ui_components = [x for x in vars(self).values() if isinstance(x, gr.components.Component)]
-
-        return (
-            ui_components
-            + self.base_pipeline_config_group.get_all_configs()
-            + self.optimizer_config_group.get_ui_components()
-        )
-
     def update_ui_components_with_config_data(self, config: SdLoraConfig) -> dict[gr.components.Component, typing.Any]:
         update_dict = {
             self.model: config.model,
@@ -92,7 +82,7 @@ class SdLoraConfigGroup(UIConfigElement):
             self.validation_prompts: "\n".join(config.validation_prompts),
             self.num_validation_images_per_prompt: config.num_validation_images_per_prompt,
         }
-        update_dict.update(self.base_pipeline_config_group.update_ui_with_config_data(config))
+        update_dict.update(self.base_pipeline_config_group.update_ui_components_with_config_data(config))
         update_dict.update(self.optimizer_config_group.update_ui_components_with_config_data(config.optimizer))
 
         # Sanity check to catch if we accidentally forget to update a UI component.
@@ -128,7 +118,7 @@ class SdLoraConfigGroup(UIConfigElement):
         validation_prompts = [x.strip() for x in validation_prompts if x.strip() != ""]
         new_config.validation_prompts = validation_prompts
 
-        self.base_pipeline_config_group.update_config_with_ui_data(new_config, ui_data)
+        new_config = self.base_pipeline_config_group.update_config_with_ui_component_data(new_config, ui_data)
         new_config.optimizer = self.optimizer_config_group.update_config_with_ui_component_data(
             new_config.optimizer, ui_data
         )
