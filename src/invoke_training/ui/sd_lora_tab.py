@@ -38,12 +38,14 @@ class SdLoraTrainingTab:
             run_training_button = gr.Button(value="Start Training")
 
         reset_config_defaults_button.click(
-            self.on_reset_config_defaults_button_click, inputs=[], outputs=self.sd_lora_config_group.get_ui_components()
+            self.on_reset_config_defaults_button_click,
+            inputs=[],
+            outputs=self.sd_lora_config_group.get_ui_output_components(),
         )
         generate_config_button.click(
             self.on_generate_config_button_click,
-            inputs=set(self.sd_lora_config_group.get_ui_components()),
-            outputs=self.sd_lora_config_group.get_ui_components() + [self._config_yaml],
+            inputs=set(self.sd_lora_config_group.get_ui_input_components()),
+            outputs=self.sd_lora_config_group.get_ui_output_components() + [self._config_yaml],
         )
         run_training_button.click(self.on_run_training_button_click, inputs=[], outputs=[])
 

@@ -22,7 +22,7 @@ class App:
             app.load(
                 sd_lora_tab.on_reset_config_defaults_button_click,
                 inputs=[],
-                outputs=sd_lora_tab.sd_lora_config_group.get_ui_components(),
+                outputs=sd_lora_tab.sd_lora_config_group.get_ui_output_components(),
             )
 
         self._app = app

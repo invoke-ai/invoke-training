@@ -96,7 +96,7 @@ class SdLoraConfigGroup(UIConfigElement):
         update_dict.update(self.optimizer_config_group.update_ui_components_with_config_data(config.optimizer))
 
         # Sanity check to catch if we accidentally forget to update a UI component.
-        assert set(update_dict.keys()) == set(self.get_ui_components())
+        assert set(update_dict.keys()) == set(self.get_ui_output_components())
 
         return update_dict
 
