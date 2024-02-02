@@ -20,6 +20,7 @@ class SdLoraConfigGroup(UIConfigElement):
         self.model = gr.Textbox(label="model", info="TODO: Add more info", type="text", interactive=True)
         self.hf_variant = gr.Textbox(label="hf_variant", type="text", interactive=True)
         self.base_pipeline_config_group = BasePipelineConfigGroup()
+        self.max_checkpoints = gr.Number(label="max_checkpoints", interactive=True, precision=0)
 
         gr.Markdown("## Data Configs")
         # TODO: This element should support all data loader types.
@@ -56,8 +57,9 @@ class SdLoraConfigGroup(UIConfigElement):
         )
         self.gradient_checkpointing = gr.Checkbox(label="gradient_checkpointing", interactive=True)
 
-        gr.Markdown("## LoRA Configs")
+        gr.Markdown("## Model Configs")
         self.lora_rank_dim = gr.Number(label="lora_rank_dim", interactive=True, precision=0)
+        self.min_snr_gamma = gr.Number(label="min_snr_gamma", interactive=True)
 
         gr.Markdown("## Validation")
         self.validation_prompts = gr.Textbox(
@@ -71,6 +73,7 @@ class SdLoraConfigGroup(UIConfigElement):
         update_dict = {
             self.model: config.model,
             self.hf_variant: config.hf_variant,
+            self.max_checkpoints: config.max_checkpoints,
             self.train_unet: config.train_unet,
             self.unet_learning_rate: config.unet_learning_rate,
             self.train_text_encoder: config.train_text_encoder,
@@ -86,6 +89,7 @@ class SdLoraConfigGroup(UIConfigElement):
             self.mixed_precision: config.mixed_precision,
             self.gradient_checkpointing: config.gradient_checkpointing,
             self.lora_rank_dim: config.lora_rank_dim,
+            self.min_snr_gamma: config.min_snr_gamma,
             self.validation_prompts: "\n".join(config.validation_prompts),
             self.num_validation_images_per_prompt: config.num_validation_images_per_prompt,
         }
@@ -107,6 +111,7 @@ class SdLoraConfigGroup(UIConfigElement):
 
         new_config.model = ui_data.pop(self.model)
         new_config.hf_variant = ui_data.pop(self.hf_variant)
+        new_config.max_checkpoints = ui_data.pop(self.max_checkpoints)
         new_config.train_unet = ui_data.pop(self.train_unet)
         new_config.unet_learning_rate = ui_data.pop(self.unet_learning_rate)
         new_config.train_text_encoder = ui_data.pop(self.train_text_encoder)
@@ -122,6 +127,7 @@ class SdLoraConfigGroup(UIConfigElement):
         new_config.mixed_precision = ui_data.pop(self.mixed_precision)
         new_config.gradient_checkpointing = ui_data.pop(self.gradient_checkpointing)
         new_config.lora_rank_dim = ui_data.pop(self.lora_rank_dim)
+        new_config.min_snr_gamma = ui_data.pop(self.min_snr_gamma)
         new_config.num_validation_images_per_prompt = ui_data.pop(self.num_validation_images_per_prompt)
 
         validation_prompts: list[str] = ui_data.pop(self.validation_prompts).split("\n")
