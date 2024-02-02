@@ -17,57 +17,64 @@ class SdLoraConfigGroup(UIConfigElement):
         """The SD_LORA configs."""
 
         gr.Markdown("## Basic Configs")
-        self.model = gr.Textbox(label="model", info="TODO: Add more info", type="text", interactive=True)
-        self.hf_variant = gr.Textbox(label="hf_variant", type="text", interactive=True)
-        self.base_pipeline_config_group = BasePipelineConfigGroup()
-        self.max_checkpoints = gr.Number(label="max_checkpoints", interactive=True, precision=0)
+        with gr.Group():
+            self.model = gr.Textbox(label="model", info="TODO: Add more info", type="text", interactive=True)
+            self.hf_variant = gr.Textbox(label="hf_variant", type="text", interactive=True)
+            self.base_pipeline_config_group = BasePipelineConfigGroup()
+            self.max_checkpoints = gr.Number(label="max_checkpoints", interactive=True, precision=0)
 
         gr.Markdown("## Data Configs")
-        # TODO: This element should support all data loader types.
         self.image_caption_sd_data_loader_config_group = ImageCaptionSDDataLoaderConfigGroup()
 
-        gr.Markdown("## Optimization Configs")
+        gr.Markdown("## Optimizer Configs")
         self.optimizer_config_group = OptimizerConfigGroup()
-        with gr.Row():
-            self.train_unet = gr.Checkbox(label="train_unet", interactive=True)
-            self.unet_learning_rate = gr.Number(label="unet_learning_rate", interactive=True)
-        with gr.Row():
-            self.train_text_encoder = gr.Checkbox(label="train_text_encoder", interactive=True)
-            self.text_encoder_learning_rate = gr.Number(label="text_encoder_learning_rate", interactive=True)
-        self.lr_scheduler = gr.Dropdown(
-            label="lr_scheduler",
-            choices=get_typing_literal_options(SdLoraConfig, "lr_scheduler"),
-            interactive=True,
-        )
-        self.lr_warmup_steps = gr.Number(label="lr_warmup_steps", interactive=True)
-        self.max_grad_norm = gr.Number(label="max_grad_norm", interactive=True)
-        self.train_batch_size = gr.Number(label="train_batch_size", precision=0, interactive=True)
 
         gr.Markdown("## Speed / Memory Configs")
-        self.cache_text_encoder_outputs = gr.Checkbox(label="cache_text_encoder_outputs", interactive=True)
-        self.cache_vae_outputs = gr.Checkbox(label="cache_vae_outputs", interactive=True)
-        self.enable_cpu_offload_during_validation = gr.Checkbox(
-            label="enable_cpu_offload_during_validation", interactive=True
-        )
-        self.gradient_accumulation_steps = gr.Number(label="gradient_accumulation_steps", precision=0, interactive=True)
-        self.mixed_precision = gr.Dropdown(
-            label="mixed_precision",
-            choices=get_typing_literal_options(SdLoraConfig, "mixed_precision"),
-            interactive=True,
-        )
-        self.gradient_checkpointing = gr.Checkbox(label="gradient_checkpointing", interactive=True)
+        with gr.Group():
+            with gr.Row():
+                self.cache_text_encoder_outputs = gr.Checkbox(label="cache_text_encoder_outputs", interactive=True)
+                self.cache_vae_outputs = gr.Checkbox(label="cache_vae_outputs", interactive=True)
+                self.enable_cpu_offload_during_validation = gr.Checkbox(
+                    label="enable_cpu_offload_during_validation", interactive=True
+                )
+                self.gradient_checkpointing = gr.Checkbox(label="gradient_checkpointing", interactive=True)
+            self.gradient_accumulation_steps = gr.Number(
+                label="gradient_accumulation_steps", precision=0, interactive=True
+            )
+            self.mixed_precision = gr.Dropdown(
+                label="mixed_precision",
+                choices=get_typing_literal_options(SdLoraConfig, "mixed_precision"),
+                interactive=True,
+            )
 
-        gr.Markdown("## Model Configs")
-        self.lora_rank_dim = gr.Number(label="lora_rank_dim", interactive=True, precision=0)
-        self.min_snr_gamma = gr.Number(label="min_snr_gamma", interactive=True)
+        gr.Markdown("## General Training Configs")
+        with gr.Group():
+            with gr.Row():
+                self.train_unet = gr.Checkbox(label="train_unet", interactive=True)
+                self.unet_learning_rate = gr.Number(label="unet_learning_rate", interactive=True)
+            with gr.Row():
+                self.train_text_encoder = gr.Checkbox(label="train_text_encoder", interactive=True)
+                self.text_encoder_learning_rate = gr.Number(label="text_encoder_learning_rate", interactive=True)
+            with gr.Row():
+                self.lr_scheduler = gr.Dropdown(
+                    label="lr_scheduler",
+                    choices=get_typing_literal_options(SdLoraConfig, "lr_scheduler"),
+                    interactive=True,
+                )
+                self.lr_warmup_steps = gr.Number(label="lr_warmup_steps", interactive=True)
+            self.lora_rank_dim = gr.Number(label="lora_rank_dim", interactive=True, precision=0)
+            self.min_snr_gamma = gr.Number(label="min_snr_gamma", interactive=True)
+            self.max_grad_norm = gr.Number(label="max_grad_norm", interactive=True)
+            self.train_batch_size = gr.Number(label="train_batch_size", precision=0, interactive=True)
 
         gr.Markdown("## Validation")
-        self.validation_prompts = gr.Textbox(
-            label="validation_prompts", info="Enter one validation prompt per line.", lines=5, interactive=True
-        )
-        self.num_validation_images_per_prompt = gr.Number(
-            label="num_validation_images_per_prompt", precision=0, interactive=True
-        )
+        with gr.Group():
+            self.validation_prompts = gr.Textbox(
+                label="validation_prompts", info="Enter one validation prompt per line.", lines=5, interactive=True
+            )
+            self.num_validation_images_per_prompt = gr.Number(
+                label="num_validation_images_per_prompt", precision=0, interactive=True
+            )
 
     def update_ui_components_with_config_data(self, config: SdLoraConfig) -> dict[gr.components.Component, typing.Any]:
         update_dict = {

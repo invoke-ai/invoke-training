@@ -11,10 +11,12 @@ OptimizerConfig = AdamOptimizerConfig | ProdigyOptimizerConfig
 class AdamOptimizerConfigGroup(UIConfigElement):
     def __init__(self):
         self.learning_rate = gr.Number(label="learning_rate", interactive=True)
-        self.beta1 = gr.Number(label="beta1", interactive=True)
-        self.beta2 = gr.Number(label="beta2", interactive=True)
-        self.weight_decay = gr.Number(label="weight_decay", interactive=True)
-        self.epsilon = gr.Number(label="epsilon", interactive=True)
+        with gr.Row():
+            self.beta1 = gr.Number(label="beta1", interactive=True)
+            self.beta2 = gr.Number(label="beta2", interactive=True)
+        with gr.Row():
+            self.weight_decay = gr.Number(label="weight_decay", interactive=True)
+            self.epsilon = gr.Number(label="epsilon", interactive=True)
 
     def update_ui_components_with_config_data(self, config: AdamOptimizerConfig) -> dict[gr.components.Component, Any]:
         return {
@@ -41,10 +43,12 @@ class AdamOptimizerConfigGroup(UIConfigElement):
 
 class ProdigyOptimizerConfigGroup(UIConfigElement):
     def __init__(self):
-        self.learning_rate = gr.Number(label="learning_rate", interactive=True)
-        self.weight_decay = gr.Number(label="weight_decay", interactive=True)
-        self.use_bias_correction = gr.Checkbox(label="use_bias_correction", interactive=True)
-        self.safeguard_warmup = gr.Checkbox(label="safeguard_warmup", interactive=True)
+        with gr.Row():
+            self.learning_rate = gr.Number(label="learning_rate", interactive=True)
+            self.weight_decay = gr.Number(label="weight_decay", interactive=True)
+        with gr.Row():
+            self.use_bias_correction = gr.Checkbox(label="use_bias_correction", interactive=True)
+            self.safeguard_warmup = gr.Checkbox(label="safeguard_warmup", interactive=True)
 
     def update_ui_components_with_config_data(
         self, config: ProdigyOptimizerConfig
@@ -71,15 +75,16 @@ class ProdigyOptimizerConfigGroup(UIConfigElement):
 
 class OptimizerConfigGroup(UIConfigElement):
     def __init__(self):
-        self.optimizer_type = gr.Dropdown(label="optimizer", choices=["AdamW", "Prodigy"], interactive=True)
+        with gr.Group():
+            self.optimizer_type = gr.Dropdown(label="optimizer", choices=["AdamW", "Prodigy"], interactive=True)
 
-        with gr.Group() as adam_optimizer_config_group:
-            self.adam_optimizer_config = AdamOptimizerConfigGroup()
-        self.adam_optimizer_config_group = adam_optimizer_config_group
+            with gr.Group() as adam_optimizer_config_group:
+                self.adam_optimizer_config = AdamOptimizerConfigGroup()
+            self.adam_optimizer_config_group = adam_optimizer_config_group
 
-        with gr.Group() as prodigy_optimizer_config_group:
-            self.prodigy_optimizer_config = ProdigyOptimizerConfigGroup()
-        self.prodigy_optimizer_config_group = prodigy_optimizer_config_group
+            with gr.Group() as prodigy_optimizer_config_group:
+                self.prodigy_optimizer_config = ProdigyOptimizerConfigGroup()
+            self.prodigy_optimizer_config_group = prodigy_optimizer_config_group
 
         self.optimizer_type.change(
             self._on_optimizer_type_change,

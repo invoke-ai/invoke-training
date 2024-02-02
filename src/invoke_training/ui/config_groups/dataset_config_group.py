@@ -16,8 +16,9 @@ ALL_DATASET_TYPES = ["HF_HUB_IMAGE_CAPTION_DATASET", "HF_DIR_IMAGE_CAPTION_DATAS
 class HFHubImageCaptionDatasetConfigGroup(UIConfigElement):
     def __init__(self):
         self.dataset_name = gr.Textbox(label="dataset_name", interactive=True)
-        self.dataset_config_name = gr.Textbox(label="dataset_config_name", interactive=True)
-        self.hf_cache_dir = gr.Textbox(label="hf_cache_dir", interactive=True)
+        with gr.Row():
+            self.dataset_config_name = gr.Textbox(label="dataset_config_name", interactive=True)
+            self.hf_cache_dir = gr.Textbox(label="hf_cache_dir", interactive=True)
         # self.image_column = gr.Textbox(label="image_column", interactive=True)
         # self.caption_column = gr.Textbox(label="caption_column", interactive=True)
 
@@ -79,8 +80,9 @@ class HFDirImageCaptionDatasetConfigGroup(UIConfigElement):
 
 class ImageDirDatasetConfigGroup(UIConfigElement):
     def __init__(self):
-        self.dataset_dir = gr.Textbox(label="dataset_dir", interactive=True)
-        self.keep_in_memory = gr.Checkbox(label="keep_in_memory", interactive=True)
+        with gr.Row():
+            self.dataset_dir = gr.Textbox(label="dataset_dir", interactive=True)
+            self.keep_in_memory = gr.Checkbox(label="keep_in_memory", interactive=True)
 
     def update_ui_components_with_config_data(
         self, config: ImageDirDatasetConfig | None

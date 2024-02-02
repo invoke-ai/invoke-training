@@ -10,14 +10,21 @@ from invoke_training.ui.config_groups.ui_config_element import UIConfigElement
 class ImageCaptionSDDataLoaderConfigGroup(UIConfigElement):
     # TODO: Add aspect_ratio_buckets
     def __init__(self):
-        self.dataset = DatasetConfigGroup(
-            allowed_types=["HF_HUB_IMAGE_CAPTION_DATASET", "HF_DIR_IMAGE_CAPTION_DATASET"]
-        )
-        self.resolution = gr.Number(label="resolution", precision=0, interactive=True)
-        self.center_crop = gr.Checkbox(label="center_crop", interactive=True)
-        self.random_flip = gr.Checkbox(label="random_flip", interactive=True)
-        self.caption_prefix = gr.Textbox(label="caption_prefix", interactive=True)
-        self.dataloader_num_workers = gr.Number(label="dataloader_num_workers", precision=0, interactive=True)
+        gr.Markdown("### Data Source Configs")
+        with gr.Group():
+            self.dataset = DatasetConfigGroup(
+                allowed_types=["HF_HUB_IMAGE_CAPTION_DATASET", "HF_DIR_IMAGE_CAPTION_DATASET"]
+            )
+
+        gr.Markdown("### Data Loading Configs")
+        with gr.Group():
+            with gr.Row():
+                self.center_crop = gr.Checkbox(label="center_crop", interactive=True)
+                self.random_flip = gr.Checkbox(label="random_flip", interactive=True)
+            with gr.Row():
+                self.resolution = gr.Number(label="resolution", precision=0, interactive=True)
+                self.dataloader_num_workers = gr.Number(label="dataloader_num_workers", precision=0, interactive=True)
+            self.caption_prefix = gr.Textbox(label="caption_prefix", interactive=True)
 
     def update_ui_components_with_config_data(
         self, config: ImageCaptionSDDataLoaderConfig
