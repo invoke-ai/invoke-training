@@ -15,7 +15,7 @@ class App:
         self._config_temp_directory = tempfile.TemporaryDirectory()
         self._training_process = None
 
-        with gr.Blocks() as app:
+        with gr.Blocks(analytics_enabled=False) as app:
             SdLoraTrainingTab(run_training_cb=self._run_training, app=app)
 
         self._app = app
