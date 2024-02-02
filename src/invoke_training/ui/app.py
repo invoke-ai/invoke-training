@@ -16,14 +16,7 @@ class App:
         self._training_process = None
 
         with gr.Blocks() as app:
-            sd_lora_tab = SdLoraTrainingTab(run_training_cb=self._run_training)
-
-            # On app load, reset the configs for all tabs.
-            app.load(
-                sd_lora_tab.on_reset_config_defaults_button_click,
-                inputs=[],
-                outputs=sd_lora_tab.sd_lora_config_group.get_ui_output_components(),
-            )
+            SdLoraTrainingTab(run_training_cb=self._run_training, app=app)
 
         self._app = app
 
