@@ -15,10 +15,10 @@ ALL_DATASET_TYPES = ["HF_HUB_IMAGE_CAPTION_DATASET", "HF_DIR_IMAGE_CAPTION_DATAS
 
 class HFHubImageCaptionDatasetConfigGroup(UIConfigElement):
     def __init__(self):
-        self.dataset_name = gr.Textbox(label="dataset_name", interactive=True)
+        self.dataset_name = gr.Textbox(label="Dataset Name", info="Hugging Face Dataset Name (e.g., owner/RepoID).", interactive=True)
         with gr.Row():
-            self.dataset_config_name = gr.Textbox(label="dataset_config_name", interactive=True)
-            self.hf_cache_dir = gr.Textbox(label="hf_cache_dir", interactive=True)
+            self.dataset_config_name = gr.Textbox(label="Dataset Config Name (Optional)", info="The Hugging Face dataset config name. Leave as None if there's only one config.", interactive=True)
+            self.hf_cache_dir = gr.Textbox(label="Cache Directory", info="The Hugging Face cache directory to use for dataset downloads. If None, the default value will be used (usually '~/.cache/huggingface/datasets').", interactive=True)
         # self.image_column = gr.Textbox(label="image_column", interactive=True)
         # self.caption_column = gr.Textbox(label="caption_column", interactive=True)
 
@@ -107,7 +107,7 @@ class ImageDirDatasetConfigGroup(UIConfigElement):
 class DatasetConfigGroup(UIConfigElement):
     def __init__(self, allowed_types: list[str]):
         self.type = gr.Dropdown(
-            choices=[t for t in ALL_DATASET_TYPES if t in allowed_types], label="type", interactive=True
+            choices=[t for t in ALL_DATASET_TYPES if t in allowed_types], label="Dataset Type", info="Choose the type of dataset to use for training. [Hugging Face Hub Dataset or Local Directory]", interactive=True
         )
 
         with gr.Group() as hf_hub_image_caption_dataset_config_group:
