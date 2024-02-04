@@ -37,7 +37,7 @@ class SdLoraConfigGroup(UIConfigElement):
                 self.gradient_accumulation_steps = gr.Number(
                     label="Gradient Accumulation Steps", info="The number of gradient steps to accumulate before each weight update. This is an alternative to increasing the batch size when training with limited VRAM.", precision=0, interactive=True
                 )
-            with gr.Row():                
+            with gr.Row():
                 self.mixed_precision = gr.Dropdown(
                     label="Mixed Precision",
                     info="If set, mixed precision training will be used. This can speed up training and reduce memory usage when using lower precision, with a minor quality hit.",

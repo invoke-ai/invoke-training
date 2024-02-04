@@ -13,6 +13,7 @@ from invoke_training.ui.config_groups.sd_lora_config_group import SdLoraConfigGr
 from invoke_training.ui.config_groups.sdxl_lora_config_group import SdxlLoraConfigGroup
 from invoke_training.ui.pipeline_tab import PipelineTab
 from invoke_training.ui.utils import get_config_dir_path
+from invoke_training.ui.utils import get_assets_dir_path
 
 
 class App:
@@ -20,7 +21,14 @@ class App:
         self._config_temp_directory = tempfile.TemporaryDirectory()
         self._training_process = None
 
+        logo_path = get_assets_dir_path() / "logo.png"
         with gr.Blocks(analytics_enabled=False) as app:
+            with gr.Column():
+                gr.Image(value = logo_path, label = "Invoke Training App", width = 200, interactive = False, container = False, )
+                with gr.Row():
+                    gr.Markdown(
+                        "*Invoke Training* - [Documentation](https://invoke-ai.github.io/invoke-training/) -- Learn more about Invoke at [invoke.com](https://www.invoke.com/)"
+                    )
             with gr.Tab(label="SD LoRA"):
                 PipelineTab(
                     name="SD LoRA",
