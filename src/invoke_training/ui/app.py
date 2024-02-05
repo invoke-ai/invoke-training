@@ -23,10 +23,17 @@ class App:
         logo_path = get_assets_dir_path() / "logo.png"
         with gr.Blocks(analytics_enabled=False) as app:
             with gr.Column():
-                gr.Image(value = logo_path, label = "Invoke Training App", width = 200, interactive = False, container = False, )
+                gr.Image(
+                    value=logo_path,
+                    label="Invoke Training App",
+                    width=200,
+                    interactive=False,
+                    container=False,
+                )
                 with gr.Row():
                     gr.Markdown(
-                        "*Invoke Training* - [Documentation](https://invoke-ai.github.io/invoke-training/) -- Learn more about Invoke at [invoke.com](https://www.invoke.com/)"
+                        "*Invoke Training* - [Documentation](https://invoke-ai.github.io/invoke-training/) --"
+                        " Learn more about Invoke at [invoke.com](https://www.invoke.com/)"
                     )
             with gr.Tab(label="SD LoRA"):
                 PipelineTab(

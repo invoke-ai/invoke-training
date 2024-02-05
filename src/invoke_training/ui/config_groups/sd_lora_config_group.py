@@ -59,7 +59,8 @@ class SdLoraConfigGroup(UIConfigElement):
             with gr.Row():
                 self.mixed_precision = gr.Dropdown(
                     label="Mixed Precision",
-                    info="If set, mixed precision training will be used. This can speed up training and reduce memory usage when using lower precision, with a minor quality hit.",
+                    info="If set, mixed precision training will be used. This can speed up training and reduce"
+                    " memory usage when using lower precision, with a minor quality hit.",
                     choices=get_typing_literal_options(SdLoraConfig, "mixed_precision"),
                     interactive=True,
                 )

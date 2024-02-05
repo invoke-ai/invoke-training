@@ -101,7 +101,7 @@ class SdxlLoraConfigGroup(UIConfigElement):
                     )
                     self.min_snr_gamma = gr.Number(
                         label="Minumum SNR Gamma",
-                        info="min_snr_gamma acts like an an upper bound on the weight of samples with low noise levels." 
+                        info="min_snr_gamma acts like an an upper bound on the weight of samples with low noise levels."
                         " If None, then Min-SNR weighting will not be applied."
                         " If enabled, the recommended value is min_snr gamma = 5.0.",
                         interactive=True,
