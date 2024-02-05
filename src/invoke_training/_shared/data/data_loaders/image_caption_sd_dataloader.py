@@ -4,9 +4,9 @@ import torch
 from torch.utils.data import DataLoader
 
 from invoke_training._shared.data.datasets.build_dataset import (
-    build_hf_dir_image_caption_dataset,
     build_hf_hub_image_caption_dataset,
     build_image_caption_dir_dataset,
+    build_image_caption_jsonl_dataset,
 )
 from invoke_training._shared.data.datasets.transform_dataset import TransformDataset
 from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
@@ -23,9 +23,9 @@ from invoke_training.config.data.data_loader_config import (
     ImageCaptionSDDataLoaderConfig,
 )
 from invoke_training.config.data.dataset_config import (
-    HFDirImageCaptionDatasetConfig,
     HFHubImageCaptionDatasetConfig,
     ImageCaptionDirDatasetConfig,
+    ImageCaptionJsonlDatasetConfig,
 )
 
 
@@ -95,8 +95,8 @@ def build_image_caption_sd_dataloader(
     """
     if isinstance(config.dataset, HFHubImageCaptionDatasetConfig):
         base_dataset = build_hf_hub_image_caption_dataset(config.dataset)
-    elif isinstance(config.dataset, HFDirImageCaptionDatasetConfig):
-        base_dataset = build_hf_dir_image_caption_dataset(config.dataset)
+    elif isinstance(config.dataset, ImageCaptionJsonlDatasetConfig):
+        base_dataset = build_image_caption_jsonl_dataset(config.dataset)
     elif isinstance(config.dataset, ImageCaptionDirDatasetConfig):
         base_dataset = build_image_caption_dir_dataset(config.dataset)
     else:
