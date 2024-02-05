@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import PIL.Image
 import pytest
@@ -23,6 +25,60 @@ def image_dir(tmp_path_factory: pytest.TempPathFactory):
         rgb_pil.save(tmp_dir / f"{i}.jpg")
 
     return tmp_dir
+
+
+@pytest.fixture(scope="session")
+def image_caption_dir(tmp_path_factory: pytest.TempPathFactory):
+    """A fixture that populates a temp directory with some test images and caption files and returns the directory path.
+
+    Note that the 'session' scope is used to share the same directory across all tests in a session, because it is
+    costly to populate the directory.
+
+    Refer to https://docs.pytest.org/en/7.4.x/how-to/tmp_path.html#the-tmp-path-factory-fixture for details on the use
+    of tmp_path_factory.
+    """
+    tmp_dir = tmp_path_factory.mktemp("dataset")
+
+    for i in range(5):
+        rgb_np = np.ones((128, 128, 3), dtype=np.uint8)
+        rgb_pil = PIL.Image.fromarray(rgb_np)
+        rgb_pil.save(tmp_dir / f"{i}.jpg")
+
+        with open(tmp_dir / f"{i}.txt", "w") as f:
+            f.write(f"caption {i}")
+
+    return tmp_dir
+
+
+@pytest.fixture(scope="session")
+def image_caption_jsonl(tmp_path_factory: pytest.TempPathFactory):
+    """A fixture that populates a temp directory with a ImageCaptionJsonlDataset and returns the jsonl file path.
+
+    Note that the 'session' scope is used to share the same directory across all tests in a session, because it is
+    costly to populate the directory.
+
+    Refer to https://docs.pytest.org/en/7.4.x/how-to/tmp_path.html#the-tmp-path-factory-fixture for details on the use
+    of tmp_path_factory.
+    """
+    tmp_dir = tmp_path_factory.mktemp("dataset")
+
+    data = []
+
+    for i in range(5):
+        rgb_np = np.ones((128, 128, 3), dtype=np.uint8)
+        rgb_pil = PIL.Image.fromarray(rgb_np)
+        rgb_rel_path = f"{i}.jpg"
+        rgb_pil.save(tmp_dir / rgb_rel_path)
+
+        data.append({"image": str(rgb_rel_path), "text": f"caption {i}"})
+
+    data_jsonl_path = tmp_dir / "data.jsonl"
+    with open(data_jsonl_path, "w") as f:
+        for d in data:
+            json.dump(d, f)
+            f.write("\n")
+
+    return data_jsonl_path
 
 
 @pytest.fixture(scope="session")
