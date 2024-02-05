@@ -19,11 +19,26 @@ class SdLoraConfigGroup(UIConfigElement):
         gr.Markdown("## Basic Configs")
         with gr.Group():
             with gr.Tab("Base Model"):
-                self.model = gr.Textbox(label="Model", info="Select the base model to be used for training. (model)", type="text", interactive=True)
-                self.hf_variant = gr.Textbox(label="Variant",  info="If applicable, set the variant (e.g., fp16, fp32) to be used. (hf_variant)", type="text", interactive=True)
+                self.model = gr.Textbox(
+                    label="Model",
+                    info="Select the base model to be used for training. (model)",
+                    type="text",
+                    interactive=True,
+                )
+                self.hf_variant = gr.Textbox(
+                    label="Variant",
+                    info="If applicable, set the variant (e.g., fp16, fp32) to be used. (hf_variant)",
+                    type="text",
+                    interactive=True,
+                )
             with gr.Tab("Training Outputs"):
                 self.base_pipeline_config_group = BasePipelineConfigGroup()
-                self.max_checkpoints = gr.Number(label="Maximum Number of Checkpoints", info="This sets the maximum number of checkpoints to train, regardless of step/epoch counts.", interactive=True, precision=0)
+                self.max_checkpoints = gr.Number(
+                    label="Maximum Number of Checkpoints",
+                    info="This sets the maximum number of checkpoints to train, regardless of step/epoch counts.",
+                    interactive=True,
+                    precision=0,
+                )
 
         gr.Markdown("## Data Configs")
         self.image_caption_sd_data_loader_config_group = ImageCaptionSDDataLoaderConfigGroup()
@@ -35,7 +50,11 @@ class SdLoraConfigGroup(UIConfigElement):
         with gr.Group():
             with gr.Row():
                 self.gradient_accumulation_steps = gr.Number(
-                    label="Gradient Accumulation Steps", info="The number of gradient steps to accumulate before each weight update. This is an alternative to increasing the batch size when training with limited VRAM.", precision=0, interactive=True
+                    label="Gradient Accumulation Steps",
+                    info="The number of gradient steps to accumulate before each weight update. This is an"
+                    " alternative to increasing the batch size when training with limited VRAM.",
+                    precision=0,
+                    interactive=True,
                 )
             with gr.Row():
                 self.mixed_precision = gr.Dropdown(
@@ -52,8 +71,6 @@ class SdLoraConfigGroup(UIConfigElement):
                     label="Enable CPU Offload during Validation", interactive=True
                 )
                 self.gradient_checkpointing = gr.Checkbox(label="Gradient Checkpointing", interactive=True)
-
-
 
         gr.Markdown("## General Training Configs")
         with gr.Group():
@@ -73,10 +90,31 @@ class SdLoraConfigGroup(UIConfigElement):
                     self.lr_warmup_steps = gr.Number(label="Warmup Steps", interactive=True)
             with gr.Tab("Advanced"):
                 with gr.Column():
-                    self.lora_rank_dim = gr.Number(label="LoRA Rank Dim", info="The rank dimension to use for the LoRA layers. Increasing the rank dimension increases the model's expressivity, but also increases the size of the generated LoRA model.", interactive=True, precision=0)
-                    self.min_snr_gamma = gr.Number(label="Minumum SNR Gamma", info="min_snr_gamma acts like an an upper bound on the weight of samples with low noise levels. If None, then Min-SNR weighting will not be applied. If enabled, the recommended value is min_snr_gamma = 5.0.", interactive=True)
-                    self.max_grad_norm = gr.Number(label="Max Gradient Norm", info="Max gradient norm for clipping. Set to None for no clipping.", interactive=True)
-                    self.train_batch_size = gr.Number(label="Batch Size", info="The Training Batch Size - Higher values require increasing amounts of VRAM.", precision=0, interactive=True)
+                    self.lora_rank_dim = gr.Number(
+                        label="LoRA Rank Dim",
+                        info="The rank dimension to use for the LoRA layers. Increasing the rank dimension"
+                        " increases the model's expressivity, but also increases the size of the generated LoRA model.",
+                        interactive=True,
+                        precision=0,
+                    )
+                    self.min_snr_gamma = gr.Number(
+                        label="Minumum SNR Gamma",
+                        info="min_snr_gamma acts like an an upper bound on the weight of samples with low noise levels."
+                        "If None, then Min-SNR weighting will not be applied. If enabled, the recommended value"
+                        " is min_snr_gamma = 5.0.",
+                        interactive=True,
+                    )
+                    self.max_grad_norm = gr.Number(
+                        label="Max Gradient Norm",
+                        info="Max gradient norm for clipping. Set to None for no clipping.",
+                        interactive=True,
+                    )
+                    self.train_batch_size = gr.Number(
+                        label="Batch Size",
+                        info="The Training Batch Size - Higher values require increasing amounts of VRAM.",
+                        precision=0,
+                        interactive=True,
+                    )
 
         gr.Markdown("## Validation")
         with gr.Group():
