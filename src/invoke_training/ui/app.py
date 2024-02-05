@@ -8,8 +8,10 @@ import yaml
 
 from invoke_training.config.pipeline_config import PipelineConfig
 from invoke_training.pipelines.stable_diffusion.lora.config import SdLoraConfig
+from invoke_training.pipelines.stable_diffusion.textual_inversion.config import SdTextualInversionConfig
 from invoke_training.pipelines.stable_diffusion_xl.lora.config import SdxlLoraConfig
 from invoke_training.ui.config_groups.sd_lora_config_group import SdLoraConfigGroup
+from invoke_training.ui.config_groups.sd_textual_inversion_config_group import SdTextualInversionConfigGroup
 from invoke_training.ui.config_groups.sdxl_lora_config_group import SdxlLoraConfigGroup
 from invoke_training.ui.pipeline_tab import PipelineTab
 from invoke_training.ui.utils import get_assets_dir_path, get_config_dir_path
@@ -50,6 +52,15 @@ class App:
                     default_config_file_path=str(get_config_dir_path() / "sdxl_lora_pokemon_1x24gb.yaml"),
                     pipeline_config_cls=SdxlLoraConfig,
                     config_group_cls=SdxlLoraConfigGroup,
+                    run_training_cb=self._run_training,
+                    app=app,
+                )
+            with gr.Tab(label="SD Textual Inversion"):
+                PipelineTab(
+                    name="SD Textual Inversion",
+                    default_config_file_path=str(get_config_dir_path() / "sd_textual_inversion_gnome_1x8gb.yaml"),
+                    pipeline_config_cls=SdTextualInversionConfig,
+                    config_group_cls=SdTextualInversionConfigGroup,
                     run_training_cb=self._run_training,
                     app=app,
                 )
