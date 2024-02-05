@@ -67,10 +67,10 @@ def image_caption_jsonl(tmp_path_factory: pytest.TempPathFactory):
     for i in range(5):
         rgb_np = np.ones((128, 128, 3), dtype=np.uint8)
         rgb_pil = PIL.Image.fromarray(rgb_np)
-        rgb_path = tmp_dir / f"{i}.jpg"
-        rgb_pil.save(rgb_path)
+        rgb_rel_path = f"{i}.jpg"
+        rgb_pil.save(tmp_dir / rgb_rel_path)
 
-        data.append({"image": str(rgb_path), "text": f"caption {i}"})
+        data.append({"image": str(rgb_rel_path), "text": f"caption {i}"})
 
     data_jsonl_path = tmp_dir / "data.jsonl"
     with open(data_jsonl_path, "w") as f:
