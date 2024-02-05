@@ -7,8 +7,9 @@ from invoke_training._shared.data.data_loaders.image_caption_sd_dataloader impor
     sd_image_caption_collate_fn,
 )
 from invoke_training._shared.data.datasets.build_dataset import (
-    build_hf_dir_image_caption_dataset,
     build_hf_hub_image_caption_dataset,
+    build_image_caption_dir_dataset,
+    build_image_caption_jsonl_dataset,
 )
 from invoke_training._shared.data.datasets.image_dir_dataset import ImageDirDataset
 from invoke_training._shared.data.datasets.transform_dataset import TransformDataset
@@ -26,8 +27,9 @@ from invoke_training._shared.data.transforms.template_caption_transform import (
 from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training.config.data.data_loader_config import TextualInversionSDDataLoaderConfig
 from invoke_training.config.data.dataset_config import (
-    HFDirImageCaptionDatasetConfig,
     HFHubImageCaptionDatasetConfig,
+    ImageCaptionDirDatasetConfig,
+    ImageCaptionJsonlDatasetConfig,
     ImageDirDatasetConfig,
 )
 
@@ -117,8 +119,10 @@ def build_textual_inversion_sd_dataloader(  # noqa: C901
     """
     if isinstance(config.dataset, HFHubImageCaptionDatasetConfig):
         base_dataset = build_hf_hub_image_caption_dataset(config.dataset)
-    elif isinstance(config.dataset, HFDirImageCaptionDatasetConfig):
-        base_dataset = build_hf_dir_image_caption_dataset(config.dataset)
+    elif isinstance(config.dataset, ImageCaptionJsonlDatasetConfig):
+        base_dataset = build_image_caption_jsonl_dataset(config.dataset)
+    elif isinstance(config.dataset, ImageCaptionDirDatasetConfig):
+        base_dataset = build_image_caption_dir_dataset(config.dataset)
     elif isinstance(config.dataset, ImageDirDatasetConfig):
         base_dataset = ImageDirDataset(
             image_dir=config.dataset.dataset_dir, keep_in_memory=config.dataset.keep_in_memory

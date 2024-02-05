@@ -30,12 +30,11 @@ class HFHubImageCaptionDatasetConfig(ConfigBaseModel):
     """
 
 
-class HFDirImageCaptionDatasetConfig(ConfigBaseModel):
-    type: Literal["HF_DIR_IMAGE_CAPTION_DATASET"] = "HF_DIR_IMAGE_CAPTION_DATASET"
+class ImageCaptionJsonlDatasetConfig(ConfigBaseModel):
+    type: Literal["IMAGE_CAPTION_JSONL_DATASET"] = "IMAGE_CAPTION_JSONL_DATASET"
 
-    dataset_dir: str
-    """The directory to load a dataset from. The dataset is expected to be in
-    Hugging Face imagefolder format (https://huggingface.co/docs/datasets/v2.4.0/en/image_load#imagefolder)."""
+    jsonl_path: str
+    """The path to a JSONL file containing image paths and captions."""
 
     image_column: str = "image"
     """The name of the dataset column that contains image paths.
@@ -59,7 +58,21 @@ class ImageDirDatasetConfig(ConfigBaseModel):
     """
 
 
+class ImageCaptionDirDatasetConfig(ConfigBaseModel):
+    type: Literal["IMAGE_CAPTION_DIR_DATASET"] = "IMAGE_CAPTION_DIR_DATASET"
+
+    dataset_dir: str
+    """The directory to load images from."""
+
+    keep_in_memory: bool = False
+    """If `True`, load all images into memory on initialization so that they can be accessed quickly. If `False`, images
+    are loaded from disk each time they are accessed. Setting to `True` improves performance for datasets that are small
+    enough to be kept in memory.
+    """
+
+
 # Datasets that produce image-caption pairs.
 ImageCaptionDatasetConfig = Annotated[
-    Union[HFDirImageCaptionDatasetConfig, HFHubImageCaptionDatasetConfig], Field(discriminator="type")
+    Union[HFHubImageCaptionDatasetConfig, ImageCaptionJsonlDatasetConfig, ImageCaptionDirDatasetConfig],
+    Field(discriminator="type"),
 ]
