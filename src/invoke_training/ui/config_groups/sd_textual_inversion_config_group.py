@@ -163,8 +163,8 @@ class SdTextualInversionConfigGroup(UIConfigElement):
         new_config.hf_variant = ui_data.pop(self.hf_variant) or None
         new_config.num_vectors = ui_data.pop(self.num_vectors)
         new_config.placeholder_token = ui_data.pop(self.placeholder_token)
-        new_config.initializer_token = ui_data.pop(self.initializer_token)
-        new_config.initial_phrase = ui_data.pop(self.initial_phrase)
+        new_config.initializer_token = ui_data.pop(self.initializer_token) or None
+        new_config.initial_phrase = ui_data.pop(self.initial_phrase) or None
         new_config.max_checkpoints = ui_data.pop(self.max_checkpoints)
         new_config.lr_scheduler = ui_data.pop(self.lr_scheduler)
         new_config.lr_warmup_steps = ui_data.pop(self.lr_warmup_steps)

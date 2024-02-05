@@ -92,7 +92,7 @@ class TextualInversionSDDataLoaderConfigGroup(UIConfigElement):
 
         # Special handling of caption_templates.
         caption_templates: list[str] = ui_data.pop(self.caption_templates).split("\n")
-        caption_templates = [x.strip() for x in caption_templates if x.strip() != ""]
+        caption_templates = [x.strip() for x in caption_templates if x.strip() != ""] or None
 
         new_config.dataset = self.dataset.update_config_with_ui_component_data(orig_config.dataset, ui_data)
         new_config.caption_preset = caption_preset

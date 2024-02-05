@@ -2,7 +2,7 @@ import typing
 
 import gradio as gr
 
-from invoke_training.pipelines.stable_diffusion.textual_inversion.config import SdTextualInversionConfig
+from invoke_training.pipelines.stable_diffusion_xl.textual_inversion.config import SdxlTextualInversionConfig
 from invoke_training.ui.config_groups.base_pipeline_config_group import BasePipelineConfigGroup
 from invoke_training.ui.config_groups.optimizer_config_group import OptimizerConfigGroup
 from invoke_training.ui.config_groups.textual_inversion_sd_data_loader_config_group import (
@@ -14,7 +14,7 @@ from invoke_training.ui.utils import get_typing_literal_options
 
 class SdxlTextualInversionConfigGroup(UIConfigElement):
     def __init__(self):
-        """The SD_TEXTUAL_INVERSION configs."""
+        """The SDXL_TEXTUAL_INVERSION configs."""
 
         gr.Markdown("## Basic Configs")
         with gr.Group():
@@ -31,6 +31,7 @@ class SdxlTextualInversionConfigGroup(UIConfigElement):
                     type="text",
                     interactive=True,
                 )
+                self.vae_model = gr.Textbox(label="vae_model", type="text", interactive=True)
             with gr.Tab("Training Outputs"):
                 self.base_pipeline_config_group = BasePipelineConfigGroup()
                 self.max_checkpoints = gr.Number(
@@ -68,7 +69,7 @@ class SdxlTextualInversionConfigGroup(UIConfigElement):
                     label="Mixed Precision",
                     info="The mixed precision training mode to used. Using a lower precision can speed up training and "
                     'reduce memory usage, with a minor quality hit. Supported values: ["no", "fp16", "bf16", "fp8"].',
-                    choices=get_typing_literal_options(SdTextualInversionConfig, "mixed_precision"),
+                    choices=get_typing_literal_options(SdxlTextualInversionConfig, "mixed_precision"),
                     interactive=True,
                 )
             with gr.Row():
@@ -85,7 +86,7 @@ class SdxlTextualInversionConfigGroup(UIConfigElement):
                 with gr.Row():
                     self.lr_scheduler = gr.Dropdown(
                         label="Learning Rate Scheduler",
-                        choices=get_typing_literal_options(SdTextualInversionConfig, "lr_scheduler"),
+                        choices=get_typing_literal_options(SdxlTextualInversionConfig, "lr_scheduler"),
                         interactive=True,
                     )
                     self.lr_warmup_steps = gr.Number(label="Warmup Steps", interactive=True)
@@ -120,11 +121,12 @@ class SdxlTextualInversionConfigGroup(UIConfigElement):
             )
 
     def update_ui_components_with_config_data(
-        self, config: SdTextualInversionConfig
+        self, config: SdxlTextualInversionConfig
     ) -> dict[gr.components.Component, typing.Any]:
         update_dict = {
             self.model: config.model,
             self.hf_variant: config.hf_variant,
+            self.vae_model: config.vae_model,
             self.num_vectors: config.num_vectors,
             self.placeholder_token: config.placeholder_token,
             self.initializer_token: config.initializer_token,
@@ -155,16 +157,17 @@ class SdxlTextualInversionConfigGroup(UIConfigElement):
         return update_dict
 
     def update_config_with_ui_component_data(
-        self, orig_config: SdTextualInversionConfig, ui_data: dict[gr.components.Component, typing.Any]
-    ) -> SdTextualInversionConfig:
+        self, orig_config: SdxlTextualInversionConfig, ui_data: dict[gr.components.Component, typing.Any]
+    ) -> SdxlTextualInversionConfig:
         new_config = orig_config.model_copy(deep=True)
 
         new_config.model = ui_data.pop(self.model)
         new_config.hf_variant = ui_data.pop(self.hf_variant) or None
+        new_config.vae_model = ui_data.pop(self.vae_model) or None
         new_config.num_vectors = ui_data.pop(self.num_vectors)
         new_config.placeholder_token = ui_data.pop(self.placeholder_token)
-        new_config.initializer_token = ui_data.pop(self.initializer_token)
-        new_config.initial_phrase = ui_data.pop(self.initial_phrase)
+        new_config.initializer_token = ui_data.pop(self.initializer_token) or None
+        new_config.initial_phrase = ui_data.pop(self.initial_phrase) or None
         new_config.max_checkpoints = ui_data.pop(self.max_checkpoints)
         new_config.lr_scheduler = ui_data.pop(self.lr_scheduler)
         new_config.lr_warmup_steps = ui_data.pop(self.lr_warmup_steps)
