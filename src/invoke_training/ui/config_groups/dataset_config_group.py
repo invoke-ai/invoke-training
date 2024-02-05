@@ -3,14 +3,15 @@ from typing import Any
 import gradio as gr
 
 from invoke_training.config.data.dataset_config import (
-    HFDirImageCaptionDatasetConfig,
     HFHubImageCaptionDatasetConfig,
     ImageCaptionDatasetConfig,
+    ImageCaptionDirDatasetConfig,
+    ImageCaptionJsonlDatasetConfig,
     ImageDirDatasetConfig,
 )
 from invoke_training.ui.config_groups.ui_config_element import UIConfigElement
 
-ALL_DATASET_TYPES = ["HF_HUB_IMAGE_CAPTION_DATASET", "HF_DIR_IMAGE_CAPTION_DATASET", "IMAGE_DIR_DATASET"]
+ALL_DATASET_TYPES = ["HF_HUB_IMAGE_CAPTION_DATASET", "IMAGE_CAPTION_JSONL_DATASET", "IMAGE_DIR_DATASET"]
 
 
 class HFHubImageCaptionDatasetConfigGroup(UIConfigElement):
@@ -60,31 +61,61 @@ class HFHubImageCaptionDatasetConfigGroup(UIConfigElement):
         return new_config
 
 
-class HFDirImageCaptionDatasetConfigGroup(UIConfigElement):
+class ImageCaptionJsonlDatasetConfigGroup(UIConfigElement):
     def __init__(self):
-        self.dataset_dir = gr.Textbox(label="dataset_dir", interactive=True)
-        # self.image_column = gr.Textbox(label="image_column", interactive=True)
-        # self.caption_column = gr.Textbox(label="caption_column", interactive=True)
+        self.jsonl_path = gr.Textbox(label="jsonl_path", interactive=True)
+        self.image_column = gr.Textbox(label="image_column", interactive=True)
+        self.caption_column = gr.Textbox(label="caption_column", interactive=True)
 
     def update_ui_components_with_config_data(
-        self, config: HFDirImageCaptionDatasetConfig | None
+        self, config: ImageCaptionJsonlDatasetConfig | None
     ) -> dict[gr.components.Component, Any]:
+        if config is None:
+            # We just construct this so that we can use its default values.
+            config = ImageCaptionJsonlDatasetConfig(jsonl_path="<path/to/data.jsonl>")
+
         return {
-            self.dataset_dir: config.dataset_dir if config else "<path/to/dataset_dir>",
-            # self.image_column: config.image_column,
-            # self.caption_column: config.caption_column,
+            self.jsonl_path: config.jsonl_path,
+            self.image_column: config.image_column,
+            self.caption_column: config.caption_column,
         }
 
     def update_config_with_ui_component_data(
-        self, orig_config: HFDirImageCaptionDatasetConfig | None, ui_data: dict[gr.components.Component, Any]
-    ) -> HFDirImageCaptionDatasetConfig:
+        self, orig_config: ImageCaptionJsonlDatasetConfig | None, ui_data: dict[gr.components.Component, Any]
+    ) -> ImageCaptionJsonlDatasetConfig:
         assert orig_config is None
         # new_config = orig_config.model_copy(deep=True)
 
-        new_config = HFDirImageCaptionDatasetConfig(
-            dataset_dir=ui_data.pop(self.dataset_dir),
-            # image_column=ui_data.pop(self.image_column),
-            # caption_column=ui_data.pop(self.caption_column),
+        new_config = ImageCaptionJsonlDatasetConfig(
+            jsonl_path=ui_data.pop(self.jsonl_path),
+            image_column=ui_data.pop(self.image_column),
+            caption_column=ui_data.pop(self.caption_column),
+        )
+        return new_config
+
+
+class ImageCaptionDirDatasetConfigGroup(UIConfigElement):
+    def __init__(self):
+        with gr.Row():
+            self.dataset_dir = gr.Textbox(label="dataset_dir", interactive=True)
+            self.keep_in_memory = gr.Checkbox(label="keep_in_memory", interactive=True)
+
+    def update_ui_components_with_config_data(
+        self, config: ImageCaptionDirDatasetConfig | None
+    ) -> dict[gr.components.Component, Any]:
+        return {
+            self.dataset_dir: config.dataset_dir if config else "<path/to/dataset_dir>",
+            self.keep_in_memory: config.keep_in_memory if config else False,
+        }
+
+    def update_config_with_ui_component_data(
+        self, orig_config: ImageCaptionDirDatasetConfig | None, ui_data: dict[gr.components.Component, Any]
+    ) -> ImageCaptionDirDatasetConfig:
+        assert orig_config is None
+        # new_config = orig_config.model_copy(deep=True)
+
+        new_config = ImageCaptionDirDatasetConfig(
+            dataset_dir=ui_data.pop(self.dataset_dir), keep_in_memory=ui_data.pop(self.keep_in_memory)
         )
         return new_config
 
@@ -128,9 +159,13 @@ class DatasetConfigGroup(UIConfigElement):
             self.hf_hub_image_caption_dataset_config = HFHubImageCaptionDatasetConfigGroup()
         self.hf_hub_image_caption_dataset_config_group = hf_hub_image_caption_dataset_config_group
 
-        with gr.Group() as hf_dir_image_caption_dataset_config_group:
-            self.hf_dir_image_caption_dataset_config = HFDirImageCaptionDatasetConfigGroup()
-        self.hf_dir_image_caption_dataset_config_group = hf_dir_image_caption_dataset_config_group
+        with gr.Group() as image_caption_jsonl_dataset_config_group:
+            self.hf_dir_image_caption_dataset_config = ImageCaptionJsonlDatasetConfigGroup()
+        self.image_caption_jsonl_dataset_config_group = image_caption_jsonl_dataset_config_group
+
+        with gr.Group() as image_caption_dir_dataset_config_group:
+            self.image_caption_dir_dataset_config = ImageDirDatasetConfigGroup()
+        self.image_caption_dir_dataset_config_group = image_caption_dir_dataset_config_group
 
         with gr.Group() as image_dir_dataset_config_group:
             self.image_dir_dataset_config = ImageDirDatasetConfigGroup()
@@ -141,7 +176,8 @@ class DatasetConfigGroup(UIConfigElement):
             inputs=[self.type],
             outputs=[
                 self.hf_hub_image_caption_dataset_config_group,
-                self.hf_dir_image_caption_dataset_config_group,
+                self.image_caption_jsonl_dataset_config_group,
+                self.image_caption_dir_dataset_config_group,
                 self.image_dir_dataset_config_group,
             ],
         )
@@ -149,7 +185,8 @@ class DatasetConfigGroup(UIConfigElement):
     def _on_type_change(self, type: str):
         return {
             self.hf_hub_image_caption_dataset_config_group: gr.Group(visible=type == "HF_HUB_IMAGE_CAPTION_DATASET"),
-            self.hf_dir_image_caption_dataset_config_group: gr.Group(visible=type == "HF_DIR_IMAGE_CAPTION_DATASET"),
+            self.image_caption_jsonl_dataset_config_group: gr.Group(visible=type == "IMAGE_CAPTION_JSONL_DATASET"),
+            self.image_caption_dir_dataset_config_group: gr.Group(visible=type == "IMAGE_CAPTION_DIR_DATASET"),
             self.image_dir_dataset_config_group: gr.Group(visible=type == "IMAGE_DIR_DATASET"),
         }
 
@@ -161,9 +198,10 @@ class DatasetConfigGroup(UIConfigElement):
             self.hf_hub_image_caption_dataset_config_group: gr.Group(
                 visible=config.type == "HF_HUB_IMAGE_CAPTION_DATASET"
             ),
-            self.hf_dir_image_caption_dataset_config_group: gr.Group(
-                visible=config.type == "HF_DIR_IMAGE_CAPTION_DATASET"
+            self.image_caption_jsonl_dataset_config_group: gr.Group(
+                visible=config.type == "IMAGE_CAPTION_JSONL_DATASET"
             ),
+            self.image_caption_dir_dataset_config_group: gr.Group(visible=config.type == "IMAGE_CAPTION_DIR_DATASET"),
             self.image_dir_dataset_config_group: gr.Group(visible=config.type == "IMAGE_DIR_DATASET"),
         }
 
@@ -174,7 +212,12 @@ class DatasetConfigGroup(UIConfigElement):
         )
         update_dict.update(
             self.hf_dir_image_caption_dataset_config.update_ui_components_with_config_data(
-                config if config.type == "HF_DIR_IMAGE_CAPTION_DATASET" else None
+                config if config.type == "IMAGE_CAPTION_JSONL_DATASET" else None
+            )
+        )
+        update_dict.update(
+            self.image_caption_dir_dataset_config.update_ui_components_with_config_data(
+                config if config.type == "IMAGE_CAPTION_DIR_DATASET" else None
             )
         )
         update_dict.update(
@@ -192,13 +235,18 @@ class DatasetConfigGroup(UIConfigElement):
 
         new_config_hf_hub = self.hf_hub_image_caption_dataset_config.update_config_with_ui_component_data(None, ui_data)
         new_config_hf_dir = self.hf_dir_image_caption_dataset_config.update_config_with_ui_component_data(None, ui_data)
+        new_config_image_caption_dir = self.image_caption_dir_dataset_config.update_config_with_ui_component_data(
+            None, ui_data
+        )
         new_config_image_dir = self.image_dir_dataset_config.update_config_with_ui_component_data(None, ui_data)
 
         type = ui_data.pop(self.type)
         if type == "HF_HUB_IMAGE_CAPTION_DATASET":
             new_config = new_config_hf_hub
-        elif type == "HF_DIR_IMAGE_CAPTION_DATASET":
+        elif type == "IMAGE_CAPTION_JSONL_DATASET":
             new_config = new_config_hf_dir
+        elif type == "IMAGE_CAPTION_DIR_DATASET":
+            new_config = new_config_image_caption_dir
         elif type == "IMAGE_DIR_DATASET":
             new_config = new_config_image_dir
         else:

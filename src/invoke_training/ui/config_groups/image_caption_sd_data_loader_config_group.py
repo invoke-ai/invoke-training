@@ -13,7 +13,11 @@ class ImageCaptionSDDataLoaderConfigGroup(UIConfigElement):
         with gr.Tab("Data Source Configs"):
             with gr.Group():
                 self.dataset = DatasetConfigGroup(
-                    allowed_types=["HF_HUB_IMAGE_CAPTION_DATASET", "HF_DIR_IMAGE_CAPTION_DATASET"]
+                    allowed_types=[
+                        "HF_HUB_IMAGE_CAPTION_DATASET",
+                        "IMAGE_CAPTION_JSONL_DATASET",
+                        "IMAGE_CAPTION_DIR_DATASET",
+                    ]
                 )
 
         with gr.Tab("Data Loading Configs"):
