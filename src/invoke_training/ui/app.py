@@ -10,9 +10,15 @@ from invoke_training.config.pipeline_config import PipelineConfig
 from invoke_training.pipelines.stable_diffusion.lora.config import SdLoraConfig
 from invoke_training.pipelines.stable_diffusion.textual_inversion.config import SdTextualInversionConfig
 from invoke_training.pipelines.stable_diffusion_xl.lora.config import SdxlLoraConfig
+from invoke_training.pipelines.stable_diffusion_xl.lora_and_textual_inversion.config import (
+    SdxlLoraAndTextualInversionConfig,
+)
 from invoke_training.pipelines.stable_diffusion_xl.textual_inversion.config import SdxlTextualInversionConfig
 from invoke_training.ui.config_groups.sd_lora_config_group import SdLoraConfigGroup
 from invoke_training.ui.config_groups.sd_textual_inversion_config_group import SdTextualInversionConfigGroup
+from invoke_training.ui.config_groups.sdxl_lora_and_textual_inversion_config_group import (
+    SdxlLoraAndTextualInversionConfigGroup,
+)
 from invoke_training.ui.config_groups.sdxl_lora_config_group import SdxlLoraConfigGroup
 from invoke_training.ui.config_groups.sdxl_textual_inversion_config_group import SdxlTextualInversionConfigGroup
 from invoke_training.ui.pipeline_tab import PipelineTab
@@ -72,6 +78,15 @@ class App:
                     default_config_file_path=str(get_config_dir_path() / "sdxl_textual_inversion_gnome_1x24gb.yaml"),
                     pipeline_config_cls=SdxlTextualInversionConfig,
                     config_group_cls=SdxlTextualInversionConfigGroup,
+                    run_training_cb=self._run_training,
+                    app=app,
+                )
+            with gr.Tab(label="SDXL LoRA and Textual Inversion"):
+                PipelineTab(
+                    name="SDXL LoRA and Textual Inversion",
+                    default_config_file_path=str(get_config_dir_path() / "sdxl_lora_and_ti_gnome_1x24gb.yaml"),
+                    pipeline_config_cls=SdxlLoraAndTextualInversionConfig,
+                    config_group_cls=SdxlLoraAndTextualInversionConfigGroup,
                     run_training_cb=self._run_training,
                     app=app,
                 )

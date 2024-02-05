@@ -2,19 +2,21 @@ import typing
 
 import gradio as gr
 
-from invoke_training.pipelines.stable_diffusion_xl.lora.config import SdxlLoraConfig
-from invoke_training.ui.config_groups.base_pipeline_config_group import BasePipelineConfigGroup
-from invoke_training.ui.config_groups.image_caption_sd_data_loader_config_group import (
-    ImageCaptionSDDataLoaderConfigGroup,
+from invoke_training.pipelines.stable_diffusion_xl.lora_and_textual_inversion.config import (
+    SdxlLoraAndTextualInversionConfig,
 )
+from invoke_training.ui.config_groups.base_pipeline_config_group import BasePipelineConfigGroup
 from invoke_training.ui.config_groups.optimizer_config_group import OptimizerConfigGroup
+from invoke_training.ui.config_groups.textual_inversion_sd_data_loader_config_group import (
+    TextualInversionSDDataLoaderConfigGroup,
+)
 from invoke_training.ui.config_groups.ui_config_element import UIConfigElement
 from invoke_training.ui.utils import get_typing_literal_options
 
 
 class SdxlLoraAndTextualInversionConfigGroup(UIConfigElement):
     def __init__(self):
-        """The SD_LORA configs."""
+        """The SDXL_LORA_AND_TEXTUAL_INVERSION configs."""
 
         gr.Markdown("## Basic Configs")
         with gr.Group():
@@ -43,7 +45,13 @@ class SdxlLoraAndTextualInversionConfigGroup(UIConfigElement):
                 )
 
         gr.Markdown("## Data Configs")
-        self.image_caption_sd_data_loader_config_group = ImageCaptionSDDataLoaderConfigGroup()
+        self.image_caption_sd_data_loader_config_group = TextualInversionSDDataLoaderConfigGroup()
+
+        gr.Markdown("## Textual Inversion Configs")
+        self.num_vectors = gr.Number(label="Num Vectors", interactive=True, precision=0)
+        self.placeholder_token = gr.Textbox(label="Placeholder Token", interactive=True)
+        self.initializer_token = gr.Textbox(label="Initializer Token", interactive=True)
+        self.initial_phrase = gr.Textbox(label="Initial Phrase", interactive=True)
 
         gr.Markdown("## Optimizer Configs")
         self.optimizer_config_group = OptimizerConfigGroup()
@@ -63,7 +71,7 @@ class SdxlLoraAndTextualInversionConfigGroup(UIConfigElement):
                     label="Mixed Precision",
                     info="The mixed precision training mode to used. Using a lower precision can speed up training and "
                     'reduce memory usage, with a minor quality hit. Supported values: ["no", "fp16", "bf16", "fp8"].',
-                    choices=get_typing_literal_options(SdxlLoraConfig, "mixed_precision"),
+                    choices=get_typing_literal_options(SdxlLoraAndTextualInversionConfig, "mixed_precision"),
                     interactive=True,
                 )
             with gr.Row():
@@ -81,13 +89,18 @@ class SdxlLoraAndTextualInversionConfigGroup(UIConfigElement):
                 with gr.Row():
                     self.train_unet = gr.Checkbox(label="Train UNet", interactive=True)
                     self.train_text_encoder = gr.Checkbox(label="Train Text Encoder", interactive=True)
+                    self.train_ti = gr.Checkbox(label="Train Textual Inversion Token", scale=2, interactive=True)
                 with gr.Row():
                     self.unet_learning_rate = gr.Number(label="UNet Learning Rate", interactive=True)
                     self.text_encoder_learning_rate = gr.Number(label="Text Encoder Learning Rate", interactive=True)
+                    self.textual_inversion_learning_rate = gr.Number(
+                        label="Textual Inversion Learning Rate", interactive=True
+                    )
+                    self.ti_train_steps_ratio = gr.Number(label="Textual Inversion Train Steps Ratio", interactive=True)
                 with gr.Row():
                     self.lr_scheduler = gr.Dropdown(
                         label="Learning Rate Scheduler",
-                        choices=get_typing_literal_options(SdxlLoraConfig, "lr_scheduler"),
+                        choices=get_typing_literal_options(SdxlLoraAndTextualInversionConfig, "lr_scheduler"),
                         interactive=True,
                     )
                     self.lr_warmup_steps = gr.Number(label="Warmup Steps", interactive=True)
@@ -129,17 +142,24 @@ class SdxlLoraAndTextualInversionConfigGroup(UIConfigElement):
             )
 
     def update_ui_components_with_config_data(
-        self, config: SdxlLoraConfig
+        self, config: SdxlLoraAndTextualInversionConfig
     ) -> dict[gr.components.Component, typing.Any]:
         update_dict = {
             self.model: config.model,
             self.hf_variant: config.hf_variant,
             self.vae_model: config.vae_model,
+            self.num_vectors: config.num_vectors,
+            self.placeholder_token: config.placeholder_token,
+            self.initializer_token: config.initializer_token,
+            self.initial_phrase: config.initial_phrase,
             self.max_checkpoints: config.max_checkpoints,
             self.train_unet: config.train_unet,
-            self.unet_learning_rate: config.unet_learning_rate,
             self.train_text_encoder: config.train_text_encoder,
+            self.train_ti: config.train_ti,
+            self.unet_learning_rate: config.unet_learning_rate,
             self.text_encoder_learning_rate: config.text_encoder_learning_rate,
+            self.textual_inversion_learning_rate: config.textual_inversion_learning_rate,
+            self.ti_train_steps_ratio: config.ti_train_steps_ratio,
             self.lr_scheduler: config.lr_scheduler,
             self.lr_warmup_steps: config.lr_warmup_steps,
             self.max_grad_norm: config.max_grad_norm,
@@ -167,18 +187,25 @@ class SdxlLoraAndTextualInversionConfigGroup(UIConfigElement):
         return update_dict
 
     def update_config_with_ui_component_data(
-        self, orig_config: SdxlLoraConfig, ui_data: dict[gr.components.Component, typing.Any]
-    ) -> SdxlLoraConfig:
+        self, orig_config: SdxlLoraAndTextualInversionConfig, ui_data: dict[gr.components.Component, typing.Any]
+    ) -> SdxlLoraAndTextualInversionConfig:
         new_config = orig_config.model_copy(deep=True)
 
         new_config.model = ui_data.pop(self.model)
         new_config.hf_variant = ui_data.pop(self.hf_variant) or None
         new_config.vae_model = ui_data.pop(self.vae_model) or None
+        new_config.num_vectors = ui_data.pop(self.num_vectors)
+        new_config.placeholder_token = ui_data.pop(self.placeholder_token)
+        new_config.initializer_token = ui_data.pop(self.initializer_token) or None
+        new_config.initial_phrase = ui_data.pop(self.initial_phrase) or None
         new_config.max_checkpoints = ui_data.pop(self.max_checkpoints)
         new_config.train_unet = ui_data.pop(self.train_unet)
-        new_config.unet_learning_rate = ui_data.pop(self.unet_learning_rate)
         new_config.train_text_encoder = ui_data.pop(self.train_text_encoder)
+        new_config.train_ti = ui_data.pop(self.train_ti)
+        new_config.unet_learning_rate = ui_data.pop(self.unet_learning_rate)
         new_config.text_encoder_learning_rate = ui_data.pop(self.text_encoder_learning_rate)
+        new_config.textual_inversion_learning_rate = ui_data.pop(self.textual_inversion_learning_rate)
+        new_config.ti_train_steps_ratio = ui_data.pop(self.ti_train_steps_ratio)
         new_config.lr_scheduler = ui_data.pop(self.lr_scheduler)
         new_config.lr_warmup_steps = ui_data.pop(self.lr_warmup_steps)
         new_config.max_grad_norm = ui_data.pop(self.max_grad_norm)
