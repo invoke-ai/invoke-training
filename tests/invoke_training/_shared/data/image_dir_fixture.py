@@ -26,6 +26,29 @@ def image_dir(tmp_path_factory: pytest.TempPathFactory):
 
 
 @pytest.fixture(scope="session")
+def image_caption_dir(tmp_path_factory: pytest.TempPathFactory):
+    """A fixture that populates a temp directory with some test images and caption files and returns the directory path.
+
+    Note that the 'session' scope is used to share the same directory across all tests in a session, because it is
+    costly to populate the directory.
+
+    Refer to https://docs.pytest.org/en/7.4.x/how-to/tmp_path.html#the-tmp-path-factory-fixture for details on the use
+    of tmp_path_factory.
+    """
+    tmp_dir = tmp_path_factory.mktemp("dataset")
+
+    for i in range(5):
+        rgb_np = np.ones((128, 128, 3), dtype=np.uint8)
+        rgb_pil = PIL.Image.fromarray(rgb_np)
+        rgb_pil.save(tmp_dir / f"{i}.jpg")
+
+        with open(tmp_dir / f"{i}.txt", "w") as f:
+            f.write(f"caption {i}")
+
+    return tmp_dir
+
+
+@pytest.fixture(scope="session")
 def image_pair_preference_dir(tmp_path_factory: pytest.TempPathFactory):
     """A fixture that populates a temp directory with a mock dataset intended to be consumed by
     ImagePairPreferenceDataset, and returns the directory path.
