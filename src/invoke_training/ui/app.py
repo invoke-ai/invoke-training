@@ -12,8 +12,7 @@ from invoke_training.pipelines.stable_diffusion_xl.lora.config import SdxlLoraCo
 from invoke_training.ui.config_groups.sd_lora_config_group import SdLoraConfigGroup
 from invoke_training.ui.config_groups.sdxl_lora_config_group import SdxlLoraConfigGroup
 from invoke_training.ui.pipeline_tab import PipelineTab
-from invoke_training.ui.utils import get_config_dir_path
-from invoke_training.ui.utils import get_assets_dir_path
+from invoke_training.ui.utils import get_assets_dir_path, get_config_dir_path
 
 
 class App:

@@ -13,6 +13,11 @@ def get_config_dir_path() -> Path:
         raise FileNotFoundError(f"Config directory not found: '{p}'")
     return p
 
+def get_assets_dir_path() -> Path:
+    p = Path(__file__).parent.parent.parent.parent / "assets"
+    if not p.exists():
+        pass
+    return p
 
 def load_config_from_yaml(file_path: Path | str) -> PipelineConfig:
     file_path = Path(file_path)
