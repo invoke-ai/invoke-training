@@ -59,7 +59,21 @@ class ImageDirDatasetConfig(ConfigBaseModel):
     """
 
 
+class ImageCaptionDirDatasetConfig(ConfigBaseModel):
+    type: Literal["IMAGE_CAPTION_DIR_DATASET"] = "IMAGE_DIR_DATASET"
+
+    dataset_dir: str
+    """The directory to load images from."""
+
+    keep_in_memory: bool = False
+    """If `True`, load all images into memory on initialization so that they can be accessed quickly. If `False`, images
+    are loaded from disk each time they are accessed. Setting to `True` improves performance for datasets that are small
+    enough to be kept in memory.
+    """
+
+
 # Datasets that produce image-caption pairs.
 ImageCaptionDatasetConfig = Annotated[
-    Union[HFDirImageCaptionDatasetConfig, HFHubImageCaptionDatasetConfig], Field(discriminator="type")
+    Union[HFDirImageCaptionDatasetConfig, HFHubImageCaptionDatasetConfig, ImageCaptionDirDatasetConfig],
+    Field(discriminator="type"),
 ]

@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 from invoke_training._shared.data.datasets.build_dataset import (
     build_hf_dir_image_caption_dataset,
     build_hf_hub_image_caption_dataset,
+    build_image_caption_dir_dataset,
 )
 from invoke_training._shared.data.datasets.transform_dataset import TransformDataset
 from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
@@ -24,6 +25,7 @@ from invoke_training.config.data.data_loader_config import (
 from invoke_training.config.data.dataset_config import (
     HFDirImageCaptionDatasetConfig,
     HFHubImageCaptionDatasetConfig,
+    ImageCaptionDirDatasetConfig,
 )
 
 
@@ -95,6 +97,8 @@ def build_image_caption_sd_dataloader(
         base_dataset = build_hf_hub_image_caption_dataset(config.dataset)
     elif isinstance(config.dataset, HFDirImageCaptionDatasetConfig):
         base_dataset = build_hf_dir_image_caption_dataset(config.dataset)
+    elif isinstance(config.dataset, ImageCaptionDirDatasetConfig):
+        base_dataset = build_image_caption_dir_dataset(config.dataset)
     else:
         raise ValueError(f"Unexpected dataset config type: '{type(config.dataset)}'.")
 
