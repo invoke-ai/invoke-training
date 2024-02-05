@@ -35,7 +35,8 @@ class SdLoraConfigGroup(UIConfigElement):
                 self.base_pipeline_config_group = BasePipelineConfigGroup()
                 self.max_checkpoints = gr.Number(
                     label="Maximum Number of Checkpoints",
-                    info="This sets the maximum number of checkpoints to train, regardless of step/epoch counts.",
+                    info="The maximum number of checkpoints to keep on disk from this training run. Earlier "
+                    "checkpoints will be deleted to respect this limit.",
                     interactive=True,
                     precision=0,
                 )
@@ -59,8 +60,8 @@ class SdLoraConfigGroup(UIConfigElement):
             with gr.Row():
                 self.mixed_precision = gr.Dropdown(
                     label="Mixed Precision",
-                    info="If set, mixed precision training will be used. This can speed up training and reduce"
-                    " memory usage when using lower precision, with a minor quality hit.",
+                    info="The mixed precision training mode to used. Using a lower precision can speed up training and "
+                    'reduce memory usage, with a minor quality hit. Supported values: ["no", "fp16", "bf16", "fp8"].',
                     choices=get_typing_literal_options(SdLoraConfig, "mixed_precision"),
                     interactive=True,
                 )
