@@ -11,7 +11,11 @@ OptimizerConfig = AdamOptimizerConfig | ProdigyOptimizerConfig
 class AdamOptimizerConfigGroup(UIConfigElement):
     def __init__(self):
         with gr.Tab("Core"):
-            self.learning_rate = gr.Number(label="Learning Rate", info="Initial learning rate to use (after the potential warmup period).", interactive=True)
+            self.learning_rate = gr.Number(
+                label="Learning Rate",
+                info="Initial learning rate to use (after the potential warmup period).",
+                interactive=True,
+            )
         with gr.Tab("Advanced"):
             with gr.Row():
                 self.beta1 = gr.Number(label="beta1", interactive=True)
@@ -47,7 +51,12 @@ class ProdigyOptimizerConfigGroup(UIConfigElement):
     def __init__(self):
         with gr.Tab("Core"):
             with gr.Row():
-                self.learning_rate = gr.Number(label="Learning Rate", info="The learning rate. For the Prodigy optimizer, the learning rate is adjusted dynamically. A value of 1.0 is recommended.", interactive=True)
+                self.learning_rate = gr.Number(
+                    label="Learning Rate",
+                    info="The learning rate. For the Prodigy optimizer, the learning rate"
+                    " is adjusted dynamically. A value of 1.0 is recommended.",
+                    interactive=True,
+                )
         with gr.Tab("Advanced"):
             with gr.Row():
                 self.weight_decay = gr.Number(label="Weight Decay", interactive=True)

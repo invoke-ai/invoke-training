@@ -9,25 +9,40 @@ from invoke_training.ui.config_groups.ui_config_element import UIConfigElement
 
 class BasePipelineConfigGroup(UIConfigElement):
     def __init__(self):
-        self.base_output_dir = gr.Textbox(label="Base Output Directory", info="The base output directory where the training outputs (model checkpoints, logs, intermediate predictions) will be written.", interactive=True)
+        self.base_output_dir = gr.Textbox(
+            label="Base Output Directory",
+            info="The base output directory where the training outputs (model checkpoints, logs,"
+            " intermediate predictions) will be written.",
+            interactive=True,
+        )
         with gr.Row():
-            self.max_train_steps_or_epochs_dropdown = gr.Dropdown(label="Maximum Training Count",
-                choices=["max_train_steps", "max_train_epochs"], interactive=True
+            self.max_train_steps_or_epochs_dropdown = gr.Dropdown(
+                label="Maximum Training Count", choices=["max_train_steps", "max_train_epochs"], interactive=True
             )
             self.max_train_steps_or_epochs = gr.Number(label="Steps or Epochs", precision=0, interactive=True)
 
         with gr.Row():
-            self.save_every_n_steps_or_epochs_dropdown = gr.Dropdown(label="Checkpoint Save Frequency",
-                choices=["save_every_n_steps", "save_every_n_epochs"], interactive=True
+            self.save_every_n_steps_or_epochs_dropdown = gr.Dropdown(
+                label="Checkpoint Save Frequency",
+                choices=["save_every_n_steps", "save_every_n_epochs"],
+                interactive=True,
             )
             self.save_every_n_steps_or_epochs = gr.Number(label="Steps or Epochs", precision=0, interactive=True)
 
         with gr.Row():
-            self.validate_every_n_steps_or_epochs_dropdown = gr.Dropdown(label="Validation Frequency",
-                choices=["validate_every_n_steps", "validate_every_n_epochs"], interactive=True
+            self.validate_every_n_steps_or_epochs_dropdown = gr.Dropdown(
+                label="Validation Frequency",
+                choices=["validate_every_n_steps", "validate_every_n_epochs"],
+                interactive=True,
             )
             self.validate_every_n_steps_or_epochs = gr.Number(label="Steps or Epochs", precision=0, interactive=True)
-        self.seed = gr.Number(label="Seed", info="Set to any constant integer for consistent training results. If set to null, training will be non-deterministic.", precision=0, interactive=True)
+        self.seed = gr.Number(
+            label="Seed",
+            info="Set to any constant integer for consistent training results. If set to null, training"
+            " will be non-deterministic.",
+            precision=0,
+            interactive=True,
+        )
 
     def update_ui_components_with_config_data(self, config: BasePipelineConfig) -> dict[gr.components.Component, Any]:
         if config.max_train_epochs is not None:

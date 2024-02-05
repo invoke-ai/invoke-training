@@ -19,12 +19,37 @@ class ImageCaptionSDDataLoaderConfigGroup(UIConfigElement):
         with gr.Tab("Data Loading Configs"):
             with gr.Group():
                 with gr.Row():
-                    self.resolution = gr.Number(label="Resolution", info="The resolution for input images. All of the images in the dataset will be resized to this resolution unless the aspect_ratio_buckets config is set.", precision=0, interactive=True)
-                    self.dataloader_num_workers = gr.Number(label="Dataloading Workers", info="Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.", precision=0, interactive=True)
+                    self.resolution = gr.Number(
+                        label="Resolution",
+                        info="The resolution for input images. All of the images in the dataset will be"
+                        " resized to this resolution unless the aspect_ratio_buckets config is set.",
+                        precision=0,
+                        interactive=True,
+                    )
+                    self.dataloader_num_workers = gr.Number(
+                        label="Dataloading Workers",
+                        info="Number of subprocesses to use for data loading. 0 means that the data will"
+                        " be loaded in the main process.",
+                        precision=0,
+                        interactive=True,
+                    )
                 with gr.Row():
-                    self.center_crop = gr.Checkbox(label="Center Crop", info="If set, input images will be center-cropped to the target resolution. Otherwise, input images will be randomly cropped to the target resolution.", interactive=True)
-                    self.random_flip = gr.Checkbox(label="Random Flip", info="If set, random flip augmentations will be applied to input images.",  interactive=True)
-                self.caption_prefix = gr.Textbox(label="Caption Prefix", info="A prefix that will be prepended to all captions. If None, no prefix will be added.", interactive=True)
+                    self.center_crop = gr.Checkbox(
+                        label="Center Crop",
+                        info="If set, input images will be center-cropped to the target resolution. Otherwise,"
+                        " input images will be randomly cropped to the target resolution.",
+                        interactive=True,
+                    )
+                    self.random_flip = gr.Checkbox(
+                        label="Random Flip",
+                        info="If set, random flip augmentations will be applied to input images.",
+                        interactive=True,
+                    )
+                self.caption_prefix = gr.Textbox(
+                    label="Caption Prefix",
+                    info="A prefix that will be prepended to all captions. If None, no prefix will be added.",
+                    interactive=True,
+                )
 
     def update_ui_components_with_config_data(
         self, config: ImageCaptionSDDataLoaderConfig
