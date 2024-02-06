@@ -17,31 +17,30 @@ class SdTextualInversionConfigGroup(UIConfigElement):
         """The SD_TEXTUAL_INVERSION configs."""
 
         gr.Markdown("## Basic Configs")
-        with gr.Group():
-            with gr.Tab("Base Model"):
-                self.model = gr.Textbox(
-                    label="Model",
-                    info="The base model. Can be a Hugging Face Hub model name, or a path to a local model (in "
-                    "diffusers or checkpoint format).",
-                    type="text",
-                    interactive=True,
-                )
-                self.hf_variant = gr.Textbox(
-                    label="Variant",
-                    info="(optional) The Hugging Face hub model variant (e.g., fp16, fp32) to use if the model is a HF "
-                    "Hub model name.",
-                    type="text",
-                    interactive=True,
-                )
-            with gr.Tab("Training Outputs"):
-                self.base_pipeline_config_group = BasePipelineConfigGroup()
-                self.max_checkpoints = gr.Number(
-                    label="Maximum Number of Checkpoints",
-                    info="The maximum number of checkpoints to keep on disk from this training run. Earlier "
-                    "checkpoints will be deleted to respect this limit.",
-                    interactive=True,
-                    precision=0,
-                )
+        with gr.Tab("Base Model"):
+            self.model = gr.Textbox(
+                label="Model",
+                info="The base model. Can be a Hugging Face Hub model name, or a path to a local model (in "
+                "diffusers or checkpoint format).",
+                type="text",
+                interactive=True,
+            )
+            self.hf_variant = gr.Textbox(
+                label="Variant",
+                info="(optional) The Hugging Face hub model variant (e.g., fp16, fp32) to use if the model is a HF "
+                "Hub model name.",
+                type="text",
+                interactive=True,
+            )
+        with gr.Tab("Training Outputs"):
+            self.base_pipeline_config_group = BasePipelineConfigGroup()
+            self.max_checkpoints = gr.Number(
+                label="Maximum Number of Checkpoints",
+                info="The maximum number of checkpoints to keep on disk from this training run. Earlier "
+                "checkpoints will be deleted to respect this limit.",
+                interactive=True,
+                precision=0,
+            )
 
         gr.Markdown("## Data Configs")
         self.textual_inversion_sd_data_loader_config_group = TextualInversionSDDataLoaderConfigGroup()
@@ -118,40 +117,39 @@ class SdTextualInversionConfigGroup(UIConfigElement):
                 )
 
         gr.Markdown("## General Training Configs")
-        with gr.Group():
-            with gr.Tab("Core"):
-                with gr.Row():
-                    self.lr_scheduler = gr.Dropdown(
-                        label="Learning Rate Scheduler",
-                        choices=get_typing_literal_options(SdTextualInversionConfig, "lr_scheduler"),
-                        interactive=True,
-                    )
-                    self.lr_warmup_steps = gr.Number(
-                        label="Warmup Steps",
-                        info="The number of warmup steps in the "
-                        "learning rate schedule, if applicable to the selected scheduler.",
-                        interactive=True,
-                    )
-            with gr.Tab("Advanced"):
-                with gr.Column():
-                    self.min_snr_gamma = gr.Number(
-                        label="Minumum SNR Gamma",
-                        info="min_snr_gamma acts like an an upper bound on the weight of samples with low noise "
-                        "levels. If None, then Min-SNR weighting will not be applied. If enabled, the recommended "
-                        "value is min_snr gamma = 5.0.",
-                        interactive=True,
-                    )
-                    self.max_grad_norm = gr.Number(
-                        label="Max Gradient Norm",
-                        info="Max gradient norm for clipping. Set to None for no clipping.",
-                        interactive=True,
-                    )
-                    self.train_batch_size = gr.Number(
-                        label="Batch Size",
-                        info="The Training Batch Size - Higher values require increasing amounts of VRAM.",
-                        precision=0,
-                        interactive=True,
-                    )
+        with gr.Tab("Core"):
+            with gr.Row():
+                self.lr_scheduler = gr.Dropdown(
+                    label="Learning Rate Scheduler",
+                    choices=get_typing_literal_options(SdTextualInversionConfig, "lr_scheduler"),
+                    interactive=True,
+                )
+                self.lr_warmup_steps = gr.Number(
+                    label="Warmup Steps",
+                    info="The number of warmup steps in the "
+                    "learning rate schedule, if applicable to the selected scheduler.",
+                    interactive=True,
+                )
+        with gr.Tab("Advanced"):
+            with gr.Column():
+                self.min_snr_gamma = gr.Number(
+                    label="Minumum SNR Gamma",
+                    info="min_snr_gamma acts like an an upper bound on the weight of samples with low noise "
+                    "levels. If None, then Min-SNR weighting will not be applied. If enabled, the recommended "
+                    "value is min_snr gamma = 5.0.",
+                    interactive=True,
+                )
+                self.max_grad_norm = gr.Number(
+                    label="Max Gradient Norm",
+                    info="Max gradient norm for clipping. Set to None for no clipping.",
+                    interactive=True,
+                )
+                self.train_batch_size = gr.Number(
+                    label="Batch Size",
+                    info="The Training Batch Size - Higher values require increasing amounts of VRAM.",
+                    precision=0,
+                    interactive=True,
+                )
 
         gr.Markdown("## Validation")
         with gr.Group():

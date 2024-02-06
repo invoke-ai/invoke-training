@@ -17,37 +17,36 @@ class SdxlLoraConfigGroup(UIConfigElement):
         """The SD_LORA configs."""
 
         gr.Markdown("## Basic Configs")
-        with gr.Group():
-            with gr.Tab("Base Model"):
-                self.model = gr.Textbox(
-                    label="Model",
-                    info="The base model. Can be a Hugging Face Hub model name, or a path to a local model (in "
-                    "diffusers or checkpoint format).",
-                    type="text",
-                    interactive=True,
-                )
-                self.hf_variant = gr.Textbox(
-                    label="Variant",
-                    info="(optional) The Hugging Face hub model variant (e.g., fp16, fp32) to use if the model is a HF "
-                    "Hub model name.",
-                    type="text",
-                    interactive=True,
-                )
-                self.vae_model = gr.Textbox(
-                    label="VAE Model",
-                    info="(optional) If set, this overrides the base model's default VAE model.",
-                    type="text",
-                    interactive=True,
-                )
-            with gr.Tab("Training Outputs"):
-                self.base_pipeline_config_group = BasePipelineConfigGroup()
-                self.max_checkpoints = gr.Number(
-                    label="Maximum Number of Checkpoints",
-                    info="The maximum number of checkpoints to keep on disk from this training run. Earlier "
-                    "checkpoints will be deleted to respect this limit.",
-                    interactive=True,
-                    precision=0,
-                )
+        with gr.Tab("Base Model"):
+            self.model = gr.Textbox(
+                label="Model",
+                info="The base model. Can be a Hugging Face Hub model name, or a path to a local model (in "
+                "diffusers or checkpoint format).",
+                type="text",
+                interactive=True,
+            )
+            self.hf_variant = gr.Textbox(
+                label="Variant",
+                info="(optional) The Hugging Face hub model variant (e.g., fp16, fp32) to use if the model is a HF "
+                "Hub model name.",
+                type="text",
+                interactive=True,
+            )
+            self.vae_model = gr.Textbox(
+                label="VAE Model",
+                info="(optional) If set, this overrides the base model's default VAE model.",
+                type="text",
+                interactive=True,
+            )
+        with gr.Tab("Training Outputs"):
+            self.base_pipeline_config_group = BasePipelineConfigGroup()
+            self.max_checkpoints = gr.Number(
+                label="Maximum Number of Checkpoints",
+                info="The maximum number of checkpoints to keep on disk from this training run. Earlier "
+                "checkpoints will be deleted to respect this limit.",
+                interactive=True,
+                precision=0,
+            )
 
         gr.Markdown("## Data Configs")
         self.image_caption_sd_data_loader_config_group = ImageCaptionSDDataLoaderConfigGroup()
@@ -101,63 +100,62 @@ class SdxlLoraConfigGroup(UIConfigElement):
                 )
 
         gr.Markdown("## General Training Configs")
-        with gr.Group():
-            with gr.Tab("Core"):
-                with gr.Row():
-                    self.train_unet = gr.Checkbox(label="Train UNet", interactive=True)
-                    self.train_text_encoder = gr.Checkbox(label="Train Text Encoder", interactive=True)
-                with gr.Row():
-                    self.unet_learning_rate = gr.Number(
-                        label="UNet Learning Rate",
-                        info="The UNet learning rate. If None, then it is inherited from the base optimizer learning "
-                        "rate.",
-                        interactive=True,
-                    )
-                    self.text_encoder_learning_rate = gr.Number(
-                        label="Text Encoder Learning Rate",
-                        info="The text encoder learning rate. If None, then it is inherited from the base optimizer "
-                        "learning rate.",
-                        interactive=True,
-                    )
-                with gr.Row():
-                    self.lr_scheduler = gr.Dropdown(
-                        label="Learning Rate Scheduler",
-                        choices=get_typing_literal_options(SdxlLoraConfig, "lr_scheduler"),
-                        interactive=True,
-                    )
-                    self.lr_warmup_steps = gr.Number(
-                        label="Warmup Steps",
-                        info="The number of warmup steps in the "
-                        "learning rate schedule, if applicable to the selected scheduler.",
-                        interactive=True,
-                    )
-            with gr.Tab("Advanced"):
-                with gr.Column():
-                    self.lora_rank_dim = gr.Number(
-                        label="LoRA Rank Dim",
-                        info="The rank dimension to use for the LoRA layers. Increasing the rank dimension increases"
-                        " the model's expressivity, but also increases the size of the generated LoRA model.",
-                        interactive=True,
-                        precision=0,
-                    )
-                    self.min_snr_gamma = gr.Number(
-                        label="Minumum SNR Gamma",
-                        info="min_snr_gamma acts like an an upper bound on the weight of samples with low noise "
-                        "levels. If None, then Min-SNR weighting will not be applied. If enabled, the recommended "
-                        "value is min_snr gamma = 5.0.",
-                        interactive=True,
-                    )
-                    self.max_grad_norm = gr.Number(
-                        label="Max Gradient Norm",
-                        info="Max gradient norm for clipping. Set to None for no clipping.",
-                        interactive=True,
-                    )
-                    self.train_batch_size = gr.Number(
-                        label="Batch Size",
-                        info="The Training Batch Size - Higher values require increasing amounts of VRAM.",
-                        precision=0,
-                        interactive=True,
-                    )
+        with gr.Tab("Core"):
+            with gr.Row():
+                self.train_unet = gr.Checkbox(label="Train UNet", interactive=True)
+                self.train_text_encoder = gr.Checkbox(label="Train Text Encoder", interactive=True)
+            with gr.Row():
+                self.unet_learning_rate = gr.Number(
+                    label="UNet Learning Rate",
+                    info="The UNet learning rate. If None, then it is inherited from the base optimizer learning "
+                    "rate.",
+                    interactive=True,
+                )
+                self.text_encoder_learning_rate = gr.Number(
+                    label="Text Encoder Learning Rate",
+                    info="The text encoder learning rate. If None, then it is inherited from the base optimizer "
+                    "learning rate.",
+                    interactive=True,
+                )
+            with gr.Row():
+                self.lr_scheduler = gr.Dropdown(
+                    label="Learning Rate Scheduler",
+                    choices=get_typing_literal_options(SdxlLoraConfig, "lr_scheduler"),
+                    interactive=True,
+                )
+                self.lr_warmup_steps = gr.Number(
+                    label="Warmup Steps",
+                    info="The number of warmup steps in the "
+                    "learning rate schedule, if applicable to the selected scheduler.",
+                    interactive=True,
+                )
+        with gr.Tab("Advanced"):
+            with gr.Column():
+                self.lora_rank_dim = gr.Number(
+                    label="LoRA Rank Dim",
+                    info="The rank dimension to use for the LoRA layers. Increasing the rank dimension increases"
+                    " the model's expressivity, but also increases the size of the generated LoRA model.",
+                    interactive=True,
+                    precision=0,
+                )
+                self.min_snr_gamma = gr.Number(
+                    label="Minumum SNR Gamma",
+                    info="min_snr_gamma acts like an an upper bound on the weight of samples with low noise "
+                    "levels. If None, then Min-SNR weighting will not be applied. If enabled, the recommended "
+                    "value is min_snr gamma = 5.0.",
+                    interactive=True,
+                )
+                self.max_grad_norm = gr.Number(
+                    label="Max Gradient Norm",
+                    info="Max gradient norm for clipping. Set to None for no clipping.",
+                    interactive=True,
+                )
+                self.train_batch_size = gr.Number(
+                    label="Batch Size",
+                    info="The Training Batch Size - Higher values require increasing amounts of VRAM.",
+                    precision=0,
+                    interactive=True,
+                )
 
         gr.Markdown("## Validation")
         with gr.Group():
