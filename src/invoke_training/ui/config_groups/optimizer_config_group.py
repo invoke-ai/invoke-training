@@ -13,7 +13,8 @@ class AdamOptimizerConfigGroup(UIConfigElement):
         with gr.Tab("Core"):
             self.learning_rate = gr.Number(
                 label="Learning Rate",
-                info="Initial learning rate to use (after the potential warmup period).",
+                info="Initial learning rate to use (after the potential warmup period). Note that in some training "
+                "pipelines this can be overriden for a specific group of params.",
                 interactive=True,
             )
         with gr.Tab("Advanced"):
@@ -53,8 +54,9 @@ class ProdigyOptimizerConfigGroup(UIConfigElement):
             with gr.Row():
                 self.learning_rate = gr.Number(
                     label="Learning Rate",
-                    info="The learning rate. For the Prodigy optimizer, the learning rate"
-                    " is adjusted dynamically. A value of 1.0 is recommended.",
+                    info="The learning rate. For the Prodigy optimizer, the learning rate is adjusted dynamically. A "
+                    "value of 1.0 is recommended. Note that in some pipelines this can be overriden for specific "
+                    "groups of parameters.",
                     interactive=True,
                 )
         with gr.Tab("Advanced"):

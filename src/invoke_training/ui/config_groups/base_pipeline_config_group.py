@@ -17,13 +17,17 @@ class BasePipelineConfigGroup(UIConfigElement):
         )
         with gr.Row():
             self.max_train_steps_or_epochs_dropdown = gr.Dropdown(
-                label="Maximum Training Count", choices=["max_train_steps", "max_train_epochs"], interactive=True
+                label="Training Length",
+                info="Train for a fixed number of gradient update steps or epochs.",
+                choices=["max_train_steps", "max_train_epochs"],
+                interactive=True,
             )
             self.max_train_steps_or_epochs = gr.Number(label="Steps or Epochs", precision=0, interactive=True)
 
         with gr.Row():
             self.save_every_n_steps_or_epochs_dropdown = gr.Dropdown(
                 label="Checkpoint Save Frequency",
+                info="Save a checkpoint every N gradient update steps or epochs.",
                 choices=["save_every_n_steps", "save_every_n_epochs"],
                 interactive=True,
             )
@@ -32,6 +36,7 @@ class BasePipelineConfigGroup(UIConfigElement):
         with gr.Row():
             self.validate_every_n_steps_or_epochs_dropdown = gr.Dropdown(
                 label="Validation Frequency",
+                info="Save validation images every N gradient update steps or epochs.",
                 choices=["validate_every_n_steps", "validate_every_n_epochs"],
                 interactive=True,
             )

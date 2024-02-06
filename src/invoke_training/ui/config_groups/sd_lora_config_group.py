@@ -21,13 +21,15 @@ class SdLoraConfigGroup(UIConfigElement):
             with gr.Tab("Base Model"):
                 self.model = gr.Textbox(
                     label="Model",
-                    info="Select the base model to be used for training. (model)",
+                    info="The base model. Can be a Hugging Face Hub model name, or a path to a local model (in "
+                    "diffusers or checkpoint format).",
                     type="text",
                     interactive=True,
                 )
                 self.hf_variant = gr.Textbox(
                     label="Variant",
-                    info="If applicable, set the variant (e.g., fp16, fp32) to be used. (hf_variant)",
+                    info="(optional) The Hugging Face hub model variant (e.g., fp16, fp32) to use if the model is a HF "
+                    "Hub model name.",
                     type="text",
                     interactive=True,
                 )
@@ -53,7 +55,8 @@ class SdLoraConfigGroup(UIConfigElement):
                 self.gradient_accumulation_steps = gr.Number(
                     label="Gradient Accumulation Steps",
                     info="The number of gradient steps to accumulate before each weight update. This is an"
-                    " alternative to increasing the batch size when training with limited VRAM.",
+                    " alternative to increasing the batch size when training with limited VRAM. "
+                    "effective_batch_size = train_batch_size * gradient_accumulation_steps.",
                     precision=0,
                     interactive=True,
                 )
@@ -61,18 +64,35 @@ class SdLoraConfigGroup(UIConfigElement):
                 self.mixed_precision = gr.Dropdown(
                     label="Mixed Precision",
                     info="The mixed precision training mode to used. Using a lower precision can speed up training and "
-                    'reduce memory usage, with a minor quality hit. Supported values: ["no", "fp16", "bf16", "fp8"].',
+                    "reduce memory usage, with a minor quality hit.",
                     choices=get_typing_literal_options(SdLoraConfig, "mixed_precision"),
                     interactive=True,
                 )
             with gr.Row():
-                self.cache_text_encoder_outputs = gr.Checkbox(label="Cache Text Encoder Outputs", interactive=True)
-                self.cache_vae_outputs = gr.Checkbox(label="Cache VAE Outputs", interactive=True)
+                self.cache_text_encoder_outputs = gr.Checkbox(
+                    label="Cache Text Encoder Outputs",
+                    info="Cache the text encoder outputs to increase speed. This should not be used when training the "
+                    "text encoder or performing data augmentations that would change the text encoder outputs.",
+                    interactive=True,
+                )
+                self.cache_vae_outputs = gr.Checkbox(
+                    label="Cache VAE Outputs",
+                    info="Cache the VAE outputs to increase speed. This should not be used when training the UNet or "
+                    "performing data augmentations that would change the VAE outputs.",
+                    interactive=True,
+                )
             with gr.Row():
                 self.enable_cpu_offload_during_validation = gr.Checkbox(
-                    label="Enable CPU Offload during Validation", interactive=True
+                    label="Enable CPU Offload during Validation",
+                    info="Offload models to the CPU sequentially during validation. This reduces peak VRAM "
+                    "requirements at the cost of slower validation during training.",
+                    interactive=True,
                 )
-                self.gradient_checkpointing = gr.Checkbox(label="Gradient Checkpointing", interactive=True)
+                self.gradient_checkpointing = gr.Checkbox(
+                    label="Gradient Checkpointing",
+                    info="If True, VRAM requirements are reduced at the cost of ~20% slower training",
+                    interactive=True,
+                )
 
         gr.Markdown("## General Training Configs")
         with gr.Group():
@@ -81,15 +101,30 @@ class SdLoraConfigGroup(UIConfigElement):
                     self.train_unet = gr.Checkbox(label="Train UNet", interactive=True)
                     self.train_text_encoder = gr.Checkbox(label="Train Text Encoder", interactive=True)
                 with gr.Row():
-                    self.unet_learning_rate = gr.Number(label="UNet Learning Rate", interactive=True)
-                    self.text_encoder_learning_rate = gr.Number(label="Text Encoder Learning Rate", interactive=True)
+                    self.unet_learning_rate = gr.Number(
+                        label="UNet Learning Rate",
+                        info="The UNet learning rate. If None, then it is inherited from the base optimizer learning "
+                        "rate.",
+                        interactive=True,
+                    )
+                    self.text_encoder_learning_rate = gr.Number(
+                        label="Text Encoder Learning Rate",
+                        info="The text encoder learning rate. If None, then it is inherited from the base optimizer "
+                        "learning rate.",
+                        interactive=True,
+                    )
                 with gr.Row():
                     self.lr_scheduler = gr.Dropdown(
                         label="Learning Rate Scheduler",
                         choices=get_typing_literal_options(SdLoraConfig, "lr_scheduler"),
                         interactive=True,
                     )
-                    self.lr_warmup_steps = gr.Number(label="Warmup Steps", interactive=True)
+                    self.lr_warmup_steps = gr.Number(
+                        label="Warmup Steps",
+                        info="The number of warmup steps in the "
+                        "learning rate schedule, if applicable to the selected scheduler.",
+                        interactive=True,
+                    )
             with gr.Tab("Advanced"):
                 with gr.Column():
                     self.lora_rank_dim = gr.Number(
@@ -101,9 +136,9 @@ class SdLoraConfigGroup(UIConfigElement):
                     )
                     self.min_snr_gamma = gr.Number(
                         label="Minumum SNR Gamma",
-                        info="min_snr_gamma acts like an an upper bound on the weight of samples with low noise levels."
-                        "If None, then Min-SNR weighting will not be applied. If enabled, the recommended value"
-                        " is min_snr_gamma = 5.0.",
+                        info="min_snr_gamma acts like an an upper bound on the weight of samples with low noise "
+                        "levels. If None, then Min-SNR weighting will not be applied. If enabled, the recommended "
+                        "value is min_snr gamma = 5.0.",
                         interactive=True,
                     )
                     self.max_grad_norm = gr.Number(

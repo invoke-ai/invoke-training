@@ -11,7 +11,12 @@ from invoke_training.config.data.dataset_config import (
 )
 from invoke_training.ui.config_groups.ui_config_element import UIConfigElement
 
-ALL_DATASET_TYPES = ["HF_HUB_IMAGE_CAPTION_DATASET", "IMAGE_CAPTION_JSONL_DATASET", "IMAGE_DIR_DATASET"]
+ALL_DATASET_TYPES = [
+    "HF_HUB_IMAGE_CAPTION_DATASET",
+    "IMAGE_CAPTION_JSONL_DATASET",
+    "IMAGE_CAPTION_DIR_DATASET",
+    "IMAGE_DIR_DATASET",
+]
 
 
 class HFHubImageCaptionDatasetConfigGroup(UIConfigElement):
@@ -63,9 +68,17 @@ class HFHubImageCaptionDatasetConfigGroup(UIConfigElement):
 
 class ImageCaptionJsonlDatasetConfigGroup(UIConfigElement):
     def __init__(self):
-        self.jsonl_path = gr.Textbox(label="jsonl_path", interactive=True)
-        self.image_column = gr.Textbox(label="image_column", interactive=True)
-        self.caption_column = gr.Textbox(label="caption_column", interactive=True)
+        self.jsonl_path = gr.Textbox(label="jsonl_path", info="Path to the dataset `.jsonl` file.", interactive=True)
+        self.image_column = gr.Textbox(
+            label="image_column",
+            info="The name of the field in the `.jsonl` containing image file paths.",
+            interactive=True,
+        )
+        self.caption_column = gr.Textbox(
+            label="caption_column",
+            info="The name of the field in the `.jsonl` containing image captions.",
+            interactive=True,
+        )
 
     def update_ui_components_with_config_data(
         self, config: ImageCaptionJsonlDatasetConfig | None
@@ -97,8 +110,15 @@ class ImageCaptionJsonlDatasetConfigGroup(UIConfigElement):
 class ImageCaptionDirDatasetConfigGroup(UIConfigElement):
     def __init__(self):
         with gr.Row():
-            self.dataset_dir = gr.Textbox(label="dataset_dir", interactive=True)
-            self.keep_in_memory = gr.Checkbox(label="keep_in_memory", interactive=True)
+            self.dataset_dir = gr.Textbox(
+                label="dataset_dir", info="The path to the dataset directory.", interactive=True
+            )
+            self.keep_in_memory = gr.Checkbox(
+                label="keep_in_memory",
+                info="If True, the entire dataset will be kept in RAM. This increases speed for small datasets at the "
+                "cost of higher RAM usage.",
+                interactive=True,
+            )
 
     def update_ui_components_with_config_data(
         self, config: ImageCaptionDirDatasetConfig | None
@@ -123,8 +143,15 @@ class ImageCaptionDirDatasetConfigGroup(UIConfigElement):
 class ImageDirDatasetConfigGroup(UIConfigElement):
     def __init__(self):
         with gr.Row():
-            self.dataset_dir = gr.Textbox(label="dataset_dir", interactive=True)
-            self.keep_in_memory = gr.Checkbox(label="keep_in_memory", interactive=True)
+            self.dataset_dir = gr.Textbox(
+                label="dataset_dir", info="The path to the dataset directory.", interactive=True
+            )
+            self.keep_in_memory = gr.Checkbox(
+                label="keep_in_memory",
+                info="If True, the entire dataset will be kept in RAM. This increases speed for small datasets at the "
+                "cost of higher RAM usage.",
+                interactive=True,
+            )
 
     def update_ui_components_with_config_data(
         self, config: ImageDirDatasetConfig | None
@@ -151,7 +178,8 @@ class DatasetConfigGroup(UIConfigElement):
         self.type = gr.Dropdown(
             choices=[t for t in ALL_DATASET_TYPES if t in allowed_types],
             label="Dataset Type",
-            info="Choose the type of dataset to use for training. [Hugging Face Hub Dataset or Local Directory]",
+            info="The type of dataset to use for training. See "
+            "https://invoke-ai.github.io/invoke-training/concepts/dataset_formats/ for a description of each format.",
             interactive=True,
         )
 
@@ -164,7 +192,7 @@ class DatasetConfigGroup(UIConfigElement):
         self.image_caption_jsonl_dataset_config_group = image_caption_jsonl_dataset_config_group
 
         with gr.Group() as image_caption_dir_dataset_config_group:
-            self.image_caption_dir_dataset_config = ImageDirDatasetConfigGroup()
+            self.image_caption_dir_dataset_config = ImageCaptionDirDatasetConfigGroup()
         self.image_caption_dir_dataset_config_group = image_caption_dir_dataset_config_group
 
         with gr.Group() as image_dir_dataset_config_group:

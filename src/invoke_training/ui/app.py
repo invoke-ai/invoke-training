@@ -31,7 +31,7 @@ class App:
         self._training_process = None
 
         logo_path = get_assets_dir_path() / "logo.png"
-        with gr.Blocks(analytics_enabled=False) as app:
+        with gr.Blocks(title="invoke-training", analytics_enabled=False) as app:
             with gr.Column():
                 gr.Image(
                     value=logo_path,

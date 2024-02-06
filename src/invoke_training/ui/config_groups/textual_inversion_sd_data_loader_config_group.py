@@ -26,14 +26,32 @@ class TextualInversionSDDataLoaderConfigGroup(UIConfigElement):
         with gr.Tab("Data Loading Configs"):
             with gr.Group():
                 self.caption_preset = gr.Dropdown(
-                    label="Caption Preset", choices=["None", "style", "object"], interactive=True
+                    label="Caption Preset",
+                    choices=["None", "style", "object"],
+                    info="Only one of 'Caption Preset' or 'Caption Templates' should be set.\nSelect a Caption Preset "
+                    "option to use a set of pre-configured templates.",
+                    interactive=True,
                 )
                 self.caption_templates = gr.Textbox(
-                    label="Caption Templates", info="Enter one template per line.", lines=5, interactive=True
+                    label="Caption Templates",
+                    info="Only one of 'Caption Preset' or 'Caption Templates' should be set. Enter one template per "
+                    "line. Each template should contain a single placeholder token slot indicated by '{}', for example "
+                    "'a photo of a {}'.",
+                    lines=5,
+                    interactive=True,
                 )
                 with gr.Row():
-                    self.keep_original_captions = gr.Checkbox(label="Keep Original Captions", interactive=True)
-                    self.shuffle_caption_delimiter = gr.Textbox(label="Shuffle Caption Delimiter", interactive=True)
+                    self.keep_original_captions = gr.Checkbox(
+                        label="Keep Original Captions",
+                        info="If True, the caption templates will be prepended to the original dataset captions. If "
+                        "False, the caption templates will replace the original captions.",
+                        interactive=True,
+                    )
+                    self.shuffle_caption_delimiter = gr.Textbox(
+                        label="Shuffle Caption Delimiter",
+                        info="If set, captions will be split on the provided delimiter (e.g. ',') and shuffled.",
+                        interactive=True,
+                    )
 
                 with gr.Row():
                     self.resolution = gr.Number(
