@@ -26,8 +26,9 @@ markdown_extensions:
 nav:
 - Welcome: index.md
 - Get Started:
-  - get_started/installation.md
-  - get_started/quick_start.md
+  - get-started/installation.md
+  - get-started/quick-start-cli.md
+  - get-started/quick-start-gui.md
 - Tutorials:
   - tutorials/index.md
   - Stable Diffusion:

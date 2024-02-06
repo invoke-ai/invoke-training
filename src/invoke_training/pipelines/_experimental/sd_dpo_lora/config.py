@@ -150,7 +150,7 @@ class SdDirectPreferenceOptimizationLoraConfig(BasePipelineConfig):
     Accelerate. This is an alternative to increasing the batch size when training with limited VRAM.
     """
 
-    mixed_precision: Literal["no", "fp16", "bf16", "fp8"] | None = None
+    mixed_precision: Literal["no", "fp16", "bf16", "fp8"] = "no"
     """The mixed precision mode to use ('no','fp16','bf16 or 'fp8'). This value is passed to Hugging Face Accelerate.
     See accelerate.Accelerator for more details.
     """

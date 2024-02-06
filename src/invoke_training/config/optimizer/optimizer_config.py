@@ -23,7 +23,9 @@ class ProdigyOptimizerConfig(ConfigBaseModel):
 
     learning_rate: float = 1.0
     """The learning rate. For the Prodigy optimizer, the learning rate is adjusted dynamically. A value of 1.0 is
-    recommended.
+    recommended. Note that in some training pipelines this can be overriden for a specific group of params:
+    https://pytorch.org/docs/stable/optim.html#per-parameter-options (E.g. see `text_encoder_learning_rate` and
+    `unet_learning_rate`)
     """
 
     weight_decay: float = 0.0
