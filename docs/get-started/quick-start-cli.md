@@ -1,6 +1,8 @@
-# Quick Start
+# Quick Start - CLI
 
-This page walks through the steps to train your first model with `invoke-training`.
+This page walks through the steps to train your first model with the `invoke-training` CLI.
+
+There is also a [Quick Start - GUI](./quick-start-gui.md) guide.
 
 This tutorial explains how to train a basic Pokemon Style LoRA using the [lambdalabs/pokemon-blip-captions](https://huggingface.co/datasets/lambdalabs/pokemon-blip-captions) dataset on the [Stable Diffusion v1.5](https://huggingface.co/runwayml/stable-diffusion-v1-5) base model, and how to use it in [InvokeAI](https://github.com/invoke-ai/InvokeAI).
 
@@ -22,7 +24,7 @@ invoke-train --cfg-file configs/sd_lora_pokemon_1x8gb.yaml
 ```
 
 ### 4. Monitor training
-Monitor the training process with Tensorboard by running `tensorboard --logdir output/` and visiting [localhost:6006](http://localhost:6006) in your browser. Here you can see generated images for fixed validation prompts throughout the training process.
+Monitor the training process with Tensorboard by running `tensorboard --logdir output/` and visiting [localhost:6006](http://localhost:6006) in your browser. Here you can see generated validation images throughout the training process.
 
 ![Screenshot of the Tensorboard UI showing validation images.](../images/tensorboard_val_images_screenshot.png)
 *Validation images in the Tensorboard UI.*

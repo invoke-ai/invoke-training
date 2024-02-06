@@ -6,7 +6,7 @@ A library for training custom Stable Diffusion models (fine-tuning, LoRA trainin
 
 The documentation is organized as follows:
 
-- [Get Started](get_started/installation.md): Install `invoke-training` and run your first training pipeline.
+- [Get Started](get-started/installation.md): Install `invoke-training` and run your first training pipeline.
 - [Tutorials](tutorials/index.md): Full tutorials for running popular training pipelines.
 - [Concepts](concepts/index.md): General concepts for `invoke-training` users.
 - [Config Reference](reference/config/index.md): Reference documentation for all supported training configuration options.

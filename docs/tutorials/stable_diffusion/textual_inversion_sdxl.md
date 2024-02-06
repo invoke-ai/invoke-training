@@ -32,7 +32,7 @@ Full config reference docs: [Textual Inversion SDXL Config](../../reference/conf
 
 ## 3 - Start Training
 
-[Install invoke-training](../../get_started/installation.md), if you haven't already.
+[Install invoke-training](../../get-started/installation.md), if you haven't already.
 
 Launch the Textual Inversion training pipeline:
 ```bash

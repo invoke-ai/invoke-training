@@ -26,7 +26,7 @@ More training modes coming soon!
 
 ## Installation
 
-For more installation details, see the [Installation](https://invoke-ai.github.io/invoke-training/get_started/installation/) section of the documentation.
+For more installation details, see the [Installation](https://invoke-ai.github.io/invoke-training/get-started/installation/) section of the documentation.
 
 ```bash
 # A recent version of pip is required, so first upgrade pip:
