@@ -12,10 +12,15 @@ https://invoke-ai.github.io/invoke-training/
 
 ## Training Modes
 
-- Stable Diffusion (v1 / v2 / SDXL)
-    - Finetune with LoRA
-    - DreamBooth with LoRA
+- Stable Diffusion
+    - LoRA
+    - DreamBooth LoRA
     - Textual Inversion
+- Stable Diffusion XL
+    - LoRA
+    - DreamBooth LoRA
+    - Textual Inversion
+    - LoRA and Textual Inversion
 
 More training modes coming soon!
 
@@ -31,12 +36,25 @@ python -m pip install --upgrade pip
 pip install -e ".[test]" --extra-index-url https://download.pytorch.org/whl/cu121
 ```
 
-## A simple example
+## Quick Start
 
-Training is configured with type-checked YAML files, and launched with a single command:
+`invoke-training` pipelines can be configured and launched from either the CLI or the GUI.
+
+### CLI
+
+Run training via the CLI with type-checked YAML configuration files for maximum control:
 ```bash
 invoke-train --cfg-file configs/sd_lora_pokemon_1x8gb.yaml
 ```
+
+### GUI
+
+Run training via the GUI for a simpler starting point.
+```bash
+invoke-train-ui
+```
+
+## Features
 
 Training progress can be monitored with [Tensorboard](https://www.tensorflow.org/tensorboard):
 ![Screenshot of the Tensorboard UI showing validation images.](docs/images/tensorboard_val_images_screenshot.png)
