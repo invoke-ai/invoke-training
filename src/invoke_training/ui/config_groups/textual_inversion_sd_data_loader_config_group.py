@@ -5,12 +5,12 @@ import gradio as gr
 from invoke_training.config.data.data_loader_config import (
     TextualInversionSDDataLoaderConfig,
 )
+from invoke_training.ui.config_groups.aspect_ratio_bucket_config_group import AspectRatioBucketConfigGroup
 from invoke_training.ui.config_groups.dataset_config_group import DatasetConfigGroup
 from invoke_training.ui.config_groups.ui_config_element import UIConfigElement
 
 
 class TextualInversionSDDataLoaderConfigGroup(UIConfigElement):
-    # TODO: Add aspect_ratio_buckets
     def __init__(self):
         with gr.Tab("Data Source Configs"):
             with gr.Group():
@@ -80,6 +80,8 @@ class TextualInversionSDDataLoaderConfigGroup(UIConfigElement):
                         info="If set, random flip augmentations will be applied to input images.",
                         interactive=True,
                     )
+        with gr.Tab("Aspect Ratio Bucketing Configs"):
+            self.aspect_ratio_bucket_config_group = AspectRatioBucketConfigGroup()
 
     def update_ui_components_with_config_data(
         self, config: TextualInversionSDDataLoaderConfig
@@ -101,6 +103,9 @@ class TextualInversionSDDataLoaderConfigGroup(UIConfigElement):
         }
 
         update_dict.update(self.dataset.update_ui_components_with_config_data(config.dataset))
+        update_dict.update(
+            self.aspect_ratio_bucket_config_group.update_ui_components_with_config_data(config.aspect_ratio_buckets)
+        )
 
         return update_dict
 
@@ -118,6 +123,9 @@ class TextualInversionSDDataLoaderConfigGroup(UIConfigElement):
         caption_templates = [x.strip() for x in caption_templates if x.strip() != ""] or None
 
         new_config.dataset = self.dataset.update_config_with_ui_component_data(orig_config.dataset, ui_data)
+        new_config.aspect_ratio_buckets = self.aspect_ratio_bucket_config_group.update_config_with_ui_component_data(
+            orig_config.aspect_ratio_buckets, ui_data
+        )
         new_config.caption_preset = caption_preset
         new_config.caption_templates = caption_templates
         new_config.keep_original_captions = ui_data.pop(self.keep_original_captions)

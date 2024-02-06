@@ -3,12 +3,12 @@ from typing import Any
 import gradio as gr
 
 from invoke_training.config.data.data_loader_config import ImageCaptionSDDataLoaderConfig
+from invoke_training.ui.config_groups.aspect_ratio_bucket_config_group import AspectRatioBucketConfigGroup
 from invoke_training.ui.config_groups.dataset_config_group import DatasetConfigGroup
 from invoke_training.ui.config_groups.ui_config_element import UIConfigElement
 
 
 class ImageCaptionSDDataLoaderConfigGroup(UIConfigElement):
-    # TODO: Add aspect_ratio_buckets
     def __init__(self):
         with gr.Tab("Data Source Configs"):
             with gr.Group():
@@ -54,6 +54,8 @@ class ImageCaptionSDDataLoaderConfigGroup(UIConfigElement):
                     info="A prefix that will be prepended to all captions. If None, no prefix will be added.",
                     interactive=True,
                 )
+        with gr.Tab("Aspect Ratio Bucketing Configs"):
+            self.aspect_ratio_bucket_config_group = AspectRatioBucketConfigGroup()
 
     def update_ui_components_with_config_data(
         self, config: ImageCaptionSDDataLoaderConfig
@@ -67,6 +69,9 @@ class ImageCaptionSDDataLoaderConfigGroup(UIConfigElement):
         }
 
         update_dict.update(self.dataset.update_ui_components_with_config_data(config.dataset))
+        update_dict.update(
+            self.aspect_ratio_bucket_config_group.update_ui_components_with_config_data(config.aspect_ratio_buckets)
+        )
 
         return update_dict
 
@@ -76,6 +81,9 @@ class ImageCaptionSDDataLoaderConfigGroup(UIConfigElement):
         new_config = orig_config.model_copy(deep=True)
 
         new_config.dataset = self.dataset.update_config_with_ui_component_data(orig_config.dataset, ui_data)
+        new_config.aspect_ratio_buckets = self.aspect_ratio_bucket_config_group.update_config_with_ui_component_data(
+            orig_config.aspect_ratio_buckets, ui_data
+        )
         new_config.resolution = ui_data.pop(self.resolution)
         new_config.center_crop = ui_data.pop(self.center_crop)
         new_config.random_flip = ui_data.pop(self.random_flip)
