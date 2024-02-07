@@ -57,6 +57,10 @@ dependencies = [
 "Homepage" = "https://github.com/invoke-ai/invoke-training"
 "Discord" = "https://discord.gg/ZmtBAhwWhy"
 
+[tool.setuptools.package-data]
+"invoke_training.sample_configs" = ["**/*.yaml"]
+"invoke_training.assets" = ["*.png"]
+
 [tool.ruff]
 src = ["src"]
 select = ["E", "F", "W", "C9", "N8", "I"]
