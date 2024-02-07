@@ -8,9 +8,9 @@ from invoke_training.config.pipeline_config import PipelineConfig
 
 
 def test_pipeline_config():
-    """Test that all sample pipeline configs can be parse as PipelineConfigs."""
+    """Test that all sample pipeline configs can be parsed as PipelineConfigs."""
     cur_file = Path(__file__)
-    config_dir = cur_file.parent.parent.parent.parent.parent / "configs"
+    config_dir = cur_file.parent.parent.parent.parent.parent / "src/invoke_training/sample_configs"
     config_files = glob.glob(str(config_dir) + "/**/*.yaml", recursive=True)
 
     assert len(config_files) > 0

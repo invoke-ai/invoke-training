@@ -12,7 +12,7 @@ The Diffusion-DPO paper does full model fine-tuning on the [pickapic_v2](https:/
 
 Run this experiment with the following command:
 ```bash
-invoke-train -c configs/_experimental/sd_dpo_lora_pickapic_1x24gb.yaml
+invoke-train -c src/invoke_training/sample_configs/_experimental/sd_dpo_lora_pickapic_1x24gb.yaml
 ```
 
 Here is a cherry-picked example of a prompt for which this training process was clearly beneficial.
@@ -36,7 +36,7 @@ Note: The steps listed below are pretty rough. They are included primarily for r
 ### 1. Train a style LoRA
 
 ```bash
-invoke-train -c configs/sd_lora_pokemon_1x8gb.yaml
+invoke-train -c src/invoke_training/sample_configs/sd_lora_pokemon_1x8gb.yaml
 ```
 
 ### 2. Generate images
@@ -80,7 +80,7 @@ Launch the gradio UI for selecting image pair preferences.
 
 ```bash
 # Note: rank_images.py accepts a full training pipeline config, but only uses the dataset configuration.
-python src/invoke_training/scripts/_experimental/rank_images.py -c configs/_experimental/sd_dpo_lora_refinement_pokemon_1x24gb.yaml
+python src/invoke_training/scripts/_experimental/rank_images.py -c src/invoke_training/sample_configs/_experimental/sd_dpo_lora_refinement_pokemon_1x24gb.yaml
 ```
 
 After completing the pair annotations, click "Save Metadata" and move the resultant metadata file to your image data directory (e.g. `output/pokemon_pairs/metadata.jsonl`).
@@ -88,5 +88,5 @@ After completing the pair annotations, click "Save Metadata" and move the result
 ### 4. Run Diffusion-DPO
 
 ```bash
-invoke-train -c configs/_experimental/sd_dpo_lora_refinement_pokemon_1x24gb.yaml
+invoke-train -c src/invoke_training/sample_configs/_experimental/sd_dpo_lora_refinement_pokemon_1x24gb.yaml
 ```

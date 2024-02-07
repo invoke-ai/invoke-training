@@ -44,7 +44,7 @@ pip install -e ".[test]" --extra-index-url https://download.pytorch.org/whl/cu12
 
 Run training via the CLI with type-checked YAML configuration files for maximum control:
 ```bash
-invoke-train --cfg-file configs/sd_lora_pokemon_1x8gb.yaml
+invoke-train --cfg-file src/invoke_training/sample_configs/sd_lora_pokemon_1x8gb.yaml
 ```
 
 ### GUI
