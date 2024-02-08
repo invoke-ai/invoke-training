@@ -6,13 +6,13 @@ from PIL import Image
 from pydantic import BaseModel
 
 from invoke_training._shared.data.utils.resolution import Resolution
-from invoke_training._shared.utils.jsonl import load_jsonl
+from invoke_training._shared.utils.jsonl import load_jsonl, save_jsonl
 
 IMAGE_COLUMN_DEFAULT = "image"
 CAPTION_COLUMN_DEFAULT = "text"
 
 
-class _ImageCaptionExample(BaseModel):
+class ImageCaptionExample(BaseModel):
     image_path: str
     caption: str
 
@@ -29,13 +29,19 @@ class ImageCaptionJsonlDataset(torch.utils.data.Dataset):
         self._caption_column = caption_column
 
         data = load_jsonl(jsonl_path)
-        examples: list[_ImageCaptionExample] = []
+        examples: list[ImageCaptionExample] = []
         for d in data:
-            examples.append(_ImageCaptionExample(image_path=d[image_column], caption=d[caption_column]))
-        self._examples = examples
+            examples.append(ImageCaptionExample(image_path=d[image_column], caption=d[caption_column]))
+        self.examples = examples
+
+    def save_jsonl(self):
+        data = []
+        for example in self.examples:
+            data.append({self._image_column: example.image_path, self._caption_column: example.caption})
+        save_jsonl(data, self._jsonl_path)
 
     def _get_image_path(self, idx: int) -> str:
-        image_path = self._examples[idx].image_path
+        image_path = self.examples[idx].image_path
 
         # image_path could be either absolute, or relative to the jsonl file.
         if not image_path.startswith("/"):
@@ -55,15 +61,15 @@ class ImageCaptionJsonlDataset(torch.utils.data.Dataset):
         calculate this dynamically every time.
         """
         image_dims: list[Resolution] = []
-        for i in range(len(self._examples)):
+        for i in range(len(self.examples)):
             image = Image.open(self._get_image_path(i))
             image_dims.append(Resolution(image.height, image.width))
 
         return image_dims
 
     def __len__(self) -> int:
-        return len(self._examples)
+        return len(self.examples)
 
     def __getitem__(self, idx: int) -> typing.Dict[str, typing.Any]:
         image = self._load_image(self._get_image_path(idx))
-        return {"id": str(idx), "image": image, "caption": self._examples[idx].caption}
+        return {"id": str(idx), "image": image, "caption": self.examples[idx].caption}

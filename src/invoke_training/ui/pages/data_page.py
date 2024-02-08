@@ -40,37 +40,97 @@ class DataPage:
             gr.Markdown("## Setup")
             with gr.Group():
                 # TODO: Expose image_column and caption_column as inputs?
-                self._load_path_textbox = gr.Textbox(
+                self._jsonl_path_textbox = gr.Textbox(
                     label=".jsonl Path",
                     info="Enter the path to the .jsonl file to load or create.",
                     placeholder="/path/to/dataset.jsonl",
                 )
-                self._image_column_textbox = gr.Textbox(
-                    label="Image Column (Optional)", placeholder=IMAGE_COLUMN_DEFAULT
-                )
-                self._caption_column_textbox = gr.Textbox(
-                    label="Caption Column (Optional)", placeholder=CAPTION_COLUMN_DEFAULT
-                )
+                with gr.Row():
+                    self._image_column_textbox = gr.Textbox(
+                        label="Image Column (Optional)", placeholder=IMAGE_COLUMN_DEFAULT
+                    )
+                    self._caption_column_textbox = gr.Textbox(
+                        label="Caption Column (Optional)", placeholder=CAPTION_COLUMN_DEFAULT
+                    )
                 self._load_dataset_button = gr.Button("Load or Create Dataset")
 
-            gr.Markdown("## Edit")
-            self._current_jsonl_textbox = gr.Textbox(
-                label="Currently editing", interactive=False, placeholder="No dataset loaded"
-            )
-            self._current_len_number = gr.Number(label="Dataset length", interactive=False)
+            gr.Markdown("## Edit Captions")
+            self._cur_len_number = gr.Number(label="Dataset length", interactive=False)
 
+            self._cur_example_index = gr.Number(label="Current index", precision=0, interactive=False)
             self._cur_image = gr.Image(value=None, label="Image", interactive=False, width=500)
             self._cur_caption = gr.Textbox(label="Caption", interactive=True)
+            with gr.Row():
+                self._save_and_prev_button = gr.Button("Save and Go-To Previous")
+                self._save_and_next_button = gr.Button("Save and Go-To Next")
+
             self._app = app
 
             self._load_dataset_button.click(
                 self._on_load_dataset_button_click,
-                inputs=set([self._load_path_textbox, self._image_column_textbox, self._caption_column_textbox]),
-                outputs=[self._current_jsonl_textbox, self._current_len_number, self._cur_image, self._cur_caption],
+                inputs=set([self._jsonl_path_textbox, self._image_column_textbox, self._caption_column_textbox]),
+                outputs=[
+                    self._cur_len_number,
+                    self._cur_example_index,
+                    self._cur_image,
+                    self._cur_caption,
+                ],
+            )
+            self._save_and_prev_button.click(
+                self._on_save_and_prev_button_click,
+                inputs=set(
+                    [
+                        self._jsonl_path_textbox,
+                        self._image_column_textbox,
+                        self._caption_column_textbox,
+                        self._cur_example_index,
+                        self._cur_caption,
+                    ]
+                ),
+                outputs=[
+                    self._cur_len_number,
+                    self._cur_example_index,
+                    self._cur_image,
+                    self._cur_caption,
+                ],
+            )
+            self._save_and_next_button.click(
+                self._on_save_and_next_button_click,
+                inputs=set(
+                    [
+                        self._jsonl_path_textbox,
+                        self._image_column_textbox,
+                        self._caption_column_textbox,
+                        self._cur_example_index,
+                        self._cur_caption,
+                    ]
+                ),
+                outputs=[
+                    self._cur_len_number,
+                    self._cur_example_index,
+                    self._cur_image,
+                    self._cur_caption,
+                ],
             )
 
+    def _update_state(self, dataset: ImageCaptionJsonlDataset, idx: int):
+        idx = idx
+        image = None
+        caption = None
+        if 0 <= idx and idx < len(dataset):
+            example = dataset[idx]
+            image = example["image"]
+            caption = example["caption"]
+
+        return {
+            self._cur_len_number: len(dataset),
+            self._cur_example_index: idx,
+            self._cur_image: image,
+            self._cur_caption: caption,
+        }
+
     def _on_load_dataset_button_click(self, data: dict):
-        jsonl_path = Path(data[self._load_path_textbox])
+        jsonl_path = Path(data[self._jsonl_path_textbox])
         jsonl_path = jsonl_path.resolve()
         if jsonl_path.exists():
             print(f"Loading dataset from '{jsonl_path}'.")
@@ -87,19 +147,31 @@ class DataPage:
             image_column=data[self._image_column_textbox] or IMAGE_COLUMN_DEFAULT,
             caption_column=data[self._caption_column_textbox] or CAPTION_COLUMN_DEFAULT,
         )
-        image = None
-        caption = None
-        if len(dataset) > 0:
-            example = dataset[0]
-            image = example["image"]
-            caption = example["caption"]
 
-        return {
-            self._current_jsonl_textbox: jsonl_path,
-            self._current_len_number: len(dataset),
-            self._cur_image: image,
-            self._cur_caption: caption,
-        }
+        return self._update_state(dataset, 0)
+
+    def _on_save_and_go_button_click(self, data: dict, idx_change: int):
+        jsonl_path = Path(data[self._jsonl_path_textbox])
+        dataset = ImageCaptionJsonlDataset(
+            jsonl_path=jsonl_path,
+            image_column=data[self._image_column_textbox] or IMAGE_COLUMN_DEFAULT,
+            caption_column=data[self._caption_column_textbox] or CAPTION_COLUMN_DEFAULT,
+        )
+
+        # Update the current caption and re-save the jsonl file.
+        idx: int = data[self._cur_example_index]
+        print(f"Updating caption for example {idx} of '{jsonl_path}'.")
+        caption = data[self._cur_caption]
+        dataset.examples[idx].caption = caption
+        dataset.save_jsonl()
+
+        return self._update_state(dataset, idx + idx_change)
+
+    def _on_save_and_next_button_click(self, data: dict):
+        return self._on_save_and_go_button_click(data, 1)
+
+    def _on_save_and_prev_button_click(self, data: dict):
+        return self._on_save_and_go_button_click(data, -1)
 
     def app(self):
         return self._app
