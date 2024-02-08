@@ -71,6 +71,7 @@ class DataPage:
             self._cur_len_number = gr.Number(label="Dataset length", interactive=False)
 
             self._cur_example_index = gr.Number(label="Current index", precision=0, interactive=False)
+            self._beyond_dataset_limits_warning = gr.Markdown("**Current index is beyond dataset limits.**")
             self._cur_image = gr.Image(value=None, label="Image", interactive=False, width=500)
             self._cur_caption = gr.Textbox(label="Caption", interactive=True)
             with gr.Row():
@@ -87,6 +88,7 @@ class DataPage:
                 self._cur_example_index,
                 self._cur_image,
                 self._cur_caption,
+                self._beyond_dataset_limits_warning,
                 self._data_jsonl,
             ]
             self._load_dataset_button.click(
@@ -138,7 +140,9 @@ class DataPage:
         idx = idx
         image = None
         caption = None
+        beyond_limits = True
         if 0 <= idx and idx < len(dataset):
+            beyond_limits = False
             example = dataset[idx]
             image = example["image"]
             caption = example["caption"]
@@ -149,6 +153,7 @@ class DataPage:
             self._cur_example_index: idx,
             self._cur_image: image,
             self._cur_caption: caption,
+            self._beyond_dataset_limits_warning: gr.Markdown(visible=beyond_limits),
             self._data_jsonl: jsonl_str,
         }
 
