@@ -5,10 +5,13 @@ import gradio as gr
 from invoke_training._shared.data.datasets.image_caption_jsonl_dataset import (
     CAPTION_COLUMN_DEFAULT,
     IMAGE_COLUMN_DEFAULT,
+    ImageCaptionExample,
     ImageCaptionJsonlDataset,
 )
 from invoke_training._shared.utils.jsonl import save_jsonl
 from invoke_training.ui.utils import get_assets_dir_path
+
+IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png"]
 
 
 class DataPage:
@@ -53,6 +56,16 @@ class DataPage:
                         label="Caption Column (Optional)", placeholder=CAPTION_COLUMN_DEFAULT
                     )
                 self._load_dataset_button = gr.Button("Load or Create Dataset")
+
+            gr.Markdown("## Add Images")
+            with gr.Group():
+                self._image_source_textbox = gr.Textbox(
+                    label="Image Source",
+                    info="Enter the path to a single image or a directory containing images. If a directory path is "
+                    "passed, it will be searched recursively for image files.",
+                    placeholder="/path/to/image_dir",
+                )
+                self._add_images_button = gr.Button("Add Images")
 
             gr.Markdown("## Edit Captions")
             self._cur_len_number = gr.Number(label="Dataset length", interactive=False)
@@ -103,6 +116,24 @@ class DataPage:
                         self._caption_column_textbox,
                         self._cur_example_index,
                         self._cur_caption,
+                    ]
+                ),
+                outputs=[
+                    self._cur_len_number,
+                    self._cur_example_index,
+                    self._cur_image,
+                    self._cur_caption,
+                ],
+            )
+
+            self._add_images_button.click(
+                self._on_add_images_button_click,
+                inputs=set(
+                    [
+                        self._jsonl_path_textbox,
+                        self._image_column_textbox,
+                        self._caption_column_textbox,
+                        self._image_source_textbox,
                     ]
                 ),
                 outputs=[
@@ -172,6 +203,52 @@ class DataPage:
 
     def _on_save_and_prev_button_click(self, data: dict):
         return self._on_save_and_go_button_click(data, -1)
+
+    def _on_add_images_button_click(self, data: dict):
+        """Add images to the dataset."""
+        image_source_path = Path(data[self._image_source_textbox])
+
+        if not image_source_path.exists():
+            raise ValueError(f"'{image_source_path}' does not exist.")
+
+        jsonl_path = Path(data[self._jsonl_path_textbox])
+        dataset = ImageCaptionJsonlDataset(
+            jsonl_path=jsonl_path,
+            image_column=data[self._image_column_textbox] or IMAGE_COLUMN_DEFAULT,
+            caption_column=data[self._caption_column_textbox] or CAPTION_COLUMN_DEFAULT,
+        )
+
+        # Determine the list of image paths to add to the dataset.
+        image_paths = []
+        if image_source_path.is_file():
+            if image_source_path.suffix.lower() not in IMAGE_EXTENSIONS:
+                raise ValueError(
+                    f"'{image_source_path}' is not a valid image file. Expected one of {IMAGE_EXTENSIONS}."
+                )
+
+            image_paths.append(image_source_path)
+        else:
+            # Recursively search for image files in the image_source_path directory.
+            for file_path in image_source_path.glob("**/*"):
+                if file_path.is_file() and file_path.suffix.lower() in IMAGE_EXTENSIONS:
+                    image_paths.append(file_path)
+
+        # Avoid adding duplicate images.
+        cur_image_paths = set([Path(example.image_path) for example in dataset.examples])
+        image_paths = set(image_paths)
+        new_image_paths = image_paths - cur_image_paths
+        if len(new_image_paths) < len(image_paths):
+            print(f"Skipping {len(image_paths) - len(new_image_paths)} images that are already in the dataset.")
+
+        # Add the new images to the dataset.
+        print(f"Adding {len(new_image_paths)} images to '{jsonl_path}'.")
+        for image_path in new_image_paths:
+            dataset.examples.append(ImageCaptionExample(image_path=str(image_path), caption=""))
+
+        # Save the updated dataset.
+        dataset.save_jsonl()
+
+        return self._update_state(dataset, 0)
 
     def app(self):
         return self._app
