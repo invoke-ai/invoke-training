@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 import numpy as np
@@ -10,6 +9,7 @@ from invoke_training._shared.data.datasets.hf_image_caption_dataset import (
     HFImageCaptionDataset,
 )
 from invoke_training._shared.data.utils.resolution import Resolution
+from invoke_training._shared.utils.jsonl import save_jsonl
 
 ################################################
 # Tests for HFImageCaptionDataset.from_dir(...)
@@ -39,9 +39,7 @@ def create_hf_imagefolder_dataset(tmp_dir: Path, num_images: int):
 
     # Write the metadata.jsonl to disk.
     metadata_path = tmp_dir / "metadata.jsonl"
-    with open(metadata_path, "w") as f:
-        for metadata_line in metadata:
-            f.write(json.dumps(metadata_line) + "\n")
+    save_jsonl(metadata, metadata_path)
 
 
 @pytest.fixture(scope="session")

@@ -1,4 +1,3 @@
-import json
 import typing
 from pathlib import Path
 
@@ -6,6 +5,7 @@ import torch.utils.data
 from PIL import Image
 
 from invoke_training._shared.data.utils.resolution import Resolution
+from invoke_training._shared.utils.jsonl import load_jsonl
 
 
 class ImageCaptionJsonlDataset(torch.utils.data.Dataset):
@@ -22,12 +22,11 @@ class ImageCaptionJsonlDataset(torch.utils.data.Dataset):
 
         self._jsonl_path = Path(jsonl_path)
         self._data: list[dict[str, typing.Any]] = []
-        with open(jsonl_path) as f:
-            while (line := f.readline()) != "":
-                line_json = json.loads(line)
-                assert image_column in line_json
-                assert caption_column in line_json
-                self._data.append(line_json)
+        data = load_jsonl(self._jsonl_path)
+        for d in data:
+            assert image_column in d
+            assert caption_column in d
+        self._data = data
 
         self._image_column = image_column
         self._caption_column = caption_column

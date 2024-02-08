@@ -1,10 +1,9 @@
-import json
-
 import numpy as np
 import PIL.Image
 import pytest
 
 from invoke_training._shared.data.datasets.image_pair_preference_dataset import ImagePairPreferenceDataset
+from invoke_training._shared.utils.jsonl import save_jsonl
 
 
 @pytest.fixture(scope="session")
@@ -73,11 +72,7 @@ def image_caption_jsonl(tmp_path_factory: pytest.TempPathFactory):
         data.append({"image": str(rgb_rel_path), "text": f"caption {i}"})
 
     data_jsonl_path = tmp_dir / "data.jsonl"
-    with open(data_jsonl_path, "w") as f:
-        for d in data:
-            json.dump(d, f)
-            f.write("\n")
-
+    save_jsonl(data, data_jsonl_path)
     return data_jsonl_path
 
 
