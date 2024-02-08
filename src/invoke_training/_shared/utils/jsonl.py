@@ -7,7 +7,7 @@ def load_jsonl(jsonl_path: Path | str) -> list[Any]:
     """Load a JSONL file."""
     data = []
     with open(jsonl_path) as f:
-        while (line := f.readline()) != "":
+        while (line := f.readline().strip()) != "":
             data.append(json.loads(line))
     return data
 

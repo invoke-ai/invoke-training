@@ -77,17 +77,22 @@ class DataPage:
                 self._save_and_prev_button = gr.Button("Save and Go-To Previous")
                 self._save_and_next_button = gr.Button("Save and Go-To Next")
 
+            gr.Markdown("## Raw JSONL")
+            self._data_jsonl = gr.Code(label="Dataset .jsonl", language="json", interactive=False)
+
             self._app = app
 
+            standard_outputs = [
+                self._cur_len_number,
+                self._cur_example_index,
+                self._cur_image,
+                self._cur_caption,
+                self._data_jsonl,
+            ]
             self._load_dataset_button.click(
                 self._on_load_dataset_button_click,
                 inputs=set([self._jsonl_path_textbox, self._image_column_textbox, self._caption_column_textbox]),
-                outputs=[
-                    self._cur_len_number,
-                    self._cur_example_index,
-                    self._cur_image,
-                    self._cur_caption,
-                ],
+                outputs=standard_outputs,
             )
             self._save_and_prev_button.click(
                 self._on_save_and_prev_button_click,
@@ -100,12 +105,7 @@ class DataPage:
                         self._cur_caption,
                     ]
                 ),
-                outputs=[
-                    self._cur_len_number,
-                    self._cur_example_index,
-                    self._cur_image,
-                    self._cur_caption,
-                ],
+                outputs=standard_outputs,
             )
             self._save_and_next_button.click(
                 self._on_save_and_next_button_click,
@@ -118,12 +118,7 @@ class DataPage:
                         self._cur_caption,
                     ]
                 ),
-                outputs=[
-                    self._cur_len_number,
-                    self._cur_example_index,
-                    self._cur_image,
-                    self._cur_caption,
-                ],
+                outputs=standard_outputs,
             )
 
             self._add_images_button.click(
@@ -136,12 +131,7 @@ class DataPage:
                         self._image_source_textbox,
                     ]
                 ),
-                outputs=[
-                    self._cur_len_number,
-                    self._cur_example_index,
-                    self._cur_image,
-                    self._cur_caption,
-                ],
+                outputs=standard_outputs,
             )
 
     def _update_state(self, dataset: ImageCaptionJsonlDataset, idx: int):
@@ -153,11 +143,13 @@ class DataPage:
             image = example["image"]
             caption = example["caption"]
 
+        jsonl_str = "\n".join([example.model_dump_json() for example in dataset.examples])
         return {
             self._cur_len_number: len(dataset),
             self._cur_example_index: idx,
             self._cur_image: image,
             self._cur_caption: caption,
+            self._data_jsonl: jsonl_str,
         }
 
     def _on_load_dataset_button_click(self, data: dict):
@@ -226,12 +218,12 @@ class DataPage:
                     f"'{image_source_path}' is not a valid image file. Expected one of {IMAGE_EXTENSIONS}."
                 )
 
-            image_paths.append(image_source_path)
+            image_paths.append(image_source_path.resolve())
         else:
             # Recursively search for image files in the image_source_path directory.
             for file_path in image_source_path.glob("**/*"):
                 if file_path.is_file() and file_path.suffix.lower() in IMAGE_EXTENSIONS:
-                    image_paths.append(file_path)
+                    image_paths.append(file_path.resolve())
 
         # Avoid adding duplicate images.
         cur_image_paths = set([Path(example.image_path) for example in dataset.examples])
