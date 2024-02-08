@@ -2,7 +2,11 @@ from pathlib import Path
 
 import gradio as gr
 
-from invoke_training._shared.data.datasets.image_caption_jsonl_dataset import ImageCaptionJsonlDataset
+from invoke_training._shared.data.datasets.image_caption_jsonl_dataset import (
+    CAPTION_COLUMN_DEFAULT,
+    IMAGE_COLUMN_DEFAULT,
+    ImageCaptionJsonlDataset,
+)
 from invoke_training._shared.utils.jsonl import save_jsonl
 from invoke_training.ui.utils import get_assets_dir_path
 
@@ -41,21 +45,29 @@ class DataPage:
                     info="Enter the path to the .jsonl file to load or create.",
                     placeholder="/path/to/dataset.jsonl",
                 )
+                self._image_column_textbox = gr.Textbox(
+                    label="Image Column (Optional)", placeholder=IMAGE_COLUMN_DEFAULT
+                )
+                self._caption_column_textbox = gr.Textbox(
+                    label="Caption Column (Optional)", placeholder=CAPTION_COLUMN_DEFAULT
+                )
                 self._load_dataset_button = gr.Button("Load or Create Dataset")
 
-            gr.Markdown("## Editing ")
+            gr.Markdown("## Edit")
             self._current_jsonl_textbox = gr.Textbox(
                 label="Currently editing", interactive=False, placeholder="No dataset loaded"
             )
             self._current_len_number = gr.Number(label="Dataset length", interactive=False)
 
+            self._cur_image = gr.Image(value=None, label="Image", interactive=False, width=500)
+            self._cur_caption = gr.Textbox(label="Caption", interactive=True)
+            self._app = app
+
             self._load_dataset_button.click(
                 self._on_load_dataset_button_click,
-                inputs=set([self._load_path_textbox]),
-                outputs=[self._current_jsonl_textbox, self._current_len_number],
+                inputs=set([self._load_path_textbox, self._image_column_textbox, self._caption_column_textbox]),
+                outputs=[self._current_jsonl_textbox, self._current_len_number, self._cur_image, self._cur_caption],
             )
-
-            self._app = app
 
     def _on_load_dataset_button_click(self, data: dict):
         jsonl_path = Path(data[self._load_path_textbox])
@@ -70,9 +82,24 @@ class DataPage:
             save_jsonl([], jsonl_path)
 
         # Initialize the dataset to validate the jsonl file, and to get the length.
-        dataset = ImageCaptionJsonlDataset(jsonl_path)
+        dataset = ImageCaptionJsonlDataset(
+            jsonl_path=jsonl_path,
+            image_column=data[self._image_column_textbox] or IMAGE_COLUMN_DEFAULT,
+            caption_column=data[self._caption_column_textbox] or CAPTION_COLUMN_DEFAULT,
+        )
+        image = None
+        caption = None
+        if len(dataset) > 0:
+            example = dataset[0]
+            image = example["image"]
+            caption = example["caption"]
 
-        return {self._current_jsonl_textbox: jsonl_path, self._current_len_number: len(dataset)}
+        return {
+            self._current_jsonl_textbox: jsonl_path,
+            self._current_len_number: len(dataset),
+            self._cur_image: image,
+            self._cur_caption: caption,
+        }
 
     def app(self):
         return self._app

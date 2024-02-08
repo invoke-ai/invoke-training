@@ -8,6 +8,9 @@ from pydantic import BaseModel
 from invoke_training._shared.data.utils.resolution import Resolution
 from invoke_training._shared.utils.jsonl import load_jsonl
 
+IMAGE_COLUMN_DEFAULT = "image"
+CAPTION_COLUMN_DEFAULT = "text"
+
 
 class _ImageCaptionExample(BaseModel):
     image_path: str
@@ -17,7 +20,9 @@ class _ImageCaptionExample(BaseModel):
 class ImageCaptionJsonlDataset(torch.utils.data.Dataset):
     """A dataset that loads images and captions from a directory of image files and .txt files."""
 
-    def __init__(self, jsonl_path: Path, image_column: str = "image", caption_column: str = "text"):
+    def __init__(
+        self, jsonl_path: Path, image_column: str = IMAGE_COLUMN_DEFAULT, caption_column: str = CAPTION_COLUMN_DEFAULT
+    ):
         super().__init__()
         self._jsonl_path = jsonl_path
         self._image_column = image_column
