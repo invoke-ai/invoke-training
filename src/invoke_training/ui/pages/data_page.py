@@ -68,9 +68,9 @@ class DataPage:
                 self._add_images_button = gr.Button("Add Images")
 
             gr.Markdown("## Edit Captions")
-            self._cur_len_number = gr.Number(label="Dataset length", interactive=False)
-
-            self._cur_example_index = gr.Number(label="Current index", precision=0, interactive=False)
+            with gr.Row():
+                self._cur_example_index = gr.Number(label="Current index", precision=0, interactive=True)
+                self._cur_len_number = gr.Number(label="Dataset length", interactive=False)
             self._beyond_dataset_limits_warning = gr.Markdown("**Current index is beyond dataset limits.**")
             self._cur_image = gr.Image(value=None, label="Image", interactive=False, width=500)
             self._cur_caption = gr.Textbox(label="Caption", interactive=True)
@@ -122,7 +122,6 @@ class DataPage:
                 ),
                 outputs=standard_outputs,
             )
-
             self._add_images_button.click(
                 self._on_add_images_button_click,
                 inputs=set(
@@ -131,6 +130,19 @@ class DataPage:
                         self._image_column_textbox,
                         self._caption_column_textbox,
                         self._image_source_textbox,
+                    ]
+                ),
+                outputs=standard_outputs,
+            )
+            self._cur_example_index.input(
+                self._on_cur_example_index_change,
+                inputs=set(
+                    [
+                        self._jsonl_path_textbox,
+                        self._image_column_textbox,
+                        self._caption_column_textbox,
+                        self._cur_example_index,
+                        self._cur_caption,
                     ]
                 ),
                 outputs=standard_outputs,
@@ -200,6 +212,16 @@ class DataPage:
 
     def _on_save_and_prev_button_click(self, data: dict):
         return self._on_save_and_go_button_click(data, -1)
+
+    def _on_cur_example_index_change(self, data: dict):
+        jsonl_path = Path(data[self._jsonl_path_textbox])
+        dataset = ImageCaptionJsonlDataset(
+            jsonl_path=jsonl_path,
+            image_column=data[self._image_column_textbox] or IMAGE_COLUMN_DEFAULT,
+            caption_column=data[self._caption_column_textbox] or CAPTION_COLUMN_DEFAULT,
+        )
+
+        return self._update_state(dataset, data[self._cur_example_index])
 
     def _on_add_images_button_click(self, data: dict):
         """Add images to the dataset."""
