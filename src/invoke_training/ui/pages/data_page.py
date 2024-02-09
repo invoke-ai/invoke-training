@@ -9,7 +9,7 @@ from invoke_training._shared.data.datasets.image_caption_jsonl_dataset import (
     ImageCaptionJsonlDataset,
 )
 from invoke_training._shared.utils.jsonl import save_jsonl
-from invoke_training.ui.utils import get_assets_dir_path
+from invoke_training.ui.gradio_blocks.header import Header
 
 IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png"]
 
@@ -20,22 +20,12 @@ class DataPage:
         self._jsonl_path: str | None = None
         self._dataset: ImageCaptionJsonlDataset | None = None
 
-        logo_path = get_assets_dir_path() / "logo.png"
-        with gr.Blocks(title="invoke-training", analytics_enabled=False) as app:
-            with gr.Column():
-                gr.Image(
-                    value=logo_path,
-                    label="Invoke Training App",
-                    width=200,
-                    interactive=False,
-                    container=False,
-                )
-                with gr.Row():
-                    gr.Markdown(
-                        "*Invoke Training* - [Documentation](https://invoke-ai.github.io/invoke-training/) --"
-                        " Learn more about Invoke at [invoke.com](https://www.invoke.com/)"
-                    )
-
+        with gr.Blocks(
+            title="invoke-training",
+            analytics_enabled=False,
+            head='<link rel="icon" type="image/x-icon" href="/assets/favicon.png">',
+        ) as app:
+            self._header = Header()
             gr.Markdown("# Data Annotation")
             gr.Markdown(
                 "Note: This UI creates datasets in `IMAGE_CAPTION_JSONL_DATASET` format. For more information about "

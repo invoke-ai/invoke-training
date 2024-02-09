@@ -22,6 +22,6 @@ def build_app():
 
     app.mount("/assets", StaticFiles(directory=Path(__file__).parent.parent / "assets"), name="assets")
 
-    app = gr.mount_gradio_app(app, training_page.app(), "/train")
-    app = gr.mount_gradio_app(app, data_page.app(), "/data")
+    app = gr.mount_gradio_app(app, training_page.app(), "/train", app_kwargs={"favicon_path": "/assets/favicon.png"})
+    app = gr.mount_gradio_app(app, data_page.app(), "/data", app_kwargs={"favicon_path": "/assets/favicon.png"})
     return app
