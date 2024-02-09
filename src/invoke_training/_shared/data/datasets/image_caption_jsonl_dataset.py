@@ -31,6 +31,11 @@ class ImageCaptionJsonlDataset(torch.utils.data.Dataset):
         data = load_jsonl(jsonl_path)
         examples: list[ImageCaptionExample] = []
         for d in data:
+            # Clear error messages here are helpful in the Gradio UI.
+            if image_column not in d:
+                raise ValueError(f"Column '{image_column}' not found in jsonl file '{jsonl_path}'.")
+            if caption_column not in d:
+                raise ValueError(f"Column '{caption_column}' not found in jsonl file '{jsonl_path}'.")
             examples.append(ImageCaptionExample(image_path=d[image_column], caption=d[caption_column]))
         self.examples = examples
 
