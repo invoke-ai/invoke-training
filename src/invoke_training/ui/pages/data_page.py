@@ -35,22 +35,29 @@ class DataPage:
             # HACK: I use a column as a wrapper to control visbility of this group of UI elements. gr.Group sounds like
             # a more natural choice for this purpose, but it applies some styling that makes the group look weird.
             with gr.Column() as select_dataset_group:
-                gr.Markdown("## Setup")
-                # TODO: Expose image_column and caption_column as inputs?
-                self._jsonl_path_textbox = gr.Textbox(
-                    label=".jsonl Path",
-                    info="Enter the path to the .jsonl file to load or create.",
-                    placeholder="/path/to/dataset.jsonl",
-                )
-                with gr.Row():
-                    self._image_column_textbox = gr.Textbox(
-                        label="Image Column (Optional)", placeholder=IMAGE_COLUMN_DEFAULT
+                gr.Markdown("## Load Existing Dataset")
+                with gr.Group():
+                    self._existing_jsonl_path = gr.Textbox(
+                        label="Existing .jsonl Path",
+                        info="Enter the path to an existing dataset's .jsonl file.",
+                        placeholder="/path/to/dataset.jsonl",
                     )
-                    self._caption_column_textbox = gr.Textbox(
-                        label="Caption Column (Optional)", placeholder=CAPTION_COLUMN_DEFAULT
+                    with gr.Row():
+                        self._image_column_textbox = gr.Textbox(
+                            label="Image Column (Optional)", placeholder=IMAGE_COLUMN_DEFAULT
+                        )
+                        self._caption_column_textbox = gr.Textbox(
+                            label="Caption Column (Optional)", placeholder=CAPTION_COLUMN_DEFAULT
+                        )
+                    self._load_existing_dataset_button = gr.Button("Load Existing Dataset")
+                gr.Markdown("## Create New Dataset")
+                with gr.Group():
+                    self._new_jsonl_path = gr.Textbox(
+                        label="New .jsonl Path",
+                        info="Enter the path for a new .jsonl file.",
+                        placeholder="/path/to/dataset.jsonl",
                     )
-                self._load_dataset_button = gr.Button("Load or Create Dataset")
-
+                    self._create_new_dataset_button = gr.Button("Create New Dataset")
             self._select_dataset_group = select_dataset_group
 
             # HACK: I use a column as a wrapper to control visbility of this group of UI elements. gr.Group sounds like
@@ -98,9 +105,15 @@ class DataPage:
                 self._data_jsonl,
             ]
 
-            self._load_dataset_button.click(
-                self._on_load_dataset_button_click,
-                inputs=set([self._jsonl_path_textbox, self._image_column_textbox, self._caption_column_textbox]),
+            self._load_existing_dataset_button.click(
+                self._on_load_existing_dataset_button_click,
+                inputs=set([self._existing_jsonl_path, self._image_column_textbox, self._caption_column_textbox]),
+                outputs=standard_outputs,
+            )
+
+            self._create_new_dataset_button.click(
+                self._on_create_dataset_button_click,
+                inputs=set([self._new_jsonl_path]),
                 outputs=standard_outputs,
             )
 
@@ -168,27 +181,39 @@ class DataPage:
             self._data_jsonl: jsonl_str,
         }
 
-    def _on_load_dataset_button_click(self, data: dict):
-        jsonl_path = Path(data[self._jsonl_path_textbox])
+    def _on_load_existing_dataset_button_click(self, data: dict):
+        """Load an existing dataset."""
+        jsonl_path = Path(data[self._existing_jsonl_path])
         jsonl_path = jsonl_path.resolve()
-        if jsonl_path.exists():
-            print(f"Loading dataset from '{jsonl_path}'.")
-        else:
-            print(f"Creating new dataset at '{jsonl_path}'.")
-            assert jsonl_path.suffix == ".jsonl"
-            jsonl_path.parent.mkdir(parents=True, exist_ok=True)
-            # Create an empty jsonl file.
-            save_jsonl([], jsonl_path)
+        if not jsonl_path.exists():
+            raise ValueError(f"'{jsonl_path}' does not exist.")
 
-        # Initialize the dataset to validate the jsonl file, and to get the length.
-        dataset = ImageCaptionJsonlDataset(
+        self._jsonl_path = jsonl_path
+        self._dataset = ImageCaptionJsonlDataset(
             jsonl_path=jsonl_path,
             image_column=data[self._image_column_textbox] or IMAGE_COLUMN_DEFAULT,
             caption_column=data[self._caption_column_textbox] or CAPTION_COLUMN_DEFAULT,
         )
+        return self._update_state(0)
+
+    def _on_create_dataset_button_click(self, data: dict):
+        """Create a new dataset."""
+        jsonl_path = Path(data[self._new_jsonl_path])
+        jsonl_path = jsonl_path.resolve()
+        if jsonl_path.exists():
+            raise ValueError(f"'{jsonl_path}' already exists.")
+
+        if jsonl_path.suffix != ".jsonl":
+            raise ValueError("Invalid file extension. Expected '.jsonl'.")
+
+        print(f"Creating new dataset at '{jsonl_path}'.")
+        jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+        # Create an empty jsonl file.
+        save_jsonl([], jsonl_path)
 
         self._jsonl_path = jsonl_path
-        self._dataset = dataset
+        self._dataset = ImageCaptionJsonlDataset(jsonl_path=jsonl_path)
+
         return self._update_state(0)
 
     def _on_change_dataset_button_click(self):
