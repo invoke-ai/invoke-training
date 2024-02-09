@@ -60,8 +60,9 @@ dependencies = [
 "Discord" = "https://discord.gg/ZmtBAhwWhy"
 
 [tool.setuptools.package-data]
-"invoke_training.sample_configs" = ["**/*.yaml"]
 "invoke_training.assets" = ["*.png"]
+"invoke_training.sample_configs" = ["**/*.yaml"]
+"invoke_training.ui" = ["*.html"]
 
 [tool.ruff]
 src = ["src"]
