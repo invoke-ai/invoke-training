@@ -209,6 +209,10 @@ class DataPage:
     def _on_save_and_go_button_click(self, data: dict, idx_change: int):
         # Update the current caption and re-save the jsonl file.
         idx: int = data[self._cur_example_index]
+        if idx < 0 or idx >= len(self._dataset):
+            # idx is out of bounds, so don't update the caption, but still change the index.
+            return self._update_state(idx + idx_change)
+
         print(f"Updating caption for example {idx} of '{self._jsonl_path}'.")
         caption = data[self._cur_caption]
         self._dataset.examples[idx].caption = caption
