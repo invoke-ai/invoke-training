@@ -4,14 +4,67 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>invoke-training</title>
+    <link href="https://fonts.googleapis.com/css?family=Inter" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter';
+            font-size: 22px;
+        }
+        header {
+            margin: 20px;
+        }
+        #button_container {
+            margin-top: 40px;
+            margin-bottom: 40px;
+            margin-left: 20px;
+            margin-right: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+        }
+        .main_link {
+            display: inline-block;
+            margin: 20px;
+            padding: 20px;
+            width: 300px;
+            border: 1px solid #000;
+            border-radius: 10px;
+            text-align: center;
+            text-decoration: none;
+            color: #000;
+            background-color: #ffffff;
+        }
+        .main_link:hover {
+            background-color: #f7f7f7;
+        }
+        .text-sm {
+            font-size: 16px;
+        }
+        .text-gray {
+            color: #6b7280;
+        }
+    </style>
 </head>
+
 <body>
-    <h1>invoke-training</h1>
-    <p>
-        <a href="/train">Training</a>
-    </p>
-    <p>
-        <a href="/data">Dataset Annotation</a>
-    </p>
+    <header>
+        <img src="/assets/logo.png" alt="Invoke logo." width="200">
+        <h1>invoke-training</h1>
+        <p><i>Invoke Training - </i><a href="https://invoke-ai.github.io/invoke-training/" target="_blank">Documentation</a></p>
+        <p>Learn more about Invoke at <a href="https://www.invoke.com/" target="_blank">invoke.com</a></p>
+    </header>
+    
+    <div id="button_container">
+        <a href="/data" class="main_link">
+            <p>Datasets</p>
+            <p class="text-sm text-gray">Prepare a dataset.</p>
+        </a>
+        <a href="/train" class="main_link">
+            <p>Training</p>
+            <p class="text-sm text-gray">Train a model.</p>
+        </a>
+    </div>
+
 </body>
 </html>
