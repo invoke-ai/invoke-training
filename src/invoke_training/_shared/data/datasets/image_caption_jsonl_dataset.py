@@ -21,10 +21,13 @@ class ImageCaptionJsonlDataset(torch.utils.data.Dataset):
     """A dataset that loads images and captions from a directory of image files and .txt files."""
 
     def __init__(
-        self, jsonl_path: Path, image_column: str = IMAGE_COLUMN_DEFAULT, caption_column: str = CAPTION_COLUMN_DEFAULT
+        self,
+        jsonl_path: Path | str,
+        image_column: str = IMAGE_COLUMN_DEFAULT,
+        caption_column: str = CAPTION_COLUMN_DEFAULT,
     ):
         super().__init__()
-        self._jsonl_path = jsonl_path
+        self._jsonl_path = Path(jsonl_path)
         self._image_column = image_column
         self._caption_column = caption_column
 
