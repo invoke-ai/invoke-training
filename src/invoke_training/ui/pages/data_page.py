@@ -78,11 +78,18 @@ class DataPage:
 
                 gr.Markdown("## Edit Captions")
                 with gr.Row():
-                    self._cur_example_index = gr.Number(label="Current index", precision=0, interactive=True)
-                    self._cur_len_number = gr.Number(label="Dataset length", interactive=False)
-                self._beyond_dataset_limits_warning = gr.Markdown("**Current index is beyond dataset limits.**")
-                self._cur_image = gr.Image(value=None, label="Image", interactive=False, width=500)
-                self._cur_caption = gr.Textbox(label="Caption", interactive=True)
+                    with gr.Column():
+                        with gr.Row():
+                            self._cur_example_index = gr.Number(label="Current index", precision=0, interactive=True)
+                            self._cur_len_number = gr.Number(label="Dataset length", interactive=False)
+                        with gr.Row():
+                            self._beyond_dataset_limits_warning = gr.Markdown("**Current index is beyond dataset limits.** If you have completed all captions, click 'Home' to begin training.")
+                        with gr.Row():
+                            self._cur_image = gr.Image(value=None, label="Image", interactive=False, width=500)
+                    with gr.Column():
+                            self._cur_caption = gr.Textbox(label="Caption", interactive=True, lines=25)
+
+
                 with gr.Row():
                     self._save_and_prev_button = gr.Button("Save and Go-To Previous")
                     self._save_and_next_button = gr.Button("Save and Go-To Next")
