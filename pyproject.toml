@@ -18,6 +18,7 @@ dependencies = [
     "accelerate~=0.25.0",
     "datasets~=2.14.3",
     "diffusers~=0.25.0",
+    "fastapi",
     "gradio",
     "numpy",
     "omegaconf",
@@ -32,6 +33,7 @@ dependencies = [
     "torchvision",
     "tqdm",
     "transformers~=4.36.0",
+    "uvicorn[standard]",
     "xformers>=0.0.23",
 ]
 
@@ -58,8 +60,9 @@ dependencies = [
 "Discord" = "https://discord.gg/ZmtBAhwWhy"
 
 [tool.setuptools.package-data]
-"invoke_training.sample_configs" = ["**/*.yaml"]
 "invoke_training.assets" = ["*.png"]
+"invoke_training.sample_configs" = ["**/*.yaml"]
+"invoke_training.ui" = ["*.html"]
 
 [tool.ruff]
 src = ["src"]
