@@ -93,7 +93,11 @@ class PipelineTab:
         print(f"Resetting UI configs for {self._name} to {file_path}.")
         default_config = load_config_from_yaml(file_path)
 
-        assert isinstance(default_config, self._pipeline_config_cls)
+        if not isinstance(default_config, self._pipeline_config_cls):
+            raise TypeError(
+                f"Wrong config type. Expected '{self._pipeline_config_cls.__name__}', got "
+                f"'{type(default_config).__name__}'."
+            )
 
         self._default_config = default_config
         self._current_config = self._default_config.model_copy(deep=True)
