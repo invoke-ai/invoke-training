@@ -12,76 +12,78 @@ from invoke_training.ui.config_groups.ui_config_element import UIConfigElement
 
 class TextualInversionSDDataLoaderConfigGroup(UIConfigElement):
     def __init__(self):
-        with gr.Tab("Data Source Configs"):
-            with gr.Group():
-                self.dataset = DatasetConfigGroup(
-                    allowed_types=[
-                        "HF_HUB_IMAGE_CAPTION_DATASET",
-                        "IMAGE_CAPTION_JSONL_DATASET",
-                        "IMAGE_CAPTION_DIR_DATASET",
-                        "IMAGE_DIR_DATASET",
-                    ]
-                )
+        with gr.Row():
+            with gr.Column(scale=1):
+                with gr.Tab("Data Source Configs"):
+                    with gr.Group():
+                        self.dataset = DatasetConfigGroup(
+                            allowed_types=[
+                                "HF_HUB_IMAGE_CAPTION_DATASET",
+                                "IMAGE_CAPTION_JSONL_DATASET",
+                                "IMAGE_CAPTION_DIR_DATASET",
+                                "IMAGE_DIR_DATASET",
+                            ]
+                        )
+            with gr.Column(scale=3):
+                with gr.Tab("Data Loading Configs"):
+                    with gr.Group():
+                        self.caption_preset = gr.Dropdown(
+                            label="Caption Preset",
+                            choices=["None", "style", "object"],
+                            info="Only one of 'Caption Preset' or 'Caption Templates' should be set.\nSelect a Caption "
+                            "Preset option to use a set of pre-configured templates.",
+                            interactive=True,
+                        )
+                        self.caption_templates = gr.Textbox(
+                            label="Caption Templates",
+                            info="Only one of 'Caption Preset' or 'Caption Templates' should be set. Enter one template"
+                            " per line. Each template should contain a single placeholder token slot indicated by '{}',"
+                            " for example 'a photo of a {}'.",
+                            lines=5,
+                            interactive=True,
+                        )
+                        with gr.Row():
+                            self.keep_original_captions = gr.Checkbox(
+                                label="Keep Original Captions",
+                                info="If True, the caption templates will be prepended to the original captions."
+                                " If False, the caption templates will replace the original captions.",
+                                interactive=True,
+                            )
+                            self.shuffle_caption_delimiter = gr.Textbox(
+                                label="Shuffle Caption Delimiter",
+                                info="Set captions to split on the provided delimiter (e.g. ',') and shuffled.",
+                                interactive=True,
+                            )
 
-        with gr.Tab("Data Loading Configs"):
-            with gr.Group():
-                self.caption_preset = gr.Dropdown(
-                    label="Caption Preset",
-                    choices=["None", "style", "object"],
-                    info="Only one of 'Caption Preset' or 'Caption Templates' should be set.\nSelect a Caption Preset "
-                    "option to use a set of pre-configured templates.",
-                    interactive=True,
-                )
-                self.caption_templates = gr.Textbox(
-                    label="Caption Templates",
-                    info="Only one of 'Caption Preset' or 'Caption Templates' should be set. Enter one template per "
-                    "line. Each template should contain a single placeholder token slot indicated by '{}', for example "
-                    "'a photo of a {}'.",
-                    lines=5,
-                    interactive=True,
-                )
-                with gr.Row():
-                    self.keep_original_captions = gr.Checkbox(
-                        label="Keep Original Captions",
-                        info="If True, the caption templates will be prepended to the original dataset captions. If "
-                        "False, the caption templates will replace the original captions.",
-                        interactive=True,
-                    )
-                    self.shuffle_caption_delimiter = gr.Textbox(
-                        label="Shuffle Caption Delimiter",
-                        info="If set, captions will be split on the provided delimiter (e.g. ',') and shuffled.",
-                        interactive=True,
-                    )
-
-                with gr.Row():
-                    self.resolution = gr.Number(
-                        label="Resolution",
-                        info="The resolution for input images. All of the images in the dataset will be"
-                        " resized to this resolution unless the aspect_ratio_buckets config is set.",
-                        precision=0,
-                        interactive=True,
-                    )
-                    self.dataloader_num_workers = gr.Number(
-                        label="Dataloading Workers",
-                        info="Number of subprocesses to use for data loading. 0 means that the data will"
-                        " be loaded in the main process.",
-                        precision=0,
-                        interactive=True,
-                    )
-                with gr.Row():
-                    self.center_crop = gr.Checkbox(
-                        label="Center Crop",
-                        info="If set, input images will be center-cropped to the target resolution. Otherwise,"
-                        " input images will be randomly cropped to the target resolution.",
-                        interactive=True,
-                    )
-                    self.random_flip = gr.Checkbox(
-                        label="Random Flip",
-                        info="If set, random flip augmentations will be applied to input images.",
-                        interactive=True,
-                    )
-        with gr.Tab("Aspect Ratio Bucketing Configs"):
-            self.aspect_ratio_bucket_config_group = AspectRatioBucketConfigGroup()
+                        with gr.Row():
+                            self.resolution = gr.Number(
+                                label="Resolution",
+                                info="The resolution for input images. All of the images in the dataset will be"
+                                " resized to this resolution unless the aspect_ratio_buckets config is set.",
+                                precision=0,
+                                interactive=True,
+                            )
+                            self.dataloader_num_workers = gr.Number(
+                                label="Dataloading Workers",
+                                info="Number of subprocesses to use for data loading. 0 means that the data will"
+                                " be loaded in the main process.",
+                                precision=0,
+                                interactive=True,
+                            )
+                        with gr.Row():
+                            self.center_crop = gr.Checkbox(
+                                label="Center Crop",
+                                info="If set, input images will be center-cropped to the target resolution. Otherwise,"
+                                " input images will be randomly cropped to the target resolution.",
+                                interactive=True,
+                            )
+                            self.random_flip = gr.Checkbox(
+                                label="Random Flip",
+                                info="If set, random flip augmentations will be applied to input images.",
+                                interactive=True,
+                            )
+                with gr.Tab("Aspect Ratio Bucketing Configs"):
+                    self.aspect_ratio_bucket_config_group = AspectRatioBucketConfigGroup()
 
     def update_ui_components_with_config_data(
         self, config: TextualInversionSDDataLoaderConfig
