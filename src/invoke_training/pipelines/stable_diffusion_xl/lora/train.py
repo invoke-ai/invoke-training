@@ -663,9 +663,9 @@ def train(config: SdxlLoraConfig):  # noqa: C901
                     if accelerator.is_main_process:
                         _save_sdxl_lora_checkpoint(
                             idx=global_step + 1,
-                            unet=unet,
-                            text_encoder_1=text_encoder_1,
-                            text_encoder_2=text_encoder_2,
+                            unet=unet if config.train_unet else None,
+                            text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
+                            text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
                             logger=logger,
                             checkpoint_tracker=step_checkpoint_tracker,
                             lora_checkpoint_format=config.lora_checkpoint_format,
@@ -708,9 +708,9 @@ def train(config: SdxlLoraConfig):  # noqa: C901
             if accelerator.is_main_process:
                 _save_sdxl_lora_checkpoint(
                     idx=epoch + 1,
-                    unet=unet,
-                    text_encoder_1=text_encoder_1,
-                    text_encoder_2=text_encoder_2,
+                    unet=unet if config.train_unet else None,
+                    text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
+                    text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
                     logger=logger,
                     checkpoint_tracker=epoch_checkpoint_tracker,
                     lora_checkpoint_format=config.lora_checkpoint_format,
