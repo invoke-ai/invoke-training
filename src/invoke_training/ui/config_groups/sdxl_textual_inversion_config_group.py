@@ -29,8 +29,8 @@ class SdxlTextualInversionConfigGroup(UIConfigElement):
                     )
                     self.hf_variant = gr.Textbox(
                         label="Variant",
-                        info="(optional) The Hugging Face hub model variant (e.g., fp16, fp32) to use if the model is a HF "
-                        "Hub model name.",
+                        info="(optional) The Hugging Face hub model variant (e.g., fp16, fp32) to use if the model is a"
+                        " HF Hub model name.",
                         type="text",
                         interactive=True,
                     )
