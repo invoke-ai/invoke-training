@@ -16,31 +16,34 @@ class BasePipelineConfigGroup(UIConfigElement):
             interactive=True,
         )
         with gr.Row():
-            self.max_train_steps_or_epochs_dropdown = gr.Dropdown(
-                label="Training Length",
-                info="Train for a fixed number of gradient update steps or epochs.",
-                choices=["max_train_steps", "max_train_epochs"],
-                interactive=True,
-            )
-            self.max_train_steps_or_epochs = gr.Number(label="Steps or Epochs", precision=0, interactive=True)
+            with gr.Column():
+                self.max_train_steps_or_epochs_dropdown = gr.Dropdown(
+                    label="Training Length",
+                    info="Train for a fixed number of gradient update steps or epochs.",
+                    choices=["max_train_steps", "max_train_epochs"],
+                    interactive=True,
+                )
+                self.max_train_steps_or_epochs = gr.Number(label="Steps or Epochs", precision=0, interactive=True)
 
-        with gr.Row():
-            self.save_every_n_steps_or_epochs_dropdown = gr.Dropdown(
-                label="Checkpoint Save Frequency",
-                info="Save a checkpoint every N gradient update steps or epochs.",
-                choices=["save_every_n_steps", "save_every_n_epochs"],
-                interactive=True,
-            )
-            self.save_every_n_steps_or_epochs = gr.Number(label="Steps or Epochs", precision=0, interactive=True)
+            with gr.Column():
+                self.save_every_n_steps_or_epochs_dropdown = gr.Dropdown(
+                    label="Checkpoint Save Frequency",
+                    info="Save a checkpoint every N gradient update steps or epochs.",
+                    choices=["save_every_n_steps", "save_every_n_epochs"],
+                    interactive=True,
+                )
+                self.save_every_n_steps_or_epochs = gr.Number(label="Steps or Epochs", precision=0, interactive=True)
 
-        with gr.Row():
-            self.validate_every_n_steps_or_epochs_dropdown = gr.Dropdown(
-                label="Validation Frequency",
-                info="Save validation images every N gradient update steps or epochs.",
-                choices=["validate_every_n_steps", "validate_every_n_epochs"],
-                interactive=True,
-            )
-            self.validate_every_n_steps_or_epochs = gr.Number(label="Steps or Epochs", precision=0, interactive=True)
+            with gr.Column():
+                self.validate_every_n_steps_or_epochs_dropdown = gr.Dropdown(
+                    label="Validation Frequency",
+                    info="Save validation images every N gradient update steps or epochs.",
+                    choices=["validate_every_n_steps", "validate_every_n_epochs"],
+                    interactive=True,
+                )
+                self.validate_every_n_steps_or_epochs = gr.Number(
+                    label="Steps or Epochs", precision=0, interactive=True
+                )
         self.seed = gr.Number(
             label="Seed",
             info="Set to any constant integer for consistent training results. If set to null, training"

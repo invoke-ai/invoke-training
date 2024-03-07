@@ -30,6 +30,7 @@ class HFHubImageCaptionDatasetConfigGroup(UIConfigElement):
                 info="The Hugging Face dataset config name. Leave as None if there's only one config.",
                 interactive=True,
             )
+        with gr.Row():
             self.hf_cache_dir = gr.Textbox(
                 label="Cache Directory",
                 info="The Hugging Face cache directory to use for dataset downloads. If None, the default value"
@@ -113,6 +114,7 @@ class ImageCaptionDirDatasetConfigGroup(UIConfigElement):
             self.dataset_dir = gr.Textbox(
                 label="dataset_dir", info="The path to the dataset directory.", interactive=True
             )
+        with gr.Row():
             self.keep_in_memory = gr.Checkbox(
                 label="keep_in_memory",
                 info="If True, the entire dataset will be kept in RAM. This increases speed for small datasets at the "
@@ -146,6 +148,7 @@ class ImageDirDatasetConfigGroup(UIConfigElement):
             self.dataset_dir = gr.Textbox(
                 label="dataset_dir", info="The path to the dataset directory.", interactive=True
             )
+        with gr.Row():
             self.keep_in_memory = gr.Checkbox(
                 label="keep_in_memory",
                 info="If True, the entire dataset will be kept in RAM. This increases speed for small datasets at the "

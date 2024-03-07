@@ -17,36 +17,39 @@ class SdxlTextualInversionConfigGroup(UIConfigElement):
         """The SDXL_TEXTUAL_INVERSION configs."""
 
         gr.Markdown("## Basic Configs")
-        with gr.Tab("Base Model"):
-            self.model = gr.Textbox(
-                label="Model",
-                info="The base model. Can be a Hugging Face Hub model name, or a path to a local model (in "
-                "diffusers or checkpoint format).",
-                type="text",
-                interactive=True,
-            )
-            self.hf_variant = gr.Textbox(
-                label="Variant",
-                info="(optional) The Hugging Face hub model variant (e.g., fp16, fp32) to use if the model is a HF "
-                "Hub model name.",
-                type="text",
-                interactive=True,
-            )
-            self.vae_model = gr.Textbox(
-                label="VAE Model",
-                info="(optional) If set, this overrides the base model's default VAE model.",
-                type="text",
-                interactive=True,
-            )
-        with gr.Tab("Training Outputs"):
-            self.base_pipeline_config_group = BasePipelineConfigGroup()
-            self.max_checkpoints = gr.Number(
-                label="Maximum Number of Checkpoints",
-                info="The maximum number of checkpoints to keep on disk from this training run. Earlier "
-                "checkpoints will be deleted to respect this limit.",
-                interactive=True,
-                precision=0,
-            )
+        with gr.Row():
+            with gr.Column(scale=1):
+                with gr.Tab("Base Model"):
+                    self.model = gr.Textbox(
+                        label="Model",
+                        info="The base model. Can be a Hugging Face Hub model name, or a path to a local model (in "
+                        "diffusers or checkpoint format).",
+                        type="text",
+                        interactive=True,
+                    )
+                    self.hf_variant = gr.Textbox(
+                        label="Variant",
+                        info="(optional) The Hugging Face hub model variant (e.g., fp16, fp32) to use if the model is a"
+                        " HF Hub model name.",
+                        type="text",
+                        interactive=True,
+                    )
+                    self.vae_model = gr.Textbox(
+                        label="VAE Model",
+                        info="(optional) If set, this overrides the base model's default VAE model.",
+                        type="text",
+                        interactive=True,
+                    )
+            with gr.Column(scale=3):
+                with gr.Tab("Training Outputs"):
+                    self.base_pipeline_config_group = BasePipelineConfigGroup()
+                    self.max_checkpoints = gr.Number(
+                        label="Maximum Number of Checkpoints",
+                        info="The maximum number of checkpoints to keep on disk from this training run. Earlier "
+                        "checkpoints will be deleted to respect this limit.",
+                        interactive=True,
+                        precision=0,
+                    )
 
         gr.Markdown("## Data Configs")
         self.textual_inversion_sd_data_loader_config_group = TextualInversionSDDataLoaderConfigGroup()
