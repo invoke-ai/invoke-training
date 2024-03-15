@@ -22,7 +22,7 @@ dependencies = [
     "gradio",
     "numpy",
     "omegaconf",
-    "peft~=0.7.0",
+    "peft~=0.10.0",
     "Pillow",
     "prodigyopt",
     "pydantic",
