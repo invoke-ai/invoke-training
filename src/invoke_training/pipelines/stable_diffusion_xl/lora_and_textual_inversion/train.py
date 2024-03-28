@@ -28,6 +28,7 @@ from invoke_training._shared.data.data_loaders.textual_inversion_sd_dataloader i
     build_textual_inversion_sd_dataloader,
 )
 from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import log_aspect_ratio_buckets
+from invoke_training._shared.dora_fix import fix_dora_init
 from invoke_training._shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
     TEXT_ENCODER_TARGET_MODULES,
@@ -178,6 +179,9 @@ def train(config: SdxlLoraAndTextualInversionConfig):  # noqa: C901
         peft_model = peft.get_peft_model(model, lora_config)
         peft_model.print_trainable_parameters()
 
+        if lora_config.use_dora:
+            fix_dora_init(peft_model)
+
         # Populate `trainable_param_groups`, to be passed to the optimizer.
         param_group = {"params": list(filter(lambda p: p.requires_grad, peft_model.parameters())), "lr": lr}
         trainable_param_groups.append(param_group)
@@ -189,6 +193,7 @@ def train(config: SdxlLoraAndTextualInversionConfig):  # noqa: C901
 
     if config.train_unet:
         unet_lora_config = peft.LoraConfig(
+            use_dora=config.use_dora,
             r=config.lora_rank_dim,
             # TODO(ryand): Diffusers uses lora_alpha=config.lora_rank_dim. Is that preferred?
             lora_alpha=1.0,
@@ -198,6 +203,7 @@ def train(config: SdxlLoraAndTextualInversionConfig):  # noqa: C901
 
     if config.train_text_encoder:
         text_encoder_lora_config = peft.LoraConfig(
+            use_dora=config.use_dora,
             r=config.lora_rank_dim,
             lora_alpha=1.0,
             # init_lora_weights="gaussian",

@@ -80,6 +80,12 @@ class SdxlLoraAndTextualInversionConfig(BasePipelineConfig):
     If `None`, then the TI embeddings will be trained for the entire duration of training.
     """
 
+    use_dora: bool = False
+    """Whether to use DoRA (https://arxiv.org/pdf/2402.09353.pdf). DoRA training produces results that are closer to
+    full fine-tuning than LoRA training. It is reported that the difference is more pronounced with small rank
+    dimensions. DoRA training is slightly slower than LoRA training.
+    """
+
     optimizer: AdamOptimizerConfig | ProdigyOptimizerConfig = AdamOptimizerConfig()
 
     text_encoder_learning_rate: float = 1e-5
