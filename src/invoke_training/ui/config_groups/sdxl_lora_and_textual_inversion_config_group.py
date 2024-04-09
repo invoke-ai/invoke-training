@@ -189,7 +189,10 @@ class SdxlLoraAndTextualInversionConfigGroup(UIConfigElement):
         gr.Markdown("## Validation")
         with gr.Group():
             self.validation_prompts = gr.Textbox(
-                label="Validation Prompts", info="Enter one validation prompt per line.", lines=5, interactive=True
+                label="Validation Prompts",
+                info="Enter one validation prompt per line. Negative prompt inside []",
+                lines=5,
+                interactive=True,
             )
             self.num_validation_images_per_prompt = gr.Number(
                 label="# of Validation Images to Generate per Prompt", precision=0, interactive=True
