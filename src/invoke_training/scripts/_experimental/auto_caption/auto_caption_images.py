@@ -3,9 +3,15 @@ import json
 import os
 
 import torch
-from moondream import LATEST_REVISION, Moondream, detect_device
 from PIL import Image
 from transformers import AutoTokenizer
+
+try:
+    from moondream import LATEST_REVISION, Moondream, detect_device
+except ImportError:
+    # Since this script is still experimental, moondream has not been added to the pyproject.toml yet.
+    print("moondream dependency not found. Please install moondream using 'pip install moondream'.")
+    exit(1)
 
 
 def process_image(image_path, prompt, moondream, tokenizer, device):
