@@ -8,20 +8,21 @@ from invoke_training._shared.data.data_loaders.image_caption_sd_dataloader impor
 from invoke_training.config.data.data_loader_config import (
     ImageCaptionSDDataLoaderConfig,
 )
-from invoke_training.config.data.dataset_config import HFHubImageCaptionDatasetConfig
+from invoke_training.config.data.dataset_config import ImageCaptionJsonlDatasetConfig
+
+from ..dataset_fixtures import image_caption_jsonl  # noqa: F401
 
 
-def test_build_image_caption_sd_dataloader():
+def test_build_image_caption_sd_dataloader(image_caption_jsonl):  # noqa: F811
     """Smoke test of build_image_caption_sd_dataloader(...)."""
 
     config = ImageCaptionSDDataLoaderConfig(
-        dataset=HFHubImageCaptionDatasetConfig(dataset_name="lambdalabs/pokemon-blip-captions"),
+        dataset=ImageCaptionJsonlDatasetConfig(jsonl_path=str(image_caption_jsonl)),
     )
     data_loader = build_image_caption_sd_dataloader(config, 4)
 
-    # 833 is the length of the dataset determined manually here:
-    # https://huggingface.co/datasets/lambdalabs/pokemon-blip-captions
-    assert len(data_loader) == math.ceil(833 / 4)
+    # The dataset has length 5, so the data loader should have 2 batches.
+    assert len(data_loader) == math.ceil(5 / 4)
 
     example = next(iter(data_loader))
     assert set(example.keys()) == {"image", "id", "caption", "original_size_hw", "crop_top_left_yx"}

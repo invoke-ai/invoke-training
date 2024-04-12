@@ -4,9 +4,12 @@ from invoke_training._shared.data.data_loaders.textual_inversion_sd_dataloader i
     build_textual_inversion_sd_dataloader,
 )
 from invoke_training.config.data.data_loader_config import TextualInversionSDDataLoaderConfig
-from invoke_training.config.data.dataset_config import HFHubImageCaptionDatasetConfig, ImageDirDatasetConfig
+from invoke_training.config.data.dataset_config import ImageCaptionJsonlDatasetConfig, ImageDirDatasetConfig
 
-from ..dataset_fixtures import image_dir  # noqa: F401
+from ..dataset_fixtures import (
+    image_caption_jsonl,  # noqa: F401
+    image_dir,  # noqa: F401
+)
 
 
 def test_build_textual_inversion_sd_dataloader(image_dir):  # noqa: F811
@@ -44,10 +47,10 @@ def test_build_textual_inversion_sd_dataloader(image_dir):  # noqa: F811
     assert len(crop_top_left_yx[0]) == 2
 
 
-def test_build_textual_inversion_sd_dataloader_keep_original_captions():
+def test_build_textual_inversion_sd_dataloader_keep_original_captions(image_caption_jsonl):  # noqa: F811
     """Test the keep_original_captions=True option."""
     config = TextualInversionSDDataLoaderConfig(
-        dataset=HFHubImageCaptionDatasetConfig(dataset_name="lambdalabs/pokemon-blip-captions"),
+        dataset=ImageCaptionJsonlDatasetConfig(jsonl_path=str(image_caption_jsonl)),
         caption_templates=["{}"],
         keep_original_captions=True,
     )

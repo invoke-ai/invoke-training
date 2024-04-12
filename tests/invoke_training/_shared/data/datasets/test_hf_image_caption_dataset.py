@@ -116,6 +116,7 @@ def test_hf_dir_image_caption_dataset_get_image_dimensions(hf_dir_dataset: HFIma
 ################################################
 
 
+@pytest.mark.skip(reason="The lambdalabs/pokemon-blip-captions dataset is no longer available.")
 @pytest.mark.loads_model
 def test_hf_hub_image_caption_dataset_bad_image_column():
     """Test that a ValueError is raised if HFImageCaptionDataset is initialized with an `image_column` that does not
@@ -129,6 +130,7 @@ def test_hf_hub_image_caption_dataset_bad_image_column():
         )
 
 
+@pytest.mark.skip(reason="The lambdalabs/pokemon-blip-captions dataset is no longer available.")
 @pytest.mark.loads_model
 def test_hf_hub_image_caption_dataset_bad_caption_column():
     """Test that a ValueError is raised if HFImageCaptionDataset is initialized with a `caption_column` that does not
@@ -150,6 +152,7 @@ def hf_hub_dataset():
     )
 
 
+@pytest.mark.skip(reason="The lambdalabs/pokemon-blip-captions dataset is no longer available.")
 @pytest.mark.loads_model
 def test_hf_hub_image_caption_dataset_index_error(hf_hub_dataset: HFImageCaptionDataset):
     """Test that an IndexError is raised if a dataset element is accessed with an index that is out-of-bounds."""
@@ -157,6 +160,7 @@ def test_hf_hub_image_caption_dataset_index_error(hf_hub_dataset: HFImageCaption
         _ = hf_hub_dataset[1000]
 
 
+@pytest.mark.skip(reason="The lambdalabs/pokemon-blip-captions dataset is no longer available.")
 @pytest.mark.loads_model
 def test_hf_hub_image_caption_dataset_len(hf_hub_dataset: HFImageCaptionDataset):
     """Test the behaviour of HFImageCaptionDataset.__len__()."""
@@ -165,6 +169,7 @@ def test_hf_hub_image_caption_dataset_len(hf_hub_dataset: HFImageCaptionDataset)
     assert len(hf_hub_dataset) == 833
 
 
+@pytest.mark.skip(reason="The lambdalabs/pokemon-blip-captions dataset is no longer available.")
 @pytest.mark.loads_model
 def test_hf_hub_image_caption_dataset_getitem(hf_hub_dataset: HFImageCaptionDataset):
     """Test that HFImageCaptionDataset.__getitem__(...) returns a valid example."""
@@ -177,6 +182,7 @@ def test_hf_hub_image_caption_dataset_getitem(hf_hub_dataset: HFImageCaptionData
     assert example["id"] == 0
 
 
+@pytest.mark.skip(reason="The lambdalabs/pokemon-blip-captions dataset is no longer available.")
 @pytest.mark.loads_model
 def test_hf_hub_image_caption_dataset_get_image_dimensions(hf_hub_dataset: HFImageCaptionDataset):
     """Test HFImageCaptionDataset.get_image_dimensions()."""
