@@ -5,7 +5,7 @@ import yaml
 
 from invoke_training.config.pipeline_config import PipelineConfig
 from invoke_training.ui.config_groups.ui_config_element import UIConfigElement
-from invoke_training.ui.utils import load_config_from_yaml
+from invoke_training.ui.utils.utils import load_config_from_yaml
 
 
 class PipelineTab:

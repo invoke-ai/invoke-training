@@ -11,7 +11,7 @@ from invoke_training.ui.config_groups.textual_inversion_sd_data_loader_config_gr
     TextualInversionSDDataLoaderConfigGroup,
 )
 from invoke_training.ui.config_groups.ui_config_element import UIConfigElement
-from invoke_training.ui.utils import get_typing_literal_options
+from invoke_training.ui.utils.utils import get_typing_literal_options
 
 
 class SdxlLoraAndTextualInversionConfigGroup(UIConfigElement):
