@@ -5,7 +5,7 @@ import pytest
 
 from invoke_training._shared.data.datasets.image_caption_dir_dataset import ImageCaptionDirDataset
 
-from ..image_dir_fixture import image_caption_dir  # noqa: F401
+from ..dataset_fixtures import image_caption_dir  # noqa: F401
 
 
 def test_image_caption_dir_dataset_len(image_caption_dir):  # noqa: F811

@@ -44,7 +44,7 @@ pip install -e ".[test]" --extra-index-url https://download.pytorch.org/whl/cu12
 
 Run training via the CLI with type-checked YAML configuration files for maximum control:
 ```bash
-invoke-train --cfg-file src/invoke_training/sample_configs/sd_lora_pokemon_1x8gb.yaml
+invoke-train --cfg-file src/invoke_training/sample_configs/sdxl_textual_inversion_gnome_1x24gb.yaml
 ```
 
 ### GUI
@@ -63,7 +63,7 @@ Training progress can be monitored with [Tensorboard](https://www.tensorflow.org
 All trained models are compatible with InvokeAI:
 
 ![Screenshot of the InvokeAI UI with an example of a Yoda pokemon generated using a Pokemon LoRA model.](docs/images/invokeai_yoda_pokemon_lora.png)
-*Example image generated with the prompt "A cute yoda pokemon creature." and the trained Pokemon LoRA.*
+*Example image generated with the prompt "A cute yoda pokemon creature." and a trained Pokemon LoRA.*
 
 ## Contributing
 

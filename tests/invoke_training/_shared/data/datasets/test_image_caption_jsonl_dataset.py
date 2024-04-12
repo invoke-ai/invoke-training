@@ -2,7 +2,7 @@ import PIL.Image
 
 from invoke_training._shared.data.datasets.image_caption_jsonl_dataset import ImageCaptionJsonlDataset
 
-from ..image_dir_fixture import image_caption_jsonl  # noqa: F401
+from ..dataset_fixtures import image_caption_jsonl  # noqa: F401
 
 
 def test_image_caption_jsonl_dataset_len(image_caption_jsonl):  # noqa: F811
