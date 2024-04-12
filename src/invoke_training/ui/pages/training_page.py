@@ -40,7 +40,7 @@ class TrainingPage:
             with gr.Tab(label="SD LoRA"):
                 PipelineTab(
                     name="SD LoRA",
-                    default_config_file_path=str(get_config_dir_path() / "sd_lora_pokemon_1x8gb.yaml"),
+                    default_config_file_path=str(get_config_dir_path() / "sd_lora_baroque_1x8gb.yaml"),
                     pipeline_config_cls=SdLoraConfig,
                     config_group_cls=SdLoraConfigGroup,
                     run_training_cb=self._run_training,
@@ -49,7 +49,7 @@ class TrainingPage:
             with gr.Tab(label="SDXL LoRA"):
                 PipelineTab(
                     name="SDXL LoRA",
-                    default_config_file_path=str(get_config_dir_path() / "sdxl_lora_pokemon_1x24gb.yaml"),
+                    default_config_file_path=str(get_config_dir_path() / "sdxl_lora_baroque_1x24gb.yaml"),
                     pipeline_config_cls=SdxlLoraConfig,
                     config_group_cls=SdxlLoraConfigGroup,
                     run_training_cb=self._run_training,
