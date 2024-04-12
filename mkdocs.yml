@@ -27,8 +27,7 @@ nav:
 - Welcome: index.md
 - Get Started:
   - get-started/installation.md
-  - get-started/quick-start-cli.md
-  - get-started/quick-start-gui.md
+  - get-started/quick-start.md
 - Tutorials:
   - tutorials/index.md
   - Stable Diffusion:

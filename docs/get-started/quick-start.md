@@ -1,11 +1,12 @@
-# Quick Start - GUI
+# Quick Start
 
-This page walks through the steps to train your first model with the `invoke-training` GUI.
+`invoke-training` has both a GUI and a CLI (for advanced users). The instructions for getting started with both options can be found on this page.
 
-There is also a [Quick Start - CLI](./quick-start-cli.md) guide.
+There is also a video introduction to `invoke-training`:
 
-## Tutorial
+<iframe width="560" height="315" src="https://www.youtube.com/embed/OZIz2vvtlM4?si=iR73F0IhlsolyYAl" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
+## Quick Start - GUI
 ### 1. Installation
 Follow the [`invoke-training` installation instructions](./installation.md).
 
@@ -53,6 +54,10 @@ You can now use your trained Pokemon LoRA in the InvokeAI UI! 🎉
 ![Screenshot of the InvokeAI UI with an example of a Yoda pokemon generated using a Pokemon LoRA model.](../images/invokeai_yoda_pokemon_lora.png)
 *Example image generated with the prompt "A cute yoda pokemon creature." and Pokemon LoRA.*
 
-## Next Steps
 
-After completing this Quick Start tutorial, we recommend continuing with any of the [full training pipeline tutorials](../tutorials/index.md).
+## Quick Start - CLI
+### 1. Installation
+Follow the [`invoke-training` installation instructions](./installation.md).
+
+### 2. Training
+See the [Textual Inversion - SDXL](../tutorials/stable_diffusion/textual_inversion_sdxl.md) tutorial for instructions on how to train a model via the CLI.
