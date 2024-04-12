@@ -44,7 +44,7 @@ mixed_precision: fp16
 xformers: False
 gradient_checkpointing: True
 
-max_train_epochs: 6
+max_train_epochs: 15
 save_every_n_epochs: 1
 validate_every_n_epochs: 1
 

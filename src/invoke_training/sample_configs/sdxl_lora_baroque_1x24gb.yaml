@@ -9,7 +9,7 @@
 # dataset.
 
 # Notes:
-# This config file has been optimized for the primary goal of achieving reasonable results *quickly* (<15mins) for demo
+# This config file has been optimized for the primary goal of achieving reasonable results *quickly* for demo
 # purposes.
 
 type: SDXL_LORA
@@ -36,7 +36,7 @@ data_loader:
     end_dim: 1536
     divisible_by: 128
   caption_prefix: "A baroque painting of"
-  dataloader_num_workers: 2
+  dataloader_num_workers: 4
 
 # General
 model: stabilityai/stable-diffusion-xl-base-1.0
@@ -46,9 +46,9 @@ mixed_precision: fp16
 xformers: False
 gradient_checkpointing: True
 
-max_train_epochs: 6
-save_every_n_epochs: 1
-validate_every_n_epochs: 1
+max_train_epochs: 16
+save_every_n_epochs: 2
+validate_every_n_epochs: 2
 
 max_checkpoints: 5
 validation_prompts:
