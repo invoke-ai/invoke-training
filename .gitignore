@@ -1,6 +1,6 @@
-output/
-test_configs/
-data/
+/output/
+/test_configs/
+/data/
 
 # pyenv
 .python-version
