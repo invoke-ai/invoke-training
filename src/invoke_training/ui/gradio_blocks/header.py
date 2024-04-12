@@ -1,6 +1,6 @@
 import gradio as gr
 
-from invoke_training.ui.utils import get_assets_dir_path
+from invoke_training.ui.utils.utils import get_assets_dir_path
 
 
 class Header:

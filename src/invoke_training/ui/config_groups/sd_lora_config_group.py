@@ -9,7 +9,7 @@ from invoke_training.ui.config_groups.image_caption_sd_data_loader_config_group 
 )
 from invoke_training.ui.config_groups.optimizer_config_group import OptimizerConfigGroup
 from invoke_training.ui.config_groups.ui_config_element import UIConfigElement
-from invoke_training.ui.utils import get_typing_literal_options
+from invoke_training.ui.utils.utils import get_typing_literal_options
 
 
 class SdLoraConfigGroup(UIConfigElement):
