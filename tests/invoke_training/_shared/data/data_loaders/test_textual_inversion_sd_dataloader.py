@@ -6,7 +6,7 @@ from invoke_training._shared.data.data_loaders.textual_inversion_sd_dataloader i
 from invoke_training.config.data.data_loader_config import TextualInversionSDDataLoaderConfig
 from invoke_training.config.data.dataset_config import HFHubImageCaptionDatasetConfig, ImageDirDatasetConfig
 
-from ..image_dir_fixture import image_dir  # noqa: F401
+from ..dataset_fixtures import image_dir  # noqa: F401
 
 
 def test_build_textual_inversion_sd_dataloader(image_dir):  # noqa: F811
