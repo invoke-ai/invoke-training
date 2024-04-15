@@ -11,7 +11,7 @@ from invoke_training.ui.utils.prompts import (
     ["prompt", "expected_positive_prompt", "expected_negative_prompt"],
     [
         # Simple positive and negative prompt.
-        ("positive prompt[negative prompt]", "positive prompt", "negative prompt"),
+        ("positive prompt[NEG]negative prompt", "positive prompt", "negative prompt"),
         # Positive prompt with no negative prompt.
         ("positive prompt", "positive prompt", ""),
         # Empty prompt.
@@ -27,13 +27,8 @@ def test_split_pos_neg_prompts(prompt: str, expected_positive_prompt: str, expec
 @pytest.mark.parametrize(
     "prompt",
     [
-        # Square brackets in the middle of the prompt.
-        "positive prompt [not negative] more",
-        # Unbalanced square brackets.
-        "positive prompt [negative prompt",
-        "positive prompt negative prompt]",
-        # Multiple square brackets.
-        "positive prompt [foo][negative prompt]",
+        # Multiple negative prompt delimiters.
+        "positive prompt[NEG]negative prompt[NEG]negative prompt",
     ],
 )
 def test_split_pos_neg_prompts_raises_value_error(prompt: str):
@@ -58,14 +53,14 @@ prompt_conversion_test_cases = [
     ),
     # Positive and negative prompts.
     (
-        "positive prompt 1[negative prompt 1]\npositive prompt 2[negative prompt 2]\npositive prompt 3[negative"
-        " prompt 3]\n",
+        "positive prompt 1[NEG]negative prompt 1\npositive prompt 2[NEG]negative prompt 2\n"
+        "positive prompt 3[NEG]negative prompt 3\n",
         ["positive prompt 1", "positive prompt 2", "positive prompt 3"],
         ["negative prompt 1", "negative prompt 2", "negative prompt 3"],
     ),
     # Some missing negative prompts.
     (
-        "positive prompt 1[negative prompt 1]\npositive prompt 2\npositive prompt 3[negative prompt 3]\n",
+        "positive prompt 1[NEG]negative prompt 1\npositive prompt 2\npositive prompt 3[NEG]negative prompt 3\n",
         ["positive prompt 1", "positive prompt 2", "positive prompt 3"],
         ["negative prompt 1", None, "negative prompt 3"],
     ),

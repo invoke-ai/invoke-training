@@ -1,47 +1,47 @@
-import re
+NEGATIVE_PROMPT_DELIMITER = "[NEG]"
 
 
 def split_pos_neg_prompts(prompt: str) -> tuple[str, str]:
-    """Split a prompt of the following form into a positive prompt and a negative prompt:
-    'positive prompt[negative prompt]'
+    """Split a prompt containing a '[NEG]' delimiter into a positive prompt and a negative prompt.
+
+    Examples:
+    - 'positive prompt[NEG]negative prompt'     -> ('positive prompt', 'negative prompt')
+    - 'positive prompt'                         -> ('positive prompt', '')
+    - 'positive prompt[NEG]negative[NEG]prompt' -> Raises ValueError
     """
     prompt = prompt.strip()
 
-    num_open_brackets = prompt.count("[")
-    num_close_brackets = prompt.count("]")
-    # If there are square brackets, then we try to extract the negative prompt.
-    if num_open_brackets > 0 or num_close_brackets > 0:
-        if num_open_brackets != 1 or num_close_brackets != 1:
-            raise ValueError(
-                "Failed to split the prompt into a positive and negative prompt. Expected exactly one pair of square "
-                f"brackets. Prompt: '{prompt}'."
-            )
+    splits = prompt.split(NEGATIVE_PROMPT_DELIMITER)
+    if len(splits) == 1:
+        # This is a positive prompt only.
+        return splits[0], ""
+    elif len(splits) == 2:
+        # This is a positive prompt followed by a negative prompt.
+        return splits[0], splits[1]
 
-        # Pattern to match a positive prompt followed by a negative prompt in square brackets.
-        pattern = r"(.+)\[(.+)\]$"
-        match = re.match(pattern, prompt)
-        if match is None:
-            raise ValueError(
-                "Failed to split the prompt into a positive and negative prompt. Ensure that your prompts have the "
-                f"form: 'positive prompt[negative prompt]'. Prompt: '{prompt}'."
-            )
-        return match.group(1), match.group(2)
-    # There are no square brackets, so we treat as a single positive prompt.
-    return prompt, ""
+    raise ValueError(
+        f"Failed to split the prompt into a positive and negative prompt. Expected at most one "
+        f"'{NEGATIVE_PROMPT_DELIMITER}' delimiter. Prompt: '{prompt}'."
+    )
 
 
 def merge_pos_neg_prompts(positive_prompt: str, negative_prompt: str) -> str:
     """Merge a positive prompt and a negative prompt into a single prompt of the form:
-    'positive prompt[negative prompt]'
+    'positive prompt[NEG]negative prompt'
     """
-    if "[" in positive_prompt or "]" in positive_prompt:
-        raise ValueError(f"Positive prompt must not contain square brackets. Prompt: '{positive_prompt}'.")
-    if "[" in negative_prompt or "]" in negative_prompt:
-        raise ValueError(f"Negative prompt must not contain square brackets. Prompt: '{negative_prompt}'.")
+    if NEGATIVE_PROMPT_DELIMITER in positive_prompt:
+        raise ValueError(
+            f"Positive prompt cannot contain the '{NEGATIVE_PROMPT_DELIMITER}' delimiter. Prompt: '{positive_prompt}'"
+        )
+    if NEGATIVE_PROMPT_DELIMITER in negative_prompt:
+        raise ValueError(
+            f"Negative prompt cannot contain the '{NEGATIVE_PROMPT_DELIMITER}' delimiter. Prompt: '{negative_prompt}'"
+        )
 
     if negative_prompt == "":
         return positive_prompt
-    return f"{positive_prompt}[{negative_prompt}]"
+
+    return f"{positive_prompt}{NEGATIVE_PROMPT_DELIMITER}{negative_prompt}"
 
 
 def convert_ui_prompts_to_pos_neg_prompts(prompts: str) -> tuple[list[str], list[str | None]]:
@@ -58,10 +58,11 @@ def convert_ui_prompts_to_pos_neg_prompts(prompts: str) -> tuple[list[str], list
             continue
 
         positive_prompts.append(positive_prompt)
-        if negative_prompt == "":
-            negative_prompt = None
         negative_prompts.append(negative_prompt)
 
+    # Convert empty negative prompts to None.
+    negative_prompts = [neg if neg != "" else None for neg in negative_prompts]
+    # Convert negative_prompts to a single None if all negative prompts are None.
     if all([p is None for p in negative_prompts]):
         negative_prompts = None
     return positive_prompts, negative_prompts
