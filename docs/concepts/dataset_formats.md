@@ -2,20 +2,14 @@
 
 `invoke-training` supports the following dataset formats:
 
-- `HF_HUB_IMAGE_CAPTION_DATASET`: A Hugging Face Hub dataset containing images and captions.
 - `IMAGE_CAPTION_JSONL_DATASET`: A local image-caption dataset described by a single `.jsonl` file.
 - `IMAGE_CAPTION_DIR_DATASET`: A local directory of images with associated `.txt` caption files.
 - `IMAGE_DIR_DATASET`: A local directory of images (without captions).
+- `HF_HUB_IMAGE_CAPTION_DATASET`: A Hugging Face Hub dataset containing images and captions.
 
 See the documentation for a particular training pipeline to see which dataset formats it supports.
 
 The following sections explain each of these formats in more detail.
-
-## `HF_HUB_IMAGE_CAPTION_DATASET`
-
-Config documentation: [HFHubImageCaptionDatasetConfig][invoke_training.config.data.dataset_config.HFHubImageCaptionDatasetConfig]
-
-The easiest way to get started with `invoke-training` is to use a publicly available dataset on [Hugging Face Hub](https://huggingface.co/datasets). You can filter for the `Text-to-Image` task to find relevant datasets that contain both an image column and a caption column. [lambdalabs/pokemon-blip-captions](https://huggingface.co/datasets/lambdalabs/pokemon-blip-captions) is a popular choice if you're not sure where to start.
 
 ## `IMAGE_CAPTION_JSONL_DATASET`
 
@@ -102,3 +96,9 @@ This dataset can be used with the following pipeline dataset configuration:
 type: IMAGE_DIR_DATASET
 dataset_dir: /path/to/my_custom_dataset
 ```
+
+## `HF_HUB_IMAGE_CAPTION_DATASET`
+
+Config documentation: [HFHubImageCaptionDatasetConfig][invoke_training.config.data.dataset_config.HFHubImageCaptionDatasetConfig]
+
+The `HF_HUB_IMAGE_CAPTION_DATASET` dataset format can be used to access publicly datasets on the [Hugging Face Hub](https://huggingface.co/datasets). You can filter for the `Text-to-Image` task to find relevant datasets that contain both an image column and a caption column. [lambdalabs/pokemon-blip-captions](https://huggingface.co/datasets/lambdalabs/pokemon-blip-captions) is a popular choice if you're not sure where to start.
