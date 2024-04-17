@@ -548,6 +548,7 @@ def train(config: SdDirectPreferenceOptimizationLoraConfig):  # noqa: C901
             if accelerator.is_main_process:
                 generate_validation_images_sd(
                     epoch=epoch + 1,
+                    step=global_step,
                     out_dir=out_dir,
                     accelerator=accelerator,
                     vae=vae,

@@ -666,6 +666,7 @@ def train(config: SdxlLoraConfig):  # noqa: C901
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
                         generate_validation_images_sdxl(
+                            epoch=epoch,
                             step=global_step,
                             out_dir=out_dir,
                             accelerator=accelerator,
@@ -678,7 +679,6 @@ def train(config: SdxlLoraConfig):  # noqa: C901
                             unet=unet,
                             config=config,
                             logger=logger,
-                            prefix="step",
                         )
 
             logs = {
@@ -714,7 +714,8 @@ def train(config: SdxlLoraConfig):  # noqa: C901
         ):
             if accelerator.is_main_process:
                 generate_validation_images_sdxl(
-                    step=epoch + 1,
+                    epoch=epoch + 1,
+                    step=global_step,
                     out_dir=out_dir,
                     accelerator=accelerator,
                     vae=vae,
@@ -726,7 +727,6 @@ def train(config: SdxlLoraConfig):  # noqa: C901
                     unet=unet,
                     config=config,
                     logger=logger,
-                    prefix="epoch",
                 )
 
     accelerator.end_training()
