@@ -47,7 +47,8 @@ from invoke_training.pipelines.stable_diffusion_xl.textual_inversion.train impor
 
 def _save_sdxl_lora_and_ti_checkpoint(
     config: SdxlLoraAndTextualInversionConfig,
-    idx: int,
+    epoch: int,
+    step: int,
     unet: peft.PeftModel | None,
     text_encoder_1: peft.PeftModel | None,
     text_encoder_2: peft.PeftModel | None,
@@ -62,7 +63,7 @@ def _save_sdxl_lora_and_ti_checkpoint(
     num_pruned = checkpoint_tracker.prune(1)
     if num_pruned > 0:
         logger.info(f"Pruned {num_pruned} checkpoint(s).")
-    save_path = checkpoint_tracker.get_path(idx)
+    save_path = checkpoint_tracker.get_path(epoch=epoch, step=step)
 
     if lora_checkpoint_format == "invoke_peft":
         save_sdxl_peft_checkpoint(
@@ -327,15 +328,9 @@ def train(config: SdxlLoraAndTextualInversionConfig):  # noqa: C901
         # Tensorboard uses markdown formatting, so we wrap the config json in a code block.
         accelerator.log({"configuration": f"```json\n{json.dumps(config.dict(), indent=2, default=str)}\n```\n"})
 
-    epoch_checkpoint_tracker = CheckpointTracker(
+    checkpoint_tracker = CheckpointTracker(
         base_dir=ckpt_dir,
-        prefix="checkpoint_epoch",
-        max_checkpoints=config.max_checkpoints,
-    )
-
-    step_checkpoint_tracker = CheckpointTracker(
-        base_dir=ckpt_dir,
-        prefix="checkpoint_step",
+        prefix="checkpoint",
         max_checkpoints=config.max_checkpoints,
     )
 
@@ -472,7 +467,8 @@ def train(config: SdxlLoraAndTextualInversionConfig):  # noqa: C901
                     if accelerator.is_main_process:
                         _save_sdxl_lora_and_ti_checkpoint(
                             config=config,
-                            idx=global_step,
+                            epoch=epoch,
+                            step=global_step,
                             unet=unet,
                             text_encoder_1=text_encoder_1,
                             text_encoder_2=text_encoder_2,
@@ -480,7 +476,7 @@ def train(config: SdxlLoraAndTextualInversionConfig):  # noqa: C901
                             placeholder_token_ids_2=placeholder_token_ids_2,
                             accelerator=accelerator,
                             logger=logger,
-                            checkpoint_tracker=step_checkpoint_tracker,
+                            checkpoint_tracker=checkpoint_tracker,
                             lora_checkpoint_format=config.lora_checkpoint_format,
                         )
 
@@ -521,7 +517,8 @@ def train(config: SdxlLoraAndTextualInversionConfig):  # noqa: C901
             if accelerator.is_main_process:
                 _save_sdxl_lora_and_ti_checkpoint(
                     config=config,
-                    idx=epoch + 1,
+                    epoch=epoch + 1,
+                    step=global_step,
                     unet=unet,
                     text_encoder_1=text_encoder_1,
                     text_encoder_2=text_encoder_2,
@@ -529,7 +526,7 @@ def train(config: SdxlLoraAndTextualInversionConfig):  # noqa: C901
                     placeholder_token_ids_2=placeholder_token_ids_2,
                     accelerator=accelerator,
                     logger=logger,
-                    checkpoint_tracker=epoch_checkpoint_tracker,
+                    checkpoint_tracker=checkpoint_tracker,
                     lora_checkpoint_format=config.lora_checkpoint_format,
                 )
                 accelerator.wait_for_everyone()

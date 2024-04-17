@@ -40,7 +40,8 @@ from invoke_training.pipelines.stable_diffusion_xl.textual_inversion.config impo
 
 
 def _save_ti_embeddings(
-    idx: int,
+    epoch: int,
+    step: int,
     text_encoder_1: CLIPTextModel,
     text_encoder_2: CLIPTextModel,
     placeholder_token_ids_1: list[int],
@@ -56,7 +57,7 @@ def _save_ti_embeddings(
     num_pruned = checkpoint_tracker.prune(1)
     if num_pruned > 0:
         logger.info(f"Pruned {num_pruned} checkpoint(s).")
-    save_path = checkpoint_tracker.get_path(idx)
+    save_path = checkpoint_tracker.get_path(epoch=epoch, step=step)
 
     learned_embeds_1 = (
         accelerator.unwrap_model(text_encoder_1)
@@ -298,16 +299,9 @@ def train(config: SdxlTextualInversionConfig):  # noqa: C901
         # Tensorboard uses markdown formatting, so we wrap the config json in a code block.
         accelerator.log({"configuration": f"```json\n{json.dumps(config.dict(), indent=2, default=str)}\n```\n"})
 
-    epoch_checkpoint_tracker = CheckpointTracker(
+    checkpoint_tracker = CheckpointTracker(
         base_dir=ckpt_dir,
-        prefix="checkpoint_epoch",
-        extension=".safetensors",
-        max_checkpoints=config.max_checkpoints,
-    )
-
-    step_checkpoint_tracker = CheckpointTracker(
-        base_dir=ckpt_dir,
-        prefix="checkpoint_step",
+        prefix="checkpoint",
         extension=".safetensors",
         max_checkpoints=config.max_checkpoints,
     )
@@ -411,14 +405,15 @@ def train(config: SdxlTextualInversionConfig):  # noqa: C901
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
                         _save_ti_embeddings(
-                            idx=global_step,
+                            epoch=epoch,
+                            step=global_step,
                             text_encoder_1=text_encoder_1,
                             text_encoder_2=text_encoder_2,
                             placeholder_token_ids_1=placeholder_token_ids_1,
                             placeholder_token_ids_2=placeholder_token_ids_2,
                             accelerator=accelerator,
                             logger=logger,
-                            checkpoint_tracker=step_checkpoint_tracker,
+                            checkpoint_tracker=checkpoint_tracker,
                         )
 
                 if (
@@ -458,14 +453,15 @@ def train(config: SdxlTextualInversionConfig):  # noqa: C901
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
             if accelerator.is_main_process:
                 _save_ti_embeddings(
-                    idx=epoch + 1,
+                    epoch=epoch + 1,
+                    step=global_step,
                     text_encoder_1=text_encoder_1,
                     text_encoder_2=text_encoder_2,
                     placeholder_token_ids_1=placeholder_token_ids_1,
                     placeholder_token_ids_2=placeholder_token_ids_2,
                     accelerator=accelerator,
                     logger=logger,
-                    checkpoint_tracker=epoch_checkpoint_tracker,
+                    checkpoint_tracker=checkpoint_tracker,
                 )
                 # TODO(ryand): This doesn't seem right, but it's done this way in most of the training pipelines. Should
                 # probably sync before and after saving. (Or maybe accelerate offers a context manager to handle this?)

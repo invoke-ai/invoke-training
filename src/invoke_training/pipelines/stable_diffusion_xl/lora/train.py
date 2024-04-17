@@ -47,7 +47,8 @@ from invoke_training.pipelines.stable_diffusion_xl.lora.config import SdxlLoraCo
 
 
 def _save_sdxl_lora_checkpoint(
-    idx: int,
+    epoch: int,
+    step: int,
     unet: peft.PeftModel | None,
     text_encoder_1: peft.PeftModel | None,
     text_encoder_2: peft.PeftModel | None,
@@ -59,7 +60,7 @@ def _save_sdxl_lora_checkpoint(
     num_pruned = checkpoint_tracker.prune(1)
     if num_pruned > 0:
         logger.info(f"Pruned {num_pruned} checkpoint(s).")
-    save_path = checkpoint_tracker.get_path(idx)
+    save_path = checkpoint_tracker.get_path(epoch=epoch, step=step)
 
     if lora_checkpoint_format == "invoke_peft":
         save_sdxl_peft_checkpoint(
@@ -559,16 +560,9 @@ def train(config: SdxlLoraConfig):  # noqa: C901
         # Tensorboard uses markdown formatting, so we wrap the config json in a code block.
         accelerator.log({"configuration": f"```json\n{json.dumps(config.dict(), indent=2, default=str)}\n```\n"})
 
-    epoch_checkpoint_tracker = CheckpointTracker(
+    checkpoint_tracker = CheckpointTracker(
         base_dir=ckpt_dir,
-        prefix="checkpoint_epoch",
-        max_checkpoints=config.max_checkpoints,
-        extension=".safetensors" if config.lora_checkpoint_format == "kohya" else None,
-    )
-
-    step_checkpoint_tracker = CheckpointTracker(
-        base_dir=ckpt_dir,
-        prefix="checkpoint_step",
+        prefix="checkpoint",
         max_checkpoints=config.max_checkpoints,
         extension=".safetensors" if config.lora_checkpoint_format == "kohya" else None,
     )
@@ -654,12 +648,13 @@ def train(config: SdxlLoraConfig):  # noqa: C901
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
                         _save_sdxl_lora_checkpoint(
-                            idx=global_step,
+                            epoch=epoch,
+                            step=global_step,
                             unet=unet if config.train_unet else None,
                             text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
                             text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
                             logger=logger,
-                            checkpoint_tracker=step_checkpoint_tracker,
+                            checkpoint_tracker=checkpoint_tracker,
                             lora_checkpoint_format=config.lora_checkpoint_format,
                         )
 
@@ -700,12 +695,13 @@ def train(config: SdxlLoraConfig):  # noqa: C901
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
             if accelerator.is_main_process:
                 _save_sdxl_lora_checkpoint(
-                    idx=epoch + 1,
+                    epoch=epoch + 1,
+                    step=global_step,
                     unet=unet if config.train_unet else None,
                     text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
                     text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
                     logger=logger,
-                    checkpoint_tracker=epoch_checkpoint_tracker,
+                    checkpoint_tracker=checkpoint_tracker,
                     lora_checkpoint_format=config.lora_checkpoint_format,
                 )
                 accelerator.wait_for_everyone()
