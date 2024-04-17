@@ -4,8 +4,8 @@ from pathlib import Path
 import yaml
 from pydantic import TypeAdapter
 
-from invoke_training._shared.tools.invoke_train import train
 from invoke_training.config.pipeline_config import PipelineConfig
+from invoke_training.pipelines.invoke_train import train
 
 
 def parse_args():

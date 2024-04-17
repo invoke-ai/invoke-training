@@ -40,6 +40,7 @@ from invoke_training._shared.stable_diffusion.model_loading_utils import load_mo
 from invoke_training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sd
 from invoke_training.config.data.data_loader_config import DreamboothSDDataLoaderConfig, ImageCaptionSDDataLoaderConfig
+from invoke_training.pipelines.callbacks import PipelineCallbacks
 from invoke_training.pipelines.stable_diffusion.lora.config import SdLoraConfig
 
 
@@ -241,7 +242,7 @@ def train_forward(  # noqa: C901
     return loss.mean()
 
 
-def train(config: SdLoraConfig):  # noqa: C901
+def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     # TODO(ryan): Update this check to work with single-file SD checkpoints.
     # check_base_model_version(
