@@ -16,11 +16,12 @@ from diffusers import (
 from transformers import CLIPTextModel, CLIPTokenizer
 
 from invoke_training._shared.data.utils.resolution import Resolution
+from invoke_training.pipelines.callbacks import PipelineCallbacks, ValidationImage, ValidationImages
 from invoke_training.pipelines.stable_diffusion.lora.config import SdLoraConfig
 from invoke_training.pipelines.stable_diffusion_xl.lora.config import SdxlLoraConfig
 
 
-def generate_validation_images_sd(
+def generate_validation_images_sd(  # noqa: C901
     epoch: int,
     step: int,
     out_dir: str,
@@ -32,6 +33,7 @@ def generate_validation_images_sd(
     unet: UNet2DConditionModel,
     config: SdLoraConfig,
     logger: logging.Logger,
+    callbacks: list[PipelineCallbacks] | None = None,
 ):
     """Generate validation images for the purpose of tracking image generation behaviour on fixed prompts throughout
     training.
@@ -64,6 +66,8 @@ def generate_validation_images_sd(
 
     validation_resolution = Resolution.parse(config.data_loader.resolution)
 
+    validation_images = ValidationImages(images=[], epoch=epoch, step=step)
+
     # Run inference.
     with torch.no_grad():
         for prompt_idx, prompt in enumerate(config.validation_prompts):
@@ -93,7 +97,11 @@ def generate_validation_images_sd(
             )
             os.makedirs(validation_dir)
             for image_idx, image in enumerate(images):
-                image.save(os.path.join(validation_dir, f"{image_idx:0>4}.jpg"))
+                image_path = os.path.join(validation_dir, f"{image_idx:0>4}.jpg")
+                validation_images.images.append(
+                    ValidationImage(file_path=image_path, prompt=prompt, image_idx=image_idx)
+                )
+                image.save(image_path)
 
             # Log images to trackers. Currently, only tensorboard is supported.
             for tracker in accelerator.trackers:
@@ -120,8 +128,13 @@ def generate_validation_images_sd(
     vae.to(vae_device)
     text_encoder.to(text_encoder_device)
 
+    # Run callbacks.
+    if callbacks is not None:
+        for cb in callbacks:
+            cb.on_save_validation_images(images=validation_images)
 
-def generate_validation_images_sdxl(
+
+def generate_validation_images_sdxl(  # noqa: C901
     epoch: int,
     step: int,
     out_dir: str,
@@ -135,6 +148,7 @@ def generate_validation_images_sdxl(
     unet: UNet2DConditionModel,
     config: SdxlLoraConfig,
     logger: logging.Logger,
+    callbacks: list[PipelineCallbacks] | None = None,
 ):
     """Generate validation images for the purpose of tracking image generation behaviour on fixed prompts throughout
     training.
@@ -166,6 +180,8 @@ def generate_validation_images_sdxl(
 
     validation_resolution = Resolution.parse(config.data_loader.resolution)
 
+    validation_images = ValidationImages(images=[], epoch=epoch, step=step)
+
     # Run inference.
     with torch.no_grad():
         for prompt_idx, prompt in enumerate(config.validation_prompts):
@@ -195,7 +211,11 @@ def generate_validation_images_sdxl(
             )
             os.makedirs(validation_dir)
             for image_idx, image in enumerate(images):
-                image.save(os.path.join(validation_dir, f"{image_idx:0>4}.jpg"))
+                image_path = os.path.join(validation_dir, f"{image_idx:0>4}.jpg")
+                validation_images.images.append(
+                    ValidationImage(file_path=image_path, prompt=prompt, image_idx=image_idx)
+                )
+                image.save(image_path)
 
             # Log images to trackers. Currently, only tensorboard is supported.
             for tracker in accelerator.trackers:
@@ -222,3 +242,8 @@ def generate_validation_images_sdxl(
     vae.to(vae_device)
     text_encoder_1.to(text_encoder_1_device)
     text_encoder_2.to(text_encoder_2_device)
+
+    # Run callbacks.
+    if callbacks is not None:
+        for cb in callbacks:
+            cb.on_save_validation_images(images=validation_images)

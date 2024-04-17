@@ -39,6 +39,7 @@ from invoke_training._shared.stable_diffusion.model_loading_utils import load_mo
 from invoke_training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sd
 from invoke_training.pipelines._experimental.sd_dpo_lora.config import SdDirectPreferenceOptimizationLoraConfig
+from invoke_training.pipelines.callbacks import PipelineCallbacks
 from invoke_training.pipelines.stable_diffusion.lora.train import cache_text_encoder_outputs
 
 
@@ -186,7 +187,10 @@ def train_forward_dpo(  # noqa: C901
     return loss
 
 
-def train(config: SdDirectPreferenceOptimizationLoraConfig):  # noqa: C901
+def train(config: SdDirectPreferenceOptimizationLoraConfig, callbacks: list[PipelineCallbacks] | None = None):  # noqa: C901
+    if callbacks:
+        raise ValueError(f"This pipeline does not support callbacks, but {len(callbacks)} were provided.")
+
     # Give a clear error message if an unsupported base model was chosen.
     # TODO(ryan): Update this check to work with single-file SD checkpoints.
     # check_base_model_version(

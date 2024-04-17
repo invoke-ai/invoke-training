@@ -20,15 +20,15 @@ def train(config: PipelineConfig, callbacks: list[PipelineCallbacks] | None = No
     if config.type == "SD_LORA":
         train_sd_lora(config, callbacks)
     elif config.type == "SDXL_LORA":
-        train_sdxl_lora(config)
+        train_sdxl_lora(config, callbacks)
     elif config.type == "SD_TEXTUAL_INVERSION":
-        train_sd_ti(config)
+        train_sd_ti(config, callbacks)
     elif config.type == "SDXL_TEXTUAL_INVERSION":
-        train_sdxl_ti(config)
+        train_sdxl_ti(config, callbacks)
     elif config.type == "SDXL_LORA_AND_TEXTUAL_INVERSION":
-        train_sdxl_lora_and_ti(config)
+        train_sdxl_lora_and_ti(config, callbacks)
     elif config.type == "SD_DIRECT_PREFERENCE_OPTIMIZATION_LORA":
         print(f"Running EXPERIMENTAL pipeline: '{config.type}'.")
-        train_sd_ddpo_lora(config)
+        train_sd_ddpo_lora(config, callbacks)
     else:
         raise ValueError(f"Unexpected pipeline type: '{config.type}'.")

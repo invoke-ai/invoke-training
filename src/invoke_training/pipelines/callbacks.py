@@ -42,7 +42,7 @@ class TrainingCheckpoint:
 
 
 class ValidationImage:
-    def __init__(self, file_path: str, prompt: str, image_idx: int, epoch: int, step: int):
+    def __init__(self, file_path: str, prompt: str, image_idx: int):
         """A single validation image.
 
         Args:
@@ -50,12 +50,22 @@ class ValidationImage:
             prompt (str): The prompt used to generate the image.
             image_idx (int): The index of this image in the current validation set (i.e. in the set of images generated
                 with the same prompt at the same validation point).
-            epoch (int): The last completed epoch at the time that this image was generated.
-            step (int): The last completed training step at the time that this image was generated.
         """
         self.file_path = file_path
         self.prompt = prompt
         self.image_idx = image_idx
+
+
+class ValidationImages:
+    def __init__(self, images: list[ValidationImage], epoch: int, step: int):
+        """A collection of validation images.
+
+        Args:
+            images (list[ValidationImage]): The validation images.
+            epoch (int): The last completed epoch at the time that these images were generated.
+            step (int): The last completed training step at the time that these images were generated.
+        """
+        self.images = images
         self.epoch = epoch
         self.step = step
 
@@ -64,5 +74,5 @@ class PipelineCallbacks(ABC):
     def on_save_checkpoint(self, checkpoint: TrainingCheckpoint):
         pass
 
-    def on_save_validation_images(self, checkpoint: TrainingCheckpoint):
+    def on_save_validation_images(self, images: ValidationImages):
         pass

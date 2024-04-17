@@ -32,6 +32,7 @@ from invoke_training._shared.stable_diffusion.textual_inversion import (
     restore_original_embeddings,
 )
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sd
+from invoke_training.pipelines.callbacks import ModelCheckpoint, ModelType, PipelineCallbacks, TrainingCheckpoint
 from invoke_training.pipelines.stable_diffusion.lora.train import cache_vae_outputs, train_forward
 from invoke_training.pipelines.stable_diffusion.textual_inversion.config import SdTextualInversionConfig
 
@@ -44,6 +45,7 @@ def _save_ti_embeddings(
     accelerator: Accelerator,
     logger: logging.Logger,
     checkpoint_tracker: CheckpointTracker,
+    callbacks: list[PipelineCallbacks] | None,
 ):
     """Save a Textual Inversion checkpoint. Old checkpoints are deleted if necessary to respect the checkpoint_tracker
     limits.
@@ -62,6 +64,16 @@ def _save_ti_embeddings(
     learned_embeds_dict = {"emb_params": learned_embeds.detach().cpu()}
 
     save_state_dict(learned_embeds_dict, save_path)
+
+    if callbacks is not None:
+        for cb in callbacks:
+            cb.on_save_checkpoint(
+                TrainingCheckpoint(
+                    models=[ModelCheckpoint(path=save_path, model_type=ModelType.SD1_TEXTUAL_INVERSION)],
+                    epoch=epoch,
+                    step=step,
+                )
+            )
 
 
 def _initialize_placeholder_tokens(
@@ -120,7 +132,7 @@ def _initialize_placeholder_tokens(
     return placeholder_tokens, placeholder_token_ids
 
 
-def train(config: SdTextualInversionConfig):  # noqa: C901
+def train(config: SdTextualInversionConfig, callbacks: list[PipelineCallbacks] | None = None):  # noqa: C901
     # Create a timestamped directory for all outputs.
     out_dir = os.path.join(config.base_output_dir, f"{time.time()}")
     ckpt_dir = os.path.join(out_dir, "checkpoints")
@@ -308,6 +320,7 @@ def train(config: SdTextualInversionConfig):  # noqa: C901
                 accelerator=accelerator,
                 logger=logger,
                 checkpoint_tracker=checkpoint_tracker,
+                callbacks=callbacks,
             )
         accelerator.wait_for_everyone()
 
@@ -326,6 +339,7 @@ def train(config: SdTextualInversionConfig):  # noqa: C901
                 unet=unet,
                 config=config,
                 logger=logger,
+                callbacks=callbacks,
             )
         accelerator.wait_for_everyone()
 
