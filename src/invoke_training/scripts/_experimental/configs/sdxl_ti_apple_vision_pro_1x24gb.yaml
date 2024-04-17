@@ -1,0 +1,56 @@
+# Training mode: Textual Inversion
+# Base model:    SDXL
+# GPU:           1 x 24GB
+
+type: SDXL_TEXTUAL_INVERSION
+seed: 1
+base_output_dir: output/sdxl_ti_apple_vision_pro
+
+optimizer:
+  optimizer_type: AdamW
+  learning_rate: 2e-3
+
+lr_warmup_steps: 200
+lr_scheduler: constant_with_warmup
+
+data_loader:
+  type: TEXTUAL_INVERSION_SD_DATA_LOADER
+  dataset:
+    type: IMAGE_CAPTION_JSONL_DATASET
+    jsonl_path: "/home/ryan/data/avp/data.jsonl"
+  caption_preset: object
+  resolution: 1024
+  center_crop: True
+  random_flip: False
+  shuffle_caption_delimiter: null
+  dataloader_num_workers: 4
+
+  aspect_ratio_buckets:
+    target_resolution: 1024
+    start_dim: 512
+    end_dim: 1536
+    divisible_by: 128
+
+# General
+model: stabilityai/stable-diffusion-xl-base-1.0
+vae_model: madebyollin/sdxl-vae-fp16-fix
+num_vectors: 4
+placeholder_token: "apple_vision_pro"
+initializer_token: "goggles"
+cache_vae_outputs: False
+gradient_accumulation_steps: 1
+mixed_precision: fp16
+xformers: False
+gradient_checkpointing: True
+
+max_train_epochs: 200
+save_every_n_epochs: 1000
+validate_every_n_epochs: 8
+max_checkpoints: 1
+
+validation_prompts:
+  - A photo of a man wearing apple_vision_pro goggles at the beach
+  - A photo of a man wearing apple_vision_pro goggles while reading a book
+
+train_batch_size: 1
+num_validation_images_per_prompt: 3
