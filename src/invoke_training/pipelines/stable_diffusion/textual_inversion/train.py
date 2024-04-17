@@ -296,6 +296,38 @@ def train(config: SdTextualInversionConfig):  # noqa: C901
     # Keep original embeddings as reference.
     orig_embeds_params = accelerator.unwrap_model(text_encoder).get_input_embeddings().weight.data.clone()
 
+    def save_checkpoint(num_completed_epochs: int, num_completed_steps: int):
+        accelerator.wait_for_everyone()
+        if accelerator.is_main_process:
+            _save_ti_embeddings(
+                epoch=num_completed_epochs,
+                step=num_completed_steps,
+                text_encoder=text_encoder,
+                placeholder_token_ids=placeholder_token_ids,
+                accelerator=accelerator,
+                logger=logger,
+                checkpoint_tracker=checkpoint_tracker,
+            )
+        accelerator.wait_for_everyone()
+
+    def validate(num_completed_epochs: int, num_completed_steps: int):
+        accelerator.wait_for_everyone()
+        if accelerator.is_main_process:
+            generate_validation_images_sd(
+                epoch=num_completed_epochs,
+                step=num_completed_steps,
+                out_dir=out_dir,
+                accelerator=accelerator,
+                vae=vae,
+                text_encoder=text_encoder,
+                tokenizer=tokenizer,
+                noise_scheduler=noise_scheduler,
+                unet=unet,
+                config=config,
+                logger=logger,
+            )
+        accelerator.wait_for_everyone()
+
     for epoch in range(first_epoch, num_train_epochs):
         text_encoder.train()
 
@@ -353,38 +385,14 @@ def train(config: SdTextualInversionConfig):  # noqa: C901
 
                 # global_step represents the *number of completed steps* at this point.
                 if config.save_every_n_steps is not None and global_step % config.save_every_n_steps == 0:
-                    accelerator.wait_for_everyone()
-                    if accelerator.is_main_process:
-                        _save_ti_embeddings(
-                            epoch=epoch,
-                            step=global_step,
-                            text_encoder=text_encoder,
-                            placeholder_token_ids=placeholder_token_ids,
-                            accelerator=accelerator,
-                            logger=logger,
-                            checkpoint_tracker=checkpoint_tracker,
-                        )
+                    save_checkpoint(num_completed_epochs=epoch, num_completed_steps=global_step)
 
                 if (
                     config.validate_every_n_steps is not None
                     and global_step % config.validate_every_n_steps == 0
                     and len(config.validation_prompts) > 0
                 ):
-                    accelerator.wait_for_everyone()
-                    if accelerator.is_main_process:
-                        generate_validation_images_sd(
-                            epoch=epoch,
-                            step=global_step,
-                            out_dir=out_dir,
-                            accelerator=accelerator,
-                            vae=vae,
-                            text_encoder=text_encoder,
-                            tokenizer=tokenizer,
-                            noise_scheduler=noise_scheduler,
-                            unet=unet,
-                            config=config,
-                            logger=logger,
-                        )
+                    validate(num_completed_epochs=epoch, num_completed_steps=global_step)
 
             logs = {"step_loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
             progress_bar.set_postfix(**logs)
@@ -395,19 +403,7 @@ def train(config: SdTextualInversionConfig):  # noqa: C901
         # Save a checkpoint every n epochs.
         # (epoch + 1) represents the *number of completed epochs* at this point.
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
-            if accelerator.is_main_process:
-                _save_ti_embeddings(
-                    epoch=epoch + 1,
-                    step=global_step,
-                    text_encoder=text_encoder,
-                    placeholder_token_ids=placeholder_token_ids,
-                    accelerator=accelerator,
-                    logger=logger,
-                    checkpoint_tracker=checkpoint_tracker,
-                )
-                # TODO(ryand): This doesn't seem right, but it's done this way in most of the training pipelines. Should
-                # probably sync before and after saving. (Or maybe accelerate offers a context manager to handle this?)
-                accelerator.wait_for_everyone()
+            save_checkpoint(num_completed_epochs=epoch + 1, num_completed_steps=global_step)
 
         # Generate validation images every n epochs.
         if (
@@ -415,19 +411,6 @@ def train(config: SdTextualInversionConfig):  # noqa: C901
             and (epoch + 1) % config.validate_every_n_epochs == 0
             and len(config.validation_prompts) > 0
         ):
-            if accelerator.is_main_process:
-                generate_validation_images_sd(
-                    epoch=epoch + 1,
-                    step=global_step,
-                    out_dir=out_dir,
-                    accelerator=accelerator,
-                    vae=vae,
-                    text_encoder=text_encoder,
-                    tokenizer=tokenizer,
-                    noise_scheduler=noise_scheduler,
-                    unet=unet,
-                    config=config,
-                    logger=logger,
-                )
+            validate(num_completed_epochs=epoch + 1, num_completed_steps=global_step)
 
     accelerator.end_training()

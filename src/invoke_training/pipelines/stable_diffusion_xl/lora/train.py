@@ -588,6 +588,41 @@ def train(config: SdxlLoraConfig):  # noqa: C901
     )
     progress_bar.set_description("Steps")
 
+    def save_checkpoint(num_completed_epochs: int, num_completed_steps: int):
+        accelerator.wait_for_everyone()
+        if accelerator.is_main_process:
+            _save_sdxl_lora_checkpoint(
+                epoch=num_completed_epochs,
+                step=num_completed_steps,
+                unet=unet if config.train_unet else None,
+                text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
+                text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
+                logger=logger,
+                checkpoint_tracker=checkpoint_tracker,
+                lora_checkpoint_format=config.lora_checkpoint_format,
+            )
+        accelerator.wait_for_everyone()
+
+    def validate(num_completed_epochs: int, num_completed_steps: int):
+        accelerator.wait_for_everyone()
+        if accelerator.is_main_process:
+            generate_validation_images_sdxl(
+                epoch=num_completed_epochs,
+                step=num_completed_steps,
+                out_dir=out_dir,
+                accelerator=accelerator,
+                vae=vae,
+                text_encoder_1=text_encoder_1,
+                text_encoder_2=text_encoder_2,
+                tokenizer_1=tokenizer_1,
+                tokenizer_2=tokenizer_2,
+                noise_scheduler=noise_scheduler,
+                unet=unet,
+                config=config,
+                logger=logger,
+            )
+        accelerator.wait_for_everyone()
+
     for epoch in range(first_epoch, num_train_epochs):
         train_loss = 0.0
         for data_batch in data_loader:
@@ -645,41 +680,14 @@ def train(config: SdxlLoraConfig):  # noqa: C901
 
                 # global_step represents the *number of completed steps* at this point.
                 if config.save_every_n_steps is not None and global_step % config.save_every_n_steps == 0:
-                    accelerator.wait_for_everyone()
-                    if accelerator.is_main_process:
-                        _save_sdxl_lora_checkpoint(
-                            epoch=epoch,
-                            step=global_step,
-                            unet=unet if config.train_unet else None,
-                            text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
-                            text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
-                            logger=logger,
-                            checkpoint_tracker=checkpoint_tracker,
-                            lora_checkpoint_format=config.lora_checkpoint_format,
-                        )
+                    save_checkpoint(num_completed_epochs=epoch, num_completed_steps=global_step)
 
                 if (
                     config.validate_every_n_steps is not None
                     and global_step % config.validate_every_n_steps == 0
                     and len(config.validation_prompts) > 0
                 ):
-                    accelerator.wait_for_everyone()
-                    if accelerator.is_main_process:
-                        generate_validation_images_sdxl(
-                            epoch=epoch,
-                            step=global_step,
-                            out_dir=out_dir,
-                            accelerator=accelerator,
-                            vae=vae,
-                            text_encoder_1=text_encoder_1,
-                            text_encoder_2=text_encoder_2,
-                            tokenizer_1=tokenizer_1,
-                            tokenizer_2=tokenizer_2,
-                            noise_scheduler=noise_scheduler,
-                            unet=unet,
-                            config=config,
-                            logger=logger,
-                        )
+                    validate(num_completed_epochs=epoch, num_completed_steps=global_step)
 
             logs = {
                 "step_loss": loss.detach().item(),
@@ -693,18 +701,7 @@ def train(config: SdxlLoraConfig):  # noqa: C901
         # Save a checkpoint every n epochs.
         # (epoch + 1) represents the *number of completed epochs* at this point.
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
-            if accelerator.is_main_process:
-                _save_sdxl_lora_checkpoint(
-                    epoch=epoch + 1,
-                    step=global_step,
-                    unet=unet if config.train_unet else None,
-                    text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
-                    text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
-                    logger=logger,
-                    checkpoint_tracker=checkpoint_tracker,
-                    lora_checkpoint_format=config.lora_checkpoint_format,
-                )
-                accelerator.wait_for_everyone()
+            save_checkpoint(num_completed_epochs=epoch + 1, num_completed_steps=global_step)
 
         # Generate validation images every n epochs.
         if (
@@ -712,21 +709,6 @@ def train(config: SdxlLoraConfig):  # noqa: C901
             and (epoch + 1) % config.validate_every_n_epochs == 0
             and len(config.validation_prompts) > 0
         ):
-            if accelerator.is_main_process:
-                generate_validation_images_sdxl(
-                    epoch=epoch + 1,
-                    step=global_step,
-                    out_dir=out_dir,
-                    accelerator=accelerator,
-                    vae=vae,
-                    text_encoder_1=text_encoder_1,
-                    text_encoder_2=text_encoder_2,
-                    tokenizer_1=tokenizer_1,
-                    tokenizer_2=tokenizer_2,
-                    noise_scheduler=noise_scheduler,
-                    unet=unet,
-                    config=config,
-                    logger=logger,
-                )
+            validate(num_completed_epochs=epoch + 1, num_completed_steps=global_step)
 
     accelerator.end_training()
