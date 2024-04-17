@@ -25,9 +25,7 @@ from invoke_training._shared.accelerator.accelerator_utils import (
 )
 from invoke_training._shared.checkpoints.checkpoint_tracker import CheckpointTracker
 from invoke_training._shared.data.data_loaders.dreambooth_sd_dataloader import build_dreambooth_sd_dataloader
-from invoke_training._shared.data.data_loaders.image_caption_sd_dataloader import (
-    build_image_caption_sd_dataloader,
-)
+from invoke_training._shared.data.data_loaders.image_caption_sd_dataloader import build_image_caption_sd_dataloader
 from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import log_aspect_ratio_buckets
 from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training._shared.optimizer.optimizer_utils import initialize_optimizer
@@ -41,10 +39,7 @@ from invoke_training._shared.stable_diffusion.min_snr_weighting import compute_s
 from invoke_training._shared.stable_diffusion.model_loading_utils import load_models_sd
 from invoke_training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sd
-from invoke_training.config.data.data_loader_config import (
-    DreamboothSDDataLoaderConfig,
-    ImageCaptionSDDataLoaderConfig,
-)
+from invoke_training.config.data.data_loader_config import DreamboothSDDataLoaderConfig, ImageCaptionSDDataLoaderConfig
 from invoke_training.pipelines.stable_diffusion.lora.config import SdLoraConfig
 
 
@@ -559,11 +554,12 @@ def train(config: SdLoraConfig):  # noqa: C901
                 accelerator.log(log, step=global_step)
                 train_loss = 0.0
 
-                if config.save_every_n_steps is not None and (global_step + 1) % config.save_every_n_steps == 0:
+                # global_step represents the *number of completed steps* at this point.
+                if config.save_every_n_steps is not None and global_step % config.save_every_n_steps == 0:
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
                         _save_sd_lora_checkpoint(
-                            idx=global_step + 1,
+                            idx=global_step,
                             unet=accelerator.unwrap_model(unet) if config.train_unet else None,
                             text_encoder=accelerator.unwrap_model(text_encoder) if config.train_text_encoder else None,
                             logger=logger,
@@ -572,13 +568,13 @@ def train(config: SdLoraConfig):  # noqa: C901
                         )
                 if (
                     config.validate_every_n_steps is not None
-                    and (global_step + 1) % config.validate_every_n_steps == 0
+                    and global_step % config.validate_every_n_steps == 0
                     and len(config.validation_prompts) > 0
                 ):
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
                         generate_validation_images_sd(
-                            step=global_step + 1,
+                            step=global_step,
                             out_dir=out_dir,
                             accelerator=accelerator,
                             vae=vae,
@@ -601,6 +597,7 @@ def train(config: SdLoraConfig):  # noqa: C901
                 break
 
         # Save a checkpoint every n epochs.
+        # (epoch + 1) represents the *number of completed epochs* at this point.
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
             if accelerator.is_main_process:
                 accelerator.wait_for_everyone()

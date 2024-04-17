@@ -35,9 +35,7 @@ from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
     save_sdxl_kohya_checkpoint,
     save_sdxl_peft_checkpoint,
 )
-from invoke_training._shared.stable_diffusion.model_loading_utils import (
-    load_models_sdxl,
-)
+from invoke_training._shared.stable_diffusion.model_loading_utils import load_models_sdxl
 from invoke_training._shared.stable_diffusion.textual_inversion import restore_original_embeddings
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sdxl
 from invoke_training.pipelines.stable_diffusion_xl.lora.train import train_forward
@@ -468,12 +466,13 @@ def train(config: SdxlLoraAndTextualInversionConfig):  # noqa: C901
                 accelerator.log(log, step=global_step)
                 train_loss = 0.0
 
-                if config.save_every_n_steps is not None and (global_step + 1) % config.save_every_n_steps == 0:
+                # global_step represents the *number of completed steps* at this point.
+                if config.save_every_n_steps is not None and global_step % config.save_every_n_steps == 0:
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
                         _save_sdxl_lora_and_ti_checkpoint(
                             config=config,
-                            idx=global_step + 1,
+                            idx=global_step,
                             unet=unet,
                             text_encoder_1=text_encoder_1,
                             text_encoder_2=text_encoder_2,
@@ -487,13 +486,13 @@ def train(config: SdxlLoraAndTextualInversionConfig):  # noqa: C901
 
                 if (
                     config.validate_every_n_steps is not None
-                    and (global_step + 1) % config.validate_every_n_steps == 0
+                    and global_step % config.validate_every_n_steps == 0
                     and len(config.validation_prompts) > 0
                 ):
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
                         generate_validation_images_sdxl(
-                            step=global_step + 1,
+                            step=global_step,
                             out_dir=out_dir,
                             accelerator=accelerator,
                             vae=vae,
@@ -517,6 +516,7 @@ def train(config: SdxlLoraAndTextualInversionConfig):  # noqa: C901
                 break
 
         # Save a checkpoint every n epochs.
+        # (epoch + 1) represents the *number of completed epochs* at this point.
         if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
             if accelerator.is_main_process:
                 _save_sdxl_lora_and_ti_checkpoint(

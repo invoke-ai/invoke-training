@@ -512,11 +512,12 @@ def train(config: SdDirectPreferenceOptimizationLoraConfig):  # noqa: C901
                 accelerator.log(log, step=global_step)
                 train_loss = 0.0
 
-                if config.save_every_n_steps is not None and (global_step + 1) % config.save_every_n_steps == 0:
+                # global_step represents the *number of completed steps* at this point.
+                if config.save_every_n_steps is not None and global_step % config.save_every_n_steps == 0:
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
                         _save_sd_lora_checkpoint(
-                            idx=global_step + 1,
+                            idx=global_step,
                             unet=accelerator.unwrap_model(unet) if training_unet else None,
                             text_encoder=accelerator.unwrap_model(text_encoder) if training_text_encoder else None,
                             logger=logger,
