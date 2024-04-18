@@ -1,27 +1,22 @@
-import glob
-from pathlib import Path
-
+import pytest
 import yaml
 from pydantic import TypeAdapter
 
 from invoke_training.config.pipeline_config import PipelineConfig
 
+from .config_file_paths import get_pipeline_config_file_paths
 
-def test_pipeline_config():
+
+@pytest.mark.parametrize("config_file", get_pipeline_config_file_paths())
+def test_pipeline_config(config_file: str):
     """Test that all sample pipeline configs can be parsed as PipelineConfigs."""
-    cur_file = Path(__file__)
-    config_dir = cur_file.parent.parent.parent.parent.parent / "src/invoke_training/sample_configs"
-    config_files = glob.glob(str(config_dir) + "/**/*.yaml", recursive=True)
 
-    assert len(config_files) > 0
+    with open(config_file, "r") as f:
+        cfg = yaml.safe_load(f)
 
-    for config_file in config_files:
-        with open(config_file, "r") as f:
-            cfg = yaml.safe_load(f)
+    pipeline_adapter: TypeAdapter[PipelineConfig] = TypeAdapter(PipelineConfig)
 
-        pipeline_adapter: TypeAdapter[PipelineConfig] = TypeAdapter(PipelineConfig)
-
-        try:
-            _ = pipeline_adapter.validate_python(cfg)
-        except Exception as e:
-            raise Exception(f"Error parsing config file: {config_file}") from e
+    try:
+        _ = pipeline_adapter.validate_python(cfg)
+    except Exception as e:
+        raise Exception(f"Error parsing config file: {config_file}") from e
