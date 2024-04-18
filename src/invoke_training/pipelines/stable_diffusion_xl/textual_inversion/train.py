@@ -319,6 +319,7 @@ def train(config: SdxlTextualInversionConfig):  # noqa: C901
 
     global_step = 0
     first_epoch = 0
+    completed_epochs = 0
 
     progress_bar = tqdm(
         range(global_step, num_train_steps),
@@ -373,7 +374,7 @@ def train(config: SdxlTextualInversionConfig):  # noqa: C901
         text_encoder_2.train()
 
         train_loss = 0.0
-        for data_batch in data_loader:
+        for data_batch_idx, data_batch in enumerate(data_loader):
             with accelerator.accumulate(trainable_models):
                 loss = train_forward(
                     accelerator=accelerator,
@@ -427,6 +428,7 @@ def train(config: SdxlTextualInversionConfig):  # noqa: C901
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1
+                completed_epochs = epoch if (data_batch_idx + 1) < len(data_loader) else epoch + 1
                 log = {"train_loss": train_loss, "lr": lr_scheduler.get_last_lr()[0]}
 
                 if config.optimizer.optimizer_type == "Prodigy":
@@ -438,14 +440,14 @@ def train(config: SdxlTextualInversionConfig):  # noqa: C901
 
                 # global_step represents the *number of completed steps* at this point.
                 if config.save_every_n_steps is not None and global_step % config.save_every_n_steps == 0:
-                    save_checkpoint(num_completed_epochs=epoch, num_completed_steps=global_step)
+                    save_checkpoint(num_completed_epochs=completed_epochs, num_completed_steps=global_step)
 
                 if (
                     config.validate_every_n_steps is not None
                     and global_step % config.validate_every_n_steps == 0
                     and len(config.validation_prompts) > 0
                 ):
-                    validate(num_completed_epochs=epoch, num_completed_steps=global_step)
+                    validate(num_completed_epochs=completed_epochs, num_completed_steps=global_step)
 
             logs = {
                 "step_loss": loss.detach().item(),
@@ -457,16 +459,15 @@ def train(config: SdxlTextualInversionConfig):  # noqa: C901
                 break
 
         # Save a checkpoint every n epochs.
-        # (epoch + 1) represents the *number of completed epochs* at this point.
-        if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
-            save_checkpoint(num_completed_epochs=epoch + 1, num_completed_steps=global_step)
+        if config.save_every_n_epochs is not None and completed_epochs % config.save_every_n_epochs == 0:
+            save_checkpoint(num_completed_epochs=completed_epochs, num_completed_steps=global_step)
 
         # Generate validation images every n epochs.
         if (
             config.validate_every_n_epochs is not None
-            and (epoch + 1) % config.validate_every_n_epochs == 0
+            and completed_epochs % config.validate_every_n_epochs == 0
             and len(config.validation_prompts) > 0
         ):
-            validate(num_completed_epochs=epoch + 1, num_completed_steps=global_step)
+            validate(num_completed_epochs=completed_epochs, num_completed_steps=global_step)
 
     accelerator.end_training()
