@@ -81,7 +81,7 @@ def _save_sdxl_lora_checkpoint(
         for cb in callbacks:
             cb.on_save_checkpoint(
                 TrainingCheckpoint(
-                    models=[ModelCheckpoint(path=save_path, model_type=model_type)], epoch=epoch, step=step
+                    models=[ModelCheckpoint(file_path=save_path, model_type=model_type)], epoch=epoch, step=step
                 )
             )
 

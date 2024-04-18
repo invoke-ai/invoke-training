@@ -69,7 +69,7 @@ def _save_ti_embeddings(
         for cb in callbacks:
             cb.on_save_checkpoint(
                 TrainingCheckpoint(
-                    models=[ModelCheckpoint(path=save_path, model_type=ModelType.SD1_TEXTUAL_INVERSION)],
+                    models=[ModelCheckpoint(file_path=save_path, model_type=ModelType.SD1_TEXTUAL_INVERSION)],
                     epoch=epoch,
                     step=step,
                 )

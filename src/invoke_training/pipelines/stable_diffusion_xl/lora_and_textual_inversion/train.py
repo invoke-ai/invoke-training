@@ -76,7 +76,7 @@ def _save_sdxl_lora_and_ti_checkpoint(
             text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
             text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
         )
-        training_checkpoint.models.append(ModelCheckpoint(path=save_path, model_type=ModelType.SDXL_LORA_PEFT))
+        training_checkpoint.models.append(ModelCheckpoint(file_path=save_path, model_type=ModelType.SDXL_LORA_PEFT))
     elif lora_checkpoint_format == "kohya":
         save_sdxl_kohya_checkpoint(
             Path(save_path) / "lora.safetensors",
@@ -84,7 +84,7 @@ def _save_sdxl_lora_and_ti_checkpoint(
             text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
             text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
         )
-        training_checkpoint.models.append(ModelCheckpoint(path=save_path, model_type=ModelType.SDXL_LORA_KOHYA))
+        training_checkpoint.models.append(ModelCheckpoint(file_path=save_path, model_type=ModelType.SDXL_LORA_KOHYA))
     else:
         raise ValueError(f"Unsupported lora_checkpoint_format: '{lora_checkpoint_format}'.")
 
@@ -106,7 +106,7 @@ def _save_sdxl_lora_and_ti_checkpoint(
         }
         save_state_dict(learned_embeds_dict, ti_checkpoint_path)
         training_checkpoint.models.append(
-            ModelCheckpoint(path=ti_checkpoint_path, model_type=ModelType.SDXL_TEXTUAL_INVERSION)
+            ModelCheckpoint(file_path=ti_checkpoint_path, model_type=ModelType.SDXL_TEXTUAL_INVERSION)
         )
 
     if callbacks is not None:
