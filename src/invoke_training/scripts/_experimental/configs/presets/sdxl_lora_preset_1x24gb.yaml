@@ -1,0 +1,48 @@
+type: SDXL_LORA
+seed: 1
+base_output_dir: output/preset
+
+optimizer:
+  optimizer_type: AdamW
+  learning_rate: 4e-3
+
+lr_scheduler: constant_with_warmup
+lr_warmup_steps: 200
+
+text_encoder_learning_rate: 1e-3
+unet_learning_rate: 1e-3
+
+data_loader:
+  type: IMAGE_CAPTION_SD_DATA_LOADER
+  dataset:
+    type: IMAGE_CAPTION_JSONL_DATASET
+    jsonl_path: /home/ryan/data/avp/data.jsonl
+  resolution: 1024
+  dataloader_num_workers: 4
+
+  aspect_ratio_buckets:
+    target_resolution: 1024
+    start_dim: 512
+    end_dim: 1536
+    divisible_by: 128
+
+# General
+model: stabilityai/stable-diffusion-xl-base-1.0
+vae_model: madebyollin/sdxl-vae-fp16-fix
+gradient_accumulation_steps: 1
+mixed_precision: fp16
+xformers: False
+gradient_checkpointing: True
+
+train_batch_size: 4
+
+max_train_epochs: 50
+save_every_n_epochs: 50
+validate_every_n_epochs: 3
+max_checkpoints: 1
+
+validation_prompts:
+  - <TODO>
+  - <TODO>
+
+num_validation_images_per_prompt: 3
