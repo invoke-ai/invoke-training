@@ -133,3 +133,22 @@ def get_sdxl_lora_preset_config(
 
     #  Note that we apply the caller-provided overrides before the preset overrides.
     return _prepare_config(config_path, overrides + preset_overrides)
+
+
+def get_sd_lora_preset_config(
+    jsonl_path: str, dataset_size: int, validation_prompts: list[str], overrides: list[PipelineConfigOverride]
+) -> SdxlLoraConfig:
+    """Prepare a configuration for training a general SD1 LoRA model."""
+    config_path = Path(__file__).parent / "configs/presets/sd_lora_preset_1x24gb.yaml"
+
+    preset_overrides: list[PipelineConfigOverride] = [
+        # Override the dataset path.
+        JsonlPathOverride(jsonl_path),
+        # Override the validation prompts.
+        ValidationPromptsOverride(validation_prompts),
+        # Configure the training length and checkpoint frequency.
+        TrainingLengthOverride(dataset_size),
+    ]
+
+    # Note that we apply the caller-provided overrides before the preset overrides.
+    return _prepare_config(config_path, overrides + preset_overrides)

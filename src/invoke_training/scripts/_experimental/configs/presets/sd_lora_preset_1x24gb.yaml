@@ -1,4 +1,4 @@
-type: SDXL_LORA
+type: SD_LORA
 seed: 1
 base_output_dir: output/preset
 
@@ -18,22 +18,21 @@ data_loader:
     type: IMAGE_CAPTION_JSONL_DATASET
     # To be overriden:
     jsonl_path: /path/to/data.jsonl
-  resolution: 1024
+  resolution: 512
   dataloader_num_workers: 4
 
   aspect_ratio_buckets:
-    target_resolution: 1024
-    start_dim: 512
-    end_dim: 1536
-    divisible_by: 128
+    target_resolution: 512
+    start_dim: 256
+    end_dim: 768
+    divisible_by: 64
 
 # General
-model: stabilityai/stable-diffusion-xl-base-1.0
-vae_model: madebyollin/sdxl-vae-fp16-fix
+model: runwayml/stable-diffusion-v1-5
 gradient_accumulation_steps: 1
 mixed_precision: fp16
 xformers: False
-gradient_checkpointing: True
+gradient_checkpointing: False
 
 train_batch_size: 4
 
