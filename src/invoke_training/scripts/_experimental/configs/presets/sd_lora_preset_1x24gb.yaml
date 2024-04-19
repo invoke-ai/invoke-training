@@ -20,6 +20,8 @@ data_loader:
     jsonl_path: /path/to/data.jsonl
   resolution: 512
   dataloader_num_workers: 4
+  center_crop: False
+  random_flip: False
 
   aspect_ratio_buckets:
     target_resolution: 512
