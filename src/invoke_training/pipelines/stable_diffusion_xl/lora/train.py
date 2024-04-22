@@ -25,12 +25,8 @@ from invoke_training._shared.accelerator.accelerator_utils import (
     initialize_logging,
 )
 from invoke_training._shared.checkpoints.checkpoint_tracker import CheckpointTracker
-from invoke_training._shared.data.data_loaders.dreambooth_sd_dataloader import (
-    build_dreambooth_sd_dataloader,
-)
-from invoke_training._shared.data.data_loaders.image_caption_sd_dataloader import (
-    build_image_caption_sd_dataloader,
-)
+from invoke_training._shared.data.data_loaders.dreambooth_sd_dataloader import build_dreambooth_sd_dataloader
+from invoke_training._shared.data.data_loaders.image_caption_sd_dataloader import build_image_caption_sd_dataloader
 from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import log_aspect_ratio_buckets
 from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training._shared.data.utils.resolution import Resolution
@@ -42,21 +38,17 @@ from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
     save_sdxl_peft_checkpoint,
 )
 from invoke_training._shared.stable_diffusion.min_snr_weighting import compute_snr
-from invoke_training._shared.stable_diffusion.model_loading_utils import (
-    load_models_sdxl,
-)
+from invoke_training._shared.stable_diffusion.model_loading_utils import load_models_sdxl
 from invoke_training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sdxl
-from invoke_training.config.data.data_loader_config import (
-    DreamboothSDDataLoaderConfig,
-    ImageCaptionSDDataLoaderConfig,
-)
+from invoke_training.config.data.data_loader_config import DreamboothSDDataLoaderConfig, ImageCaptionSDDataLoaderConfig
 from invoke_training.pipelines.stable_diffusion.lora.train import cache_vae_outputs
 from invoke_training.pipelines.stable_diffusion_xl.lora.config import SdxlLoraConfig
 
 
 def _save_sdxl_lora_checkpoint(
-    idx: int,
+    epoch: int,
+    step: int,
     unet: peft.PeftModel | None,
     text_encoder_1: peft.PeftModel | None,
     text_encoder_2: peft.PeftModel | None,
@@ -68,7 +60,7 @@ def _save_sdxl_lora_checkpoint(
     num_pruned = checkpoint_tracker.prune(1)
     if num_pruned > 0:
         logger.info(f"Pruned {num_pruned} checkpoint(s).")
-    save_path = checkpoint_tracker.get_path(idx)
+    save_path = checkpoint_tracker.get_path(epoch=epoch, step=step)
 
     if lora_checkpoint_format == "invoke_peft":
         save_sdxl_peft_checkpoint(
@@ -568,16 +560,9 @@ def train(config: SdxlLoraConfig):  # noqa: C901
         # Tensorboard uses markdown formatting, so we wrap the config json in a code block.
         accelerator.log({"configuration": f"```json\n{json.dumps(config.dict(), indent=2, default=str)}\n```\n"})
 
-    epoch_checkpoint_tracker = CheckpointTracker(
+    checkpoint_tracker = CheckpointTracker(
         base_dir=ckpt_dir,
-        prefix="checkpoint_epoch",
-        max_checkpoints=config.max_checkpoints,
-        extension=".safetensors" if config.lora_checkpoint_format == "kohya" else None,
-    )
-
-    step_checkpoint_tracker = CheckpointTracker(
-        base_dir=ckpt_dir,
-        prefix="checkpoint_step",
+        prefix="checkpoint",
         max_checkpoints=config.max_checkpoints,
         extension=".safetensors" if config.lora_checkpoint_format == "kohya" else None,
     )
@@ -595,6 +580,7 @@ def train(config: SdxlLoraConfig):  # noqa: C901
 
     global_step = 0
     first_epoch = 0
+    completed_epochs = 0
 
     progress_bar = tqdm(
         range(global_step, num_train_steps),
@@ -603,9 +589,44 @@ def train(config: SdxlLoraConfig):  # noqa: C901
     )
     progress_bar.set_description("Steps")
 
+    def save_checkpoint(num_completed_epochs: int, num_completed_steps: int):
+        accelerator.wait_for_everyone()
+        if accelerator.is_main_process:
+            _save_sdxl_lora_checkpoint(
+                epoch=num_completed_epochs,
+                step=num_completed_steps,
+                unet=unet if config.train_unet else None,
+                text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
+                text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
+                logger=logger,
+                checkpoint_tracker=checkpoint_tracker,
+                lora_checkpoint_format=config.lora_checkpoint_format,
+            )
+        accelerator.wait_for_everyone()
+
+    def validate(num_completed_epochs: int, num_completed_steps: int):
+        accelerator.wait_for_everyone()
+        if accelerator.is_main_process:
+            generate_validation_images_sdxl(
+                epoch=num_completed_epochs,
+                step=num_completed_steps,
+                out_dir=out_dir,
+                accelerator=accelerator,
+                vae=vae,
+                text_encoder_1=text_encoder_1,
+                text_encoder_2=text_encoder_2,
+                tokenizer_1=tokenizer_1,
+                tokenizer_2=tokenizer_2,
+                noise_scheduler=noise_scheduler,
+                unet=unet,
+                config=config,
+                logger=logger,
+            )
+        accelerator.wait_for_everyone()
+
     for epoch in range(first_epoch, num_train_epochs):
         train_loss = 0.0
-        for data_batch in data_loader:
+        for data_batch_idx, data_batch in enumerate(data_loader):
             with accelerator.accumulate(unet, text_encoder_1, text_encoder_2):
                 loss = train_forward(
                     accelerator=accelerator,
@@ -641,6 +662,7 @@ def train(config: SdxlLoraConfig):  # noqa: C901
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1
+                completed_epochs = epoch if (data_batch_idx + 1) < len(data_loader) else epoch + 1
                 log = {"train_loss": train_loss}
 
                 lrs = lr_scheduler.get_last_lr()
@@ -658,41 +680,16 @@ def train(config: SdxlLoraConfig):  # noqa: C901
                 accelerator.log(log, step=global_step)
                 train_loss = 0.0
 
-                if config.save_every_n_steps is not None and (global_step + 1) % config.save_every_n_steps == 0:
-                    accelerator.wait_for_everyone()
-                    if accelerator.is_main_process:
-                        _save_sdxl_lora_checkpoint(
-                            idx=global_step + 1,
-                            unet=unet if config.train_unet else None,
-                            text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
-                            text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
-                            logger=logger,
-                            checkpoint_tracker=step_checkpoint_tracker,
-                            lora_checkpoint_format=config.lora_checkpoint_format,
-                        )
+                # global_step represents the *number of completed steps* at this point.
+                if config.save_every_n_steps is not None and global_step % config.save_every_n_steps == 0:
+                    save_checkpoint(num_completed_epochs=completed_epochs, num_completed_steps=global_step)
 
                 if (
                     config.validate_every_n_steps is not None
-                    and (global_step + 1) % config.validate_every_n_steps == 0
+                    and global_step % config.validate_every_n_steps == 0
                     and len(config.validation_prompts) > 0
                 ):
-                    accelerator.wait_for_everyone()
-                    if accelerator.is_main_process:
-                        generate_validation_images_sdxl(
-                            step=global_step + 1,
-                            out_dir=out_dir,
-                            accelerator=accelerator,
-                            vae=vae,
-                            text_encoder_1=text_encoder_1,
-                            text_encoder_2=text_encoder_2,
-                            tokenizer_1=tokenizer_1,
-                            tokenizer_2=tokenizer_2,
-                            noise_scheduler=noise_scheduler,
-                            unet=unet,
-                            config=config,
-                            logger=logger,
-                            prefix="step",
-                        )
+                    validate(num_completed_epochs=completed_epochs, num_completed_steps=global_step)
 
             logs = {
                 "step_loss": loss.detach().item(),
@@ -704,40 +701,15 @@ def train(config: SdxlLoraConfig):  # noqa: C901
                 break
 
         # Save a checkpoint every n epochs.
-        if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
-            if accelerator.is_main_process:
-                _save_sdxl_lora_checkpoint(
-                    idx=epoch + 1,
-                    unet=unet if config.train_unet else None,
-                    text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
-                    text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
-                    logger=logger,
-                    checkpoint_tracker=epoch_checkpoint_tracker,
-                    lora_checkpoint_format=config.lora_checkpoint_format,
-                )
-                accelerator.wait_for_everyone()
+        if config.save_every_n_epochs is not None and completed_epochs % config.save_every_n_epochs == 0:
+            save_checkpoint(num_completed_epochs=completed_epochs, num_completed_steps=global_step)
 
         # Generate validation images every n epochs.
         if (
             config.validate_every_n_epochs is not None
-            and (epoch + 1) % config.validate_every_n_epochs == 0
+            and completed_epochs % config.validate_every_n_epochs == 0
             and len(config.validation_prompts) > 0
         ):
-            if accelerator.is_main_process:
-                generate_validation_images_sdxl(
-                    step=epoch + 1,
-                    out_dir=out_dir,
-                    accelerator=accelerator,
-                    vae=vae,
-                    text_encoder_1=text_encoder_1,
-                    text_encoder_2=text_encoder_2,
-                    tokenizer_1=tokenizer_1,
-                    tokenizer_2=tokenizer_2,
-                    noise_scheduler=noise_scheduler,
-                    unet=unet,
-                    config=config,
-                    logger=logger,
-                    prefix="epoch",
-                )
+            validate(num_completed_epochs=completed_epochs, num_completed_steps=global_step)
 
     accelerator.end_training()

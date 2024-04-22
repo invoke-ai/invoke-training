@@ -16,9 +16,9 @@ def test_checkpoint_tracker_get_path_file():
         index_padding=8,
     )
 
-    path = checkpoint_tracker.get_path(55)
+    path = checkpoint_tracker.get_path(epoch=1, step=55)
 
-    assert Path(path) == Path("base_dir/prefix-00000055.ckpt")
+    assert Path(path) == Path("base_dir/prefix-epoch_00000001-step_00000055.ckpt")
 
 
 def test_checkpoint_tracker_get_path_directory():
@@ -30,9 +30,9 @@ def test_checkpoint_tracker_get_path_directory():
         index_padding=8,
     )
 
-    path = checkpoint_tracker.get_path(55)
+    path = checkpoint_tracker.get_path(epoch=1, step=55)
 
-    assert Path(path) == Path("base_dir/prefix-00000055")
+    assert Path(path) == Path("base_dir/prefix-epoch_00000001-step_00000055")
 
 
 def test_checkpoint_tracker_bad_extension():
@@ -49,17 +49,17 @@ def test_checkpoint_tracker_prune_files():
         checkpoint_tracker = CheckpointTracker(base_dir=dir_name, prefix="prefix", extension=".ckpt", max_checkpoints=5)
         # Create 6 checkpoints.
         for i in range(6):
-            path = checkpoint_tracker.get_path(i)
+            path = checkpoint_tracker.get_path(epoch=0, step=i)
             with open(path, "w") as f:
                 f.write("hi")
 
-        # Prune the 3 checkpoints with the lowest indices.
+        # Prune the 3 checkpoints with the lowest step counts.
         num_pruned = checkpoint_tracker.prune(2)
         assert num_pruned == 3
 
         # Verify that the correct checkpoints were pruned.
-        assert all([not os.path.exists(checkpoint_tracker.get_path(i)) for i in range(3)])
-        assert all([os.path.exists(checkpoint_tracker.get_path(i)) for i in range(3, 6)])
+        assert all([not os.path.exists(checkpoint_tracker.get_path(epoch=0, step=i)) for i in range(3)])
+        assert all([os.path.exists(checkpoint_tracker.get_path(epoch=0, step=i)) for i in range(3, 6)])
 
 
 def test_checkpoint_tracker_prune_directories():
@@ -68,7 +68,7 @@ def test_checkpoint_tracker_prune_directories():
         checkpoint_tracker = CheckpointTracker(base_dir=dir_name, prefix="prefix", extension=None, max_checkpoints=5)
         # Create 6 checkpoints.
         for i in range(6):
-            path = checkpoint_tracker.get_path(i)
+            path = checkpoint_tracker.get_path(epoch=0, step=i)
             # Create checkpoint directory and add file to it.
             os.makedirs(path)
             with open(os.path.join(path, "tmp.txt"), "w") as f:
@@ -79,8 +79,8 @@ def test_checkpoint_tracker_prune_directories():
         assert num_pruned == 3
 
         # Verify that the correct checkpoints were pruned.
-        assert all([not os.path.exists(checkpoint_tracker.get_path(i)) for i in range(3)])
-        assert all([os.path.exists(checkpoint_tracker.get_path(i)) for i in range(3, 6)])
+        assert all([not os.path.exists(checkpoint_tracker.get_path(epoch=0, step=i)) for i in range(3)])
+        assert all([os.path.exists(checkpoint_tracker.get_path(epoch=0, step=i)) for i in range(3, 6)])
 
 
 def test_checkpoint_tracker_prune_no_max():
@@ -91,7 +91,7 @@ def test_checkpoint_tracker_prune_no_max():
         )
         # Create 6 checkpoints.
         for i in range(6):
-            path = checkpoint_tracker.get_path(i)
+            path = checkpoint_tracker.get_path(epoch=0, step=i)
             with open(path, "w") as f:
                 f.write("hi")
 
@@ -100,4 +100,4 @@ def test_checkpoint_tracker_prune_no_max():
         assert num_pruned == 0
 
         # Verify that no checkpoints were deleted.
-        assert all([os.path.exists(checkpoint_tracker.get_path(i)) for i in range(6)])
+        assert all([os.path.exists(checkpoint_tracker.get_path(epoch=0, step=i)) for i in range(6)])

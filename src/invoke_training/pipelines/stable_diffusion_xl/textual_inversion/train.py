@@ -40,7 +40,8 @@ from invoke_training.pipelines.stable_diffusion_xl.textual_inversion.config impo
 
 
 def _save_ti_embeddings(
-    idx: int,
+    epoch: int,
+    step: int,
     text_encoder_1: CLIPTextModel,
     text_encoder_2: CLIPTextModel,
     placeholder_token_ids_1: list[int],
@@ -56,7 +57,7 @@ def _save_ti_embeddings(
     num_pruned = checkpoint_tracker.prune(1)
     if num_pruned > 0:
         logger.info(f"Pruned {num_pruned} checkpoint(s).")
-    save_path = checkpoint_tracker.get_path(idx)
+    save_path = checkpoint_tracker.get_path(epoch=epoch, step=step)
 
     learned_embeds_1 = (
         accelerator.unwrap_model(text_encoder_1)
@@ -298,16 +299,9 @@ def train(config: SdxlTextualInversionConfig):  # noqa: C901
         # Tensorboard uses markdown formatting, so we wrap the config json in a code block.
         accelerator.log({"configuration": f"```json\n{json.dumps(config.dict(), indent=2, default=str)}\n```\n"})
 
-    epoch_checkpoint_tracker = CheckpointTracker(
+    checkpoint_tracker = CheckpointTracker(
         base_dir=ckpt_dir,
-        prefix="checkpoint_epoch",
-        extension=".safetensors",
-        max_checkpoints=config.max_checkpoints,
-    )
-
-    step_checkpoint_tracker = CheckpointTracker(
-        base_dir=ckpt_dir,
-        prefix="checkpoint_step",
+        prefix="checkpoint",
         extension=".safetensors",
         max_checkpoints=config.max_checkpoints,
     )
@@ -325,6 +319,7 @@ def train(config: SdxlTextualInversionConfig):  # noqa: C901
 
     global_step = 0
     first_epoch = 0
+    completed_epochs = 0
 
     progress_bar = tqdm(
         range(global_step, num_train_steps),
@@ -338,12 +333,48 @@ def train(config: SdxlTextualInversionConfig):  # noqa: C901
         orig_embeds_params_1 = accelerator.unwrap_model(text_encoder_1).get_input_embeddings().weight.data.clone()
         orig_embeds_params_2 = accelerator.unwrap_model(text_encoder_2).get_input_embeddings().weight.data.clone()
 
+    def save_checkpoint(num_completed_epochs: int, num_completed_steps: int):
+        accelerator.wait_for_everyone()
+        if accelerator.is_main_process:
+            _save_ti_embeddings(
+                epoch=num_completed_epochs,
+                step=num_completed_steps,
+                text_encoder_1=text_encoder_1,
+                text_encoder_2=text_encoder_2,
+                placeholder_token_ids_1=placeholder_token_ids_1,
+                placeholder_token_ids_2=placeholder_token_ids_2,
+                accelerator=accelerator,
+                logger=logger,
+                checkpoint_tracker=checkpoint_tracker,
+            )
+        accelerator.wait_for_everyone()
+
+    def validate(num_completed_epochs: int, num_completed_steps: int):
+        accelerator.wait_for_everyone()
+        if accelerator.is_main_process:
+            generate_validation_images_sdxl(
+                epoch=num_completed_epochs,
+                step=num_completed_steps,
+                out_dir=out_dir,
+                accelerator=accelerator,
+                vae=vae,
+                text_encoder_1=text_encoder_1,
+                text_encoder_2=text_encoder_2,
+                tokenizer_1=tokenizer_1,
+                tokenizer_2=tokenizer_2,
+                noise_scheduler=noise_scheduler,
+                unet=unet,
+                config=config,
+                logger=logger,
+            )
+        accelerator.wait_for_everyone()
+
     for epoch in range(first_epoch, num_train_epochs):
         text_encoder_1.train()
         text_encoder_2.train()
 
         train_loss = 0.0
-        for data_batch in data_loader:
+        for data_batch_idx, data_batch in enumerate(data_loader):
             with accelerator.accumulate(trainable_models):
                 loss = train_forward(
                     accelerator=accelerator,
@@ -397,6 +428,7 @@ def train(config: SdxlTextualInversionConfig):  # noqa: C901
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1
+                completed_epochs = epoch if (data_batch_idx + 1) < len(data_loader) else epoch + 1
                 log = {"train_loss": train_loss, "lr": lr_scheduler.get_last_lr()[0]}
 
                 if config.optimizer.optimizer_type == "Prodigy":
@@ -406,42 +438,16 @@ def train(config: SdxlTextualInversionConfig):  # noqa: C901
                 accelerator.log(log, step=global_step)
                 train_loss = 0.0
 
-                if config.save_every_n_steps is not None and (global_step + 1) % config.save_every_n_steps == 0:
-                    accelerator.wait_for_everyone()
-                    if accelerator.is_main_process:
-                        _save_ti_embeddings(
-                            idx=global_step + 1,
-                            text_encoder_1=text_encoder_1,
-                            text_encoder_2=text_encoder_2,
-                            placeholder_token_ids_1=placeholder_token_ids_1,
-                            placeholder_token_ids_2=placeholder_token_ids_2,
-                            accelerator=accelerator,
-                            logger=logger,
-                            checkpoint_tracker=step_checkpoint_tracker,
-                        )
+                # global_step represents the *number of completed steps* at this point.
+                if config.save_every_n_steps is not None and global_step % config.save_every_n_steps == 0:
+                    save_checkpoint(num_completed_epochs=completed_epochs, num_completed_steps=global_step)
 
                 if (
                     config.validate_every_n_steps is not None
-                    and (global_step + 1) % config.validate_every_n_steps == 0
+                    and global_step % config.validate_every_n_steps == 0
                     and len(config.validation_prompts) > 0
                 ):
-                    accelerator.wait_for_everyone()
-                    if accelerator.is_main_process:
-                        generate_validation_images_sdxl(
-                            step=global_step + 1,
-                            out_dir=out_dir,
-                            accelerator=accelerator,
-                            vae=vae,
-                            text_encoder_1=text_encoder_1,
-                            text_encoder_2=text_encoder_2,
-                            tokenizer_1=tokenizer_1,
-                            tokenizer_2=tokenizer_2,
-                            noise_scheduler=noise_scheduler,
-                            unet=unet,
-                            config=config,
-                            logger=logger,
-                            prefix="step",
-                        )
+                    validate(num_completed_epochs=completed_epochs, num_completed_steps=global_step)
 
             logs = {
                 "step_loss": loss.detach().item(),
@@ -453,43 +459,15 @@ def train(config: SdxlTextualInversionConfig):  # noqa: C901
                 break
 
         # Save a checkpoint every n epochs.
-        if config.save_every_n_epochs is not None and (epoch + 1) % config.save_every_n_epochs == 0:
-            if accelerator.is_main_process:
-                _save_ti_embeddings(
-                    idx=epoch + 1,
-                    text_encoder_1=text_encoder_1,
-                    text_encoder_2=text_encoder_2,
-                    placeholder_token_ids_1=placeholder_token_ids_1,
-                    placeholder_token_ids_2=placeholder_token_ids_2,
-                    accelerator=accelerator,
-                    logger=logger,
-                    checkpoint_tracker=epoch_checkpoint_tracker,
-                )
-                # TODO(ryand): This doesn't seem right, but it's done this way in most of the training pipelines. Should
-                # probably sync before and after saving. (Or maybe accelerate offers a context manager to handle this?)
-                accelerator.wait_for_everyone()
+        if config.save_every_n_epochs is not None and completed_epochs % config.save_every_n_epochs == 0:
+            save_checkpoint(num_completed_epochs=completed_epochs, num_completed_steps=global_step)
 
         # Generate validation images every n epochs.
         if (
             config.validate_every_n_epochs is not None
-            and (epoch + 1) % config.validate_every_n_epochs == 0
+            and completed_epochs % config.validate_every_n_epochs == 0
             and len(config.validation_prompts) > 0
         ):
-            if accelerator.is_main_process:
-                generate_validation_images_sdxl(
-                    step=epoch + 1,
-                    out_dir=out_dir,
-                    accelerator=accelerator,
-                    vae=vae,
-                    text_encoder_1=text_encoder_1,
-                    text_encoder_2=text_encoder_2,
-                    tokenizer_1=tokenizer_1,
-                    tokenizer_2=tokenizer_2,
-                    noise_scheduler=noise_scheduler,
-                    unet=unet,
-                    config=config,
-                    logger=logger,
-                    prefix="epoch",
-                )
+            validate(num_completed_epochs=completed_epochs, num_completed_steps=global_step)
 
     accelerator.end_training()

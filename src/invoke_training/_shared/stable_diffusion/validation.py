@@ -21,6 +21,7 @@ from invoke_training.pipelines.stable_diffusion_xl.lora.config import SdxlLoraCo
 
 
 def generate_validation_images_sd(
+    epoch: int,
     step: int,
     out_dir: str,
     accelerator: Accelerator,
@@ -31,7 +32,6 @@ def generate_validation_images_sd(
     unet: UNet2DConditionModel,
     config: SdLoraConfig,
     logger: logging.Logger,
-    prefix="epoch",
 ):
     """Generate validation images for the purpose of tracking image generation behaviour on fixed prompts throughout
     training.
@@ -88,7 +88,7 @@ def generate_validation_images_sd(
             validation_dir = os.path.join(
                 out_dir,
                 "validation",
-                f"{prefix}_{step:0>8}",
+                f"epoch_{epoch:0>8}-step_{step:0>8}",
                 f"prompt_{prompt_idx:0>4}",
             )
             os.makedirs(validation_dir)
@@ -100,7 +100,7 @@ def generate_validation_images_sd(
                 if tracker.name == "tensorboard":
                     np_images = np.stack([np.asarray(img) for img in images])
                     tracker.writer.add_images(
-                        f"validation ({prefix}) (prompt {prompt_idx})",
+                        f"validation (prompt {prompt_idx})",
                         np_images,
                         step,
                         dataformats="NHWC",
@@ -122,6 +122,7 @@ def generate_validation_images_sd(
 
 
 def generate_validation_images_sdxl(
+    epoch: int,
     step: int,
     out_dir: str,
     accelerator: Accelerator,
@@ -134,7 +135,6 @@ def generate_validation_images_sdxl(
     unet: UNet2DConditionModel,
     config: SdxlLoraConfig,
     logger: logging.Logger,
-    prefix: str = "epoch",
 ):
     """Generate validation images for the purpose of tracking image generation behaviour on fixed prompts throughout
     training.
@@ -190,7 +190,7 @@ def generate_validation_images_sdxl(
             validation_dir = os.path.join(
                 out_dir,
                 "validation",
-                f"{prefix}_{step:0>8}",
+                f"epoch_{epoch:0>8}-step_{step:0>8}",
                 f"prompt_{prompt_idx:0>4}",
             )
             os.makedirs(validation_dir)
@@ -202,7 +202,7 @@ def generate_validation_images_sdxl(
                 if tracker.name == "tensorboard":
                     np_images = np.stack([np.asarray(img) for img in images])
                     tracker.writer.add_images(
-                        f"validation ({prefix}) (prompt {prompt_idx})",
+                        f"validation (prompt {prompt_idx})",
                         np_images,
                         step,
                         dataformats="NHWC",

@@ -7,8 +7,8 @@ class CheckpointTracker:
     """A utility class for managing checkpoint paths.
 
     Manages checkpoint paths of the following forms:
-    - Checkpoint directories: `{base_dir}/{prefix}-{zero-padded index}`
-    - Checkpoint files: `{base_dir}/{prefix}-{zero-padded index}{extension}`
+    - Checkpoint directories: `{base_dir}/{prefix}-epoch_{num_epochs}-step_{num_steps}`
+    - Checkpoint files: `{base_dir}/{prefix}-epoch_{num_epochs}-step_{num_steps}{extension}`
     """
 
     def __init__(
@@ -29,8 +29,9 @@ class CheckpointTracker:
                 managing checkpoint directories rather than files.
             max_checkpoints (typing.Optional[int], optional): The maximum number of checkpoints that should exist in
                 base_dir.
-            index_padding (int, optional): The length of the zero-padded index in the generated checkpoint names. E.g.
-                index_padding=8 would produce checkpoint paths like "base_dir/prefix-00000001.ckpt".
+            index_padding (int, optional): The length of the zero-padded epoch/step counts in the generated checkpoint
+                names. E.g. index_padding=8 would produce checkpoint paths like
+                "base_dir/prefix-epoch_00000001-step_00000001.ckpt".
 
         Raises:
             ValueError: If extension is provided, but it doesn not start with a '.'.
@@ -46,7 +47,7 @@ class CheckpointTracker:
 
     def prune(self, buffer_num: int = 1) -> int:
         """Delete checkpoint files and directories so that there are at most `max_checkpoints - buffer_num` checkpoints
-        remaining. The checkpoints with the lowest indices will be deleted.
+        remaining. The checkpoints with the lowest step counts will be deleted.
 
         Args:
             buffer_num (int, optional): The number below `max_checkpoints` to 'free-up'.
@@ -61,7 +62,7 @@ class CheckpointTracker:
         checkpoints = [p for p in checkpoints if p.startswith(self._prefix)]
         checkpoints = sorted(
             checkpoints,
-            key=lambda x: int(os.path.splitext(x)[0].split("-")[-1]),
+            key=lambda x: int(os.path.splitext(x)[0].split("-step_")[-1]),
         )
 
         num_to_remove = len(checkpoints) - (self._max_checkpoints - buffer_num)
@@ -79,14 +80,18 @@ class CheckpointTracker:
 
         return max(0, num_to_remove)
 
-    def get_path(self, idx: int) -> str:
+    def get_path(self, epoch: int, step: int) -> str:
         """Get the checkpoint path for index `idx`.
 
         Args:
-            idx (int): The checkpoint index.
+            epoch (int): The number of completed epochs.
+            step (int): The number of completed training steps.
 
         Returns:
             str: The checkpoint path.
         """
         suffix = self._extension or ""
-        return os.path.join(self._base_dir, f"{self._prefix.strip()}-{idx:0>{self._index_padding}}{suffix}")
+        return os.path.join(
+            self._base_dir,
+            f"{self._prefix.strip()}-epoch_{epoch:0>{self._index_padding}}-step_{step:0>{self._index_padding}}{suffix}",
+        )
