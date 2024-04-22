@@ -150,7 +150,7 @@ class SdxlTextualInversionConfig(BasePipelineConfig):
     """A list of prompts that will be used to generate images throughout training for the purpose of tracking progress.
     """
 
-    negative_validation_prompts: list[str | None] | None = None
+    negative_validation_prompts: list[str] | None = None
     """A list of negative prompts that will be applied when generating validation images. If set, this list should have
     the same length as 'validation_prompts'.
     """

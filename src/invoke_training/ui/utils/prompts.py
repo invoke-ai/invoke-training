@@ -44,7 +44,7 @@ def merge_pos_neg_prompts(positive_prompt: str, negative_prompt: str) -> str:
     return f"{positive_prompt}{NEGATIVE_PROMPT_DELIMITER}{negative_prompt}"
 
 
-def convert_ui_prompts_to_pos_neg_prompts(prompts: str) -> tuple[list[str], list[str | None]]:
+def convert_ui_prompts_to_pos_neg_prompts(prompts: str) -> tuple[list[str], list[str] | None]:
     """Convert prompts from the UI textbox format to lists of positive and negative prompts."""
 
     ui_prompt_list = prompts.split("\n")
@@ -60,22 +60,16 @@ def convert_ui_prompts_to_pos_neg_prompts(prompts: str) -> tuple[list[str], list
         positive_prompts.append(positive_prompt)
         negative_prompts.append(negative_prompt)
 
-    # Convert empty negative prompts to None.
-    negative_prompts = [neg if neg != "" else None for neg in negative_prompts]
-    # Convert negative_prompts to a single None if all negative prompts are None.
-    if all([p is None for p in negative_prompts]):
+    # Convert negative_prompts to None if all negative prompts are empty.
+    if all([p == "" for p in negative_prompts]):
         negative_prompts = None
     return positive_prompts, negative_prompts
 
 
-def convert_pos_neg_prompts_to_ui_prompts(
-    positive_prompts: list[str], negative_prompts: list[str | None] | None
-) -> str:
+def convert_pos_neg_prompts_to_ui_prompts(positive_prompts: list[str], negative_prompts: list[str] | None) -> str:
     """Convert lists of positive and negative prompts to the UI textbox format."""
-    # Convert `list[str | None] | None` to `list[str]`.
     if negative_prompts is None:
         negative_prompts = [""] * len(positive_prompts)
-    negative_prompts: list[str] = [neg if neg is not None else "" for neg in negative_prompts]
 
     ui_prompts = ""
     for positive_prompt, negative_prompt in zip(positive_prompts, negative_prompts, strict=True):
