@@ -80,6 +80,12 @@ class ImageCaptionJsonlDatasetConfigGroup(UIConfigElement):
             info="The name of the field in the `.jsonl` containing image captions.",
             interactive=True,
         )
+        self.keep_in_memory = gr.Checkbox(
+            label="keep_in_memory",
+            info="If True, the entire dataset will be kept in RAM. This increases speed for small datasets at the "
+            "cost of higher RAM usage.",
+            interactive=True,
+        )
 
     def update_ui_components_with_config_data(
         self, config: ImageCaptionJsonlDatasetConfig | None
@@ -92,6 +98,7 @@ class ImageCaptionJsonlDatasetConfigGroup(UIConfigElement):
             self.jsonl_path: config.jsonl_path,
             self.image_column: config.image_column,
             self.caption_column: config.caption_column,
+            self.keep_in_memory: config.keep_in_memory,
         }
 
     def update_config_with_ui_component_data(
@@ -104,6 +111,7 @@ class ImageCaptionJsonlDatasetConfigGroup(UIConfigElement):
             jsonl_path=ui_data.pop(self.jsonl_path),
             image_column=ui_data.pop(self.image_column),
             caption_column=ui_data.pop(self.caption_column),
+            keep_in_memory=ui_data.pop(self.keep_in_memory),
         )
         return new_config
 
