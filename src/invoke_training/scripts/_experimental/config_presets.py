@@ -1,12 +1,17 @@
 import math
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import TypeAdapter
 
+from invoke_training.config.data.data_loader_config import AspectRatioBucketConfig, TextualInversionSDDataLoaderConfig
+from invoke_training.config.data.dataset_config import ImageCaptionJsonlDatasetConfig
+from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfig
 from invoke_training.config.pipeline_config import PipelineConfig
 from invoke_training.pipelines.stable_diffusion_xl.lora.config import SdxlLoraConfig
+from invoke_training.pipelines.stable_diffusion_xl.textual_inversion.config import SdxlTextualInversionConfig
 
 
 class PipelineConfigOverride(ABC):
@@ -30,12 +35,13 @@ class TrainingLengthOverride(PipelineConfigOverride):
     This override applies some simple heuristics based on the dataset size to obtain reasonable settings.
     """
 
+    # TODO(ryand): Should there be a max_epochs limit?
     def __init__(
         self,
         dataset_size: int,
         target_steps: int = 2000,
         min_epochs: int = 10,
-        max_epochs: int = 300,
+        max_epochs: int = 10000,
         num_checkpoint: int = 10,
     ):
         self._dataset_size = dataset_size
@@ -147,7 +153,7 @@ def get_sd_lora_preset_config(
         # Override the validation prompts.
         ValidationPromptsOverride(validation_prompts),
         # Configure the training length and checkpoint frequency.
-        TrainingLengthOverride(dataset_size, target_steps=30000, max_epochs=30000, num_checkpoint=30),
+        TrainingLengthOverride(dataset_size),
     ]
 
     # Note that we apply the caller-provided overrides before the preset overrides.
@@ -155,22 +161,61 @@ def get_sd_lora_preset_config(
 
 
 def get_sdxl_ti_preset_config(
-    jsonl_path: str, dataset_size: int, validation_prompts: list[str], overrides: list[PipelineConfigOverride]
-) -> SdxlLoraConfig:
+    jsonl_path: str,
+    dataset_size: int,
+    placeholder_token: str,
+    initial_phrase: str,
+    validation_prompts: list[str],
+    caption_preset: Literal["style", "object"],
+    overrides: list[PipelineConfigOverride],
+) -> SdxlTextualInversionConfig:
     """Prepare a configuration for training a general SDXL TI model."""
-    config_path = Path(__file__).parent / "configs/presets/sdxl_ti_preset_1x24gb.yaml"
+    config = SdxlTextualInversionConfig(
+        model="stabilityai/stable-diffusion-xl-base-1.0",
+        vae_model="madebyollin/sdxl-vae-fp16-fix",
+        seed=0,
+        base_output_dir="output",
+        placeholder_token=placeholder_token,
+        initial_phrase=initial_phrase,
+        optimizer=AdamOptimizerConfig(learning_rate=1e-3),
+        lr_scheduler="constant_with_warmup",
+        lr_warmup_steps=200,
+        mixed_precision="fp16",
+        # TODO(ryand): Enable this. During testing, we just want to save images without saving checkpoints to save disk.
+        max_checkpoints=1,
+        gradient_checkpointing=True,
+        validation_prompts=validation_prompts,
+        num_validation_images_per_prompt=3,
+        train_batch_size=4,
+        data_loader=TextualInversionSDDataLoaderConfig(
+            dataset=ImageCaptionJsonlDatasetConfig(
+                jsonl_path=jsonl_path,
+            ),
+            caption_preset=caption_preset,
+            keep_original_captions=True,
+            aspect_ratio_buckets=AspectRatioBucketConfig(
+                target_resolution=1024,
+                start_dim=512,
+                end_dim=1536,
+                divisible_by=128,
+            ),
+            resolution=1024,
+            center_crop=False,
+            random_flip=False,
+            dataloader_num_workers=4,
+        ),
+    )
 
     preset_overrides: list[PipelineConfigOverride] = [
-        # Override the dataset path.
-        JsonlPathOverride(jsonl_path),
-        # Override the validation prompts.
-        ValidationPromptsOverride(validation_prompts),
         # Configure the training length and checkpoint frequency.
         TrainingLengthOverride(dataset_size),
     ]
 
     #  Note that we apply the caller-provided overrides before the preset overrides.
-    return _prepare_config(config_path, overrides + preset_overrides)
+    for override in overrides + preset_overrides:
+        override.apply_override(config)
+
+    return config
 
 
 def get_sd_ti_preset_config(
