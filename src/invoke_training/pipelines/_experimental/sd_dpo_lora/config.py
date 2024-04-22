@@ -183,7 +183,7 @@ class SdDirectPreferenceOptimizationLoraConfig(BasePipelineConfig):
     See also 'validate_every_n_epochs'.
     """
 
-    negative_validation_prompts: list[str | None] | None = None
+    negative_validation_prompts: list[str] | None = None
     """A list of negative prompts that will be applied when generating validation images. If set, this list should have
     the same length as 'validation_prompts'.
     """

@@ -62,7 +62,7 @@ prompt_conversion_test_cases = [
     (
         "positive prompt 1[NEG]negative prompt 1\npositive prompt 2\npositive prompt 3[NEG]negative prompt 3\n",
         ["positive prompt 1", "positive prompt 2", "positive prompt 3"],
-        ["negative prompt 1", None, "negative prompt 3"],
+        ["negative prompt 1", "", "negative prompt 3"],
     ),
 ]
 

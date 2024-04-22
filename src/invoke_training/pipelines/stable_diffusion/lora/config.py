@@ -3,10 +3,7 @@ from typing import Annotated, Literal, Union
 from pydantic import Field, model_validator
 
 from invoke_training.config.base_pipeline_config import BasePipelineConfig
-from invoke_training.config.data.data_loader_config import (
-    DreamboothSDDataLoaderConfig,
-    ImageCaptionSDDataLoaderConfig,
-)
+from invoke_training.config.data.data_loader_config import DreamboothSDDataLoaderConfig, ImageCaptionSDDataLoaderConfig
 from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
 
 
@@ -146,7 +143,7 @@ class SdLoraConfig(BasePipelineConfig):
     See also 'validate_every_n_epochs'.
     """
 
-    negative_validation_prompts: list[str | None] | None = None
+    negative_validation_prompts: list[str] | None = None
     """A list of negative prompts that will be applied when generating validation images. If set, this list should have
     the same length as 'validation_prompts'.
     """
