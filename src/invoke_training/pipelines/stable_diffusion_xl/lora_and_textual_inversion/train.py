@@ -38,6 +38,7 @@ from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
 from invoke_training._shared.stable_diffusion.model_loading_utils import load_models_sdxl
 from invoke_training._shared.stable_diffusion.textual_inversion import restore_original_embeddings
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sdxl
+from invoke_training.pipelines.callbacks import ModelCheckpoint, ModelType, PipelineCallbacks, TrainingCheckpoint
 from invoke_training.pipelines.stable_diffusion_xl.lora.train import train_forward
 from invoke_training.pipelines.stable_diffusion_xl.lora_and_textual_inversion.config import (
     SdxlLoraAndTextualInversionConfig,
@@ -58,12 +59,15 @@ def _save_sdxl_lora_and_ti_checkpoint(
     logger: logging.Logger,
     checkpoint_tracker: CheckpointTracker,
     lora_checkpoint_format: Literal["invoke_peft", "kohya"],
+    callbacks: list[PipelineCallbacks] | None,
 ):
     # Prune checkpoints and get new checkpoint path.
     num_pruned = checkpoint_tracker.prune(1)
     if num_pruned > 0:
         logger.info(f"Pruned {num_pruned} checkpoint(s).")
     save_path = checkpoint_tracker.get_path(epoch=epoch, step=step)
+
+    training_checkpoint = TrainingCheckpoint(models=[], epoch=epoch, step=step)
 
     if lora_checkpoint_format == "invoke_peft":
         save_sdxl_peft_checkpoint(
@@ -72,6 +76,7 @@ def _save_sdxl_lora_and_ti_checkpoint(
             text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
             text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
         )
+        training_checkpoint.models.append(ModelCheckpoint(file_path=save_path, model_type=ModelType.SDXL_LORA_PEFT))
     elif lora_checkpoint_format == "kohya":
         save_sdxl_kohya_checkpoint(
             Path(save_path) / "lora.safetensors",
@@ -79,6 +84,7 @@ def _save_sdxl_lora_and_ti_checkpoint(
             text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
             text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
         )
+        training_checkpoint.models.append(ModelCheckpoint(file_path=save_path, model_type=ModelType.SDXL_LORA_KOHYA))
     else:
         raise ValueError(f"Unsupported lora_checkpoint_format: '{lora_checkpoint_format}'.")
 
@@ -99,9 +105,16 @@ def _save_sdxl_lora_and_ti_checkpoint(
             "clip_g": learned_embeds_2.detach().cpu(),
         }
         save_state_dict(learned_embeds_dict, ti_checkpoint_path)
+        training_checkpoint.models.append(
+            ModelCheckpoint(file_path=ti_checkpoint_path, model_type=ModelType.SDXL_TEXTUAL_INVERSION)
+        )
+
+    if callbacks is not None:
+        for cb in callbacks:
+            cb.on_save_checkpoint(training_checkpoint)
 
 
-def train(config: SdxlLoraAndTextualInversionConfig):  # noqa: C901
+def train(config: SdxlLoraAndTextualInversionConfig, callbacks: list[PipelineCallbacks] | None = None):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     # TODO(ryan): Update this check to work with single-file SD checkpoints.
     # check_base_model_version(
@@ -382,6 +395,7 @@ def train(config: SdxlLoraAndTextualInversionConfig):  # noqa: C901
                 logger=logger,
                 checkpoint_tracker=checkpoint_tracker,
                 lora_checkpoint_format=config.lora_checkpoint_format,
+                callbacks=callbacks,
             )
         accelerator.wait_for_everyone()
 
@@ -402,6 +416,7 @@ def train(config: SdxlLoraAndTextualInversionConfig):  # noqa: C901
                 unet=unet,
                 config=config,
                 logger=logger,
+                callbacks=callbacks,
             )
         accelerator.wait_for_everyone()
 

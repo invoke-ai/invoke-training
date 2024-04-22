@@ -42,6 +42,7 @@ from invoke_training._shared.stable_diffusion.model_loading_utils import load_mo
 from invoke_training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sdxl
 from invoke_training.config.data.data_loader_config import DreamboothSDDataLoaderConfig, ImageCaptionSDDataLoaderConfig
+from invoke_training.pipelines.callbacks import ModelCheckpoint, ModelType, PipelineCallbacks, TrainingCheckpoint
 from invoke_training.pipelines.stable_diffusion.lora.train import cache_vae_outputs
 from invoke_training.pipelines.stable_diffusion_xl.lora.config import SdxlLoraConfig
 
@@ -55,6 +56,7 @@ def _save_sdxl_lora_checkpoint(
     logger: logging.Logger,
     checkpoint_tracker: CheckpointTracker,
     lora_checkpoint_format: Literal["invoke_peft", "kohya"],
+    callbacks: list[PipelineCallbacks] | None,
 ):
     # Prune checkpoints and get new checkpoint path.
     num_pruned = checkpoint_tracker.prune(1)
@@ -63,15 +65,25 @@ def _save_sdxl_lora_checkpoint(
     save_path = checkpoint_tracker.get_path(epoch=epoch, step=step)
 
     if lora_checkpoint_format == "invoke_peft":
+        model_type = ModelType.SD1_LORA_PEFT
         save_sdxl_peft_checkpoint(
             Path(save_path), unet=unet, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2
         )
     elif lora_checkpoint_format == "kohya":
+        model_type = ModelType.SD1_LORA_KOHYA
         save_sdxl_kohya_checkpoint(
             Path(save_path), unet=unet, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2
         )
     else:
         raise ValueError(f"Unsupported lora_checkpoint_format: '{lora_checkpoint_format}'.")
+
+    if callbacks is not None:
+        for cb in callbacks:
+            cb.on_save_checkpoint(
+                TrainingCheckpoint(
+                    models=[ModelCheckpoint(file_path=save_path, model_type=model_type)], epoch=epoch, step=step
+                )
+            )
 
 
 def _build_data_loader(
@@ -309,7 +321,7 @@ def train_forward(  # noqa: C901
     return loss.mean()
 
 
-def train(config: SdxlLoraConfig):  # noqa: C901
+def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = None):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     # TODO(ryan): Update this check to work with single-file SD checkpoints.
     # check_base_model_version(
@@ -601,6 +613,7 @@ def train(config: SdxlLoraConfig):  # noqa: C901
                 logger=logger,
                 checkpoint_tracker=checkpoint_tracker,
                 lora_checkpoint_format=config.lora_checkpoint_format,
+                callbacks=callbacks,
             )
         accelerator.wait_for_everyone()
 
@@ -621,6 +634,7 @@ def train(config: SdxlLoraConfig):  # noqa: C901
                 unet=unet,
                 config=config,
                 logger=logger,
+                callbacks=callbacks,
             )
         accelerator.wait_for_everyone()
 
