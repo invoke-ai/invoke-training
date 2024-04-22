@@ -202,7 +202,7 @@ def get_sdxl_ti_preset_config(
             resolution=1024,
             center_crop=False,
             random_flip=False,
-            dataloader_num_workers=4,
+            dataloader_num_workers=2,
         ),
     )
 
