@@ -4,7 +4,9 @@ from pydantic import BaseModel, Field
 
 from invoke_training.config.pipeline_config import PipelineConfig
 from invoke_training.scripts._experimental.presets.config_presets import (
+    get_sd_lora_preset_config,
     get_sd_ti_preset_config,
+    get_sdxl_lora_preset_config,
     get_sdxl_ti_preset_config,
 )
 
@@ -21,21 +23,43 @@ class CommercialConfig(BaseModel):
     baseModel: Literal["sdxl", "sd-1"] = Field(description="Base model")  # noqa: N815
 
 
-# TODO(ryand): Under what conditions should we allow a captionPrefix to be set?
+# TODO(ryand): Confirm that captionPrefix is only set for LORA jobs.
 
 
-def get_config_preset_from_commercial_config(commercial_config: CommercialConfig, dataset_size: int) -> PipelineConfig:
+def get_config_preset_from_commercial_config(
+    commercial_config: CommercialConfig, jsonl_path: str, dataset_size: int
+) -> PipelineConfig:
     if commercial_config.jobType == "lora":
         if commercial_config.baseModel == "sd-1":
-            raise NotImplementedError()
+            get_sd_lora_preset_config(
+                jsonl_path=jsonl_path,
+                dataset_size=dataset_size,
+                model=commercial_config.modelPath,
+                text_encoder_learning_rate=commercial_config.learningRate,
+                unet_learning_rate=commercial_config.learningRate,
+                caption_prefix=commercial_config.captionPrefix,
+                validation_prompts=commercial_config.validationPrompts,
+                overrides=[],
+            )
         elif commercial_config.baseModel == "sdxl":
-            raise NotImplementedError()
+            get_sdxl_lora_preset_config(
+                jsonl_path=jsonl_path,
+                dataset_size=dataset_size,
+                model=commercial_config.modelPath,
+                # TODO(ryand): Fix SDXL VAE in mixed precision mode.
+                vae_model=None,
+                text_encoder_learning_rate=commercial_config.learningRate,
+                unet_learning_rate=commercial_config.learningRate,
+                caption_prefix=commercial_config.captionPrefix,
+                validation_prompts=commercial_config.validationPrompts,
+                overrides=[],
+            )
         else:
             raise ValueError(f"Unsupported base model: {commercial_config.baseModel}")
     elif commercial_config.jobType == "ti":
         if commercial_config.baseModel == "sd-1":
             return get_sd_ti_preset_config(
-                jsonl_path=commercial_config.modelPath,
+                jsonl_path=jsonl_path,
                 dataset_size=dataset_size,
                 model=commercial_config.modelPath,
                 # TODO(ryand): How are we handling this?
@@ -51,7 +75,7 @@ def get_config_preset_from_commercial_config(commercial_config: CommercialConfig
             )
         elif commercial_config.baseModel == "sdxl":
             return get_sdxl_ti_preset_config(
-                jsonl_path=commercial_config.modelPath,
+                jsonl_path=jsonl_path,
                 dataset_size=dataset_size,
                 model=commercial_config.modelPath,
                 # TODO(ryand): Fix SDXL VAE in mixed precision mode.

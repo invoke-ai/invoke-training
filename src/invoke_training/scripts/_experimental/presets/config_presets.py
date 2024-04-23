@@ -1,13 +1,13 @@
-from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 
-import yaml
-from pydantic import TypeAdapter
-
-from invoke_training.config.data.data_loader_config import AspectRatioBucketConfig, TextualInversionSDDataLoaderConfig
+from invoke_training.config.data.data_loader_config import (
+    AspectRatioBucketConfig,
+    ImageCaptionSDDataLoaderConfig,
+    TextualInversionSDDataLoaderConfig,
+)
 from invoke_training.config.data.dataset_config import ImageCaptionJsonlDatasetConfig
 from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfig
-from invoke_training.config.pipeline_config import PipelineConfig
+from invoke_training.pipelines.stable_diffusion.lora.config import SdLoraConfig
 from invoke_training.pipelines.stable_diffusion.textual_inversion.config import SdTextualInversionConfig
 from invoke_training.pipelines.stable_diffusion_xl.lora.config import SdxlLoraConfig
 from invoke_training.pipelines.stable_diffusion_xl.textual_inversion.config import SdxlTextualInversionConfig
@@ -17,6 +17,8 @@ from invoke_training.scripts._experimental.presets.training_length_override impo
 # TODO(ryand): Increase this. It's only set to 1 for testing purposes.
 # The maximum number of checkpoints to keep.
 MAX_CHECKPOINTS = 1
+
+NUM_VALIDATION_IMAGES_PER_PROMPT = 3
 
 # Default aspect ratio bucket configs for SD and SDXL models respectively.
 ASPECT_RATIO_BUCKET_CONFIG_SDXL = AspectRatioBucketConfig(
@@ -45,90 +47,112 @@ def _should_keep_dataset_in_memory(dataset_size: int) -> bool:
     return dataset_size < 10
 
 
-def _load_config_from_file(config_path: Path) -> PipelineConfig:
-    """Load a PipelineConfig from a YAML file."""
-    with open(config_path, "r") as f:
-        cfg = yaml.safe_load(f)
-    pipeline_adapter: TypeAdapter[PipelineConfig] = TypeAdapter(PipelineConfig)
-    train_config = pipeline_adapter.validate_python(cfg)
-    return train_config
-
-
-class JsonlPathOverride(PipelineConfigOverride):
-    def __init__(self, jsonl_path: str):
-        self._jsonl_path = jsonl_path
-
-    def apply_override(self, config: PipelineConfig):
-        config.data_loader.dataset.jsonl_path = self._jsonl_path
-
-
-class BaseOutputDirOverride(PipelineConfigOverride):
-    def __init__(self, base_output_dir: str):
-        self._base_output_dir = base_output_dir
-
-    def apply_override(self, config: PipelineConfig):
-        config.base_output_dir = self._base_output_dir
-
-
-class TrainBatchSizeOverride(PipelineConfigOverride):
-    def __init__(self, train_batch_size: int):
-        self._train_batch_size = train_batch_size
-
-    def apply_override(self, config: PipelineConfig):
-        config.train_batch_size = self._train_batch_size
-
-
-class ValidationPromptsOverride(PipelineConfigOverride):
-    def __init__(self, validation_prompts: list[str]):
-        self._validation_prompts = validation_prompts
-
-    def apply_override(self, config: PipelineConfig):
-        config.validation_prompts = self._validation_prompts
-
-
-def _prepare_config(config_path: Path, overrides: list[PipelineConfigOverride]) -> PipelineConfig:
-    config = _load_config_from_file(config_path)
-    for override in overrides:
-        override.apply_override(config)
-    return config
-
-
 def get_sdxl_lora_preset_config(
-    jsonl_path: str, dataset_size: int, validation_prompts: list[str], overrides: list[PipelineConfigOverride]
+    jsonl_path: str,
+    dataset_size: int,
+    model: str,
+    vae_model: str | None,
+    text_encoder_learning_rate: float,
+    unet_learning_rate: float,
+    caption_prefix: Optional[str],
+    validation_prompts: list[str],
+    overrides: list[PipelineConfigOverride],
 ) -> SdxlLoraConfig:
     """Prepare a configuration for training a general SDXL LoRA model."""
-    config_path = Path(__file__).parent / "configs/presets/sdxl_lora_preset_1x24gb.yaml"
+
+    config = SdxlLoraConfig(
+        model=model,
+        vae_model=vae_model,
+        seed=0,
+        base_output_dir="output",
+        optimizer=AdamOptimizerConfig(),
+        text_encoder_learning_rate=text_encoder_learning_rate,
+        unet_learning_rate=unet_learning_rate,
+        lr_scheduler="constant_with_warmup",
+        lr_warmup_steps=200,
+        lora_rank_dim=4,
+        mixed_precision="fp16",
+        gradient_checkpointing=True,
+        max_checkpoints=MAX_CHECKPOINTS,
+        validation_prompts=validation_prompts,
+        num_validation_images_per_prompt=3,
+        train_batch_size=4,
+        data_loader=ImageCaptionSDDataLoaderConfig(
+            dataset=ImageCaptionJsonlDatasetConfig(
+                jsonl_path=jsonl_path,
+                keep_in_memory=_should_keep_dataset_in_memory(dataset_size),
+            ),
+            resolution=RESOLUTION_SDXL,
+            aspect_ratio_buckets=ASPECT_RATIO_BUCKET_CONFIG_SDXL,
+            caption_prefix=caption_prefix,
+            dataloader_num_workers=DATALOADER_NUM_WORKERS,
+        ),
+    )
 
     preset_overrides: list[PipelineConfigOverride] = [
-        # Override the dataset path.
-        JsonlPathOverride(jsonl_path),
-        # Override the validation prompts.
-        ValidationPromptsOverride(validation_prompts),
         # Configure the training length and checkpoint frequency.
         TrainingLengthOverride(dataset_size),
     ]
 
     #  Note that we apply the caller-provided overrides before the preset overrides.
-    return _prepare_config(config_path, overrides + preset_overrides)
+    for override in overrides + preset_overrides:
+        override.apply_override(config)
+
+    # TODO(ryand): Validate after all the modifications?
+    return config
 
 
 def get_sd_lora_preset_config(
-    jsonl_path: str, dataset_size: int, validation_prompts: list[str], overrides: list[PipelineConfigOverride]
-) -> SdxlLoraConfig:
+    jsonl_path: str,
+    dataset_size: int,
+    model: str,
+    text_encoder_learning_rate: float,
+    unet_learning_rate: float,
+    caption_prefix: Optional[str],
+    validation_prompts: list[str],
+    overrides: list[PipelineConfigOverride],
+) -> SdLoraConfig:
     """Prepare a configuration for training a general SD1 LoRA model."""
-    config_path = Path(__file__).parent / "configs/presets/sd_lora_preset_1x24gb.yaml"
+
+    config = SdLoraConfig(
+        model=model,
+        seed=0,
+        base_output_dir="output",
+        optimizer=AdamOptimizerConfig(),
+        text_encoder_learning_rate=text_encoder_learning_rate,
+        unet_learning_rate=unet_learning_rate,
+        lr_scheduler="constant_with_warmup",
+        lr_warmup_steps=200,
+        lora_rank_dim=4,
+        mixed_precision="fp16",
+        gradient_checkpointing=False,
+        max_checkpoints=MAX_CHECKPOINTS,
+        validation_prompts=validation_prompts,
+        num_validation_images_per_prompt=3,
+        train_batch_size=4,
+        data_loader=ImageCaptionSDDataLoaderConfig(
+            dataset=ImageCaptionJsonlDatasetConfig(
+                jsonl_path=jsonl_path,
+                keep_in_memory=_should_keep_dataset_in_memory(dataset_size),
+            ),
+            resolution=RESOLUTION_SD,
+            aspect_ratio_buckets=ASPECT_RATIO_BUCKET_CONFIG_SD,
+            caption_prefix=caption_prefix,
+            dataloader_num_workers=DATALOADER_NUM_WORKERS,
+        ),
+    )
 
     preset_overrides: list[PipelineConfigOverride] = [
-        # Override the dataset path.
-        JsonlPathOverride(jsonl_path),
-        # Override the validation prompts.
-        ValidationPromptsOverride(validation_prompts),
         # Configure the training length and checkpoint frequency.
         TrainingLengthOverride(dataset_size),
     ]
 
-    # Note that we apply the caller-provided overrides before the preset overrides.
-    return _prepare_config(config_path, overrides + preset_overrides)
+    #  Note that we apply the caller-provided overrides before the preset overrides.
+    for override in overrides + preset_overrides:
+        override.apply_override(config)
+
+    # TODO(ryand): Validate after all the modifications?
+    return config
 
 
 def get_sdxl_ti_preset_config(
@@ -161,7 +185,7 @@ def get_sdxl_ti_preset_config(
         max_checkpoints=MAX_CHECKPOINTS,
         gradient_checkpointing=True,
         validation_prompts=validation_prompts,
-        num_validation_images_per_prompt=3,
+        num_validation_images_per_prompt=NUM_VALIDATION_IMAGES_PER_PROMPT,
         train_batch_size=4,
         data_loader=TextualInversionSDDataLoaderConfig(
             dataset=ImageCaptionJsonlDatasetConfig(
@@ -215,9 +239,9 @@ def get_sd_ti_preset_config(
         lr_warmup_steps=200,
         mixed_precision="fp16",
         max_checkpoints=MAX_CHECKPOINTS,
-        gradient_checkpointing=True,
+        gradient_checkpointing=False,
         validation_prompts=validation_prompts,
-        num_validation_images_per_prompt=3,
+        num_validation_images_per_prompt=NUM_VALIDATION_IMAGES_PER_PROMPT,
         train_batch_size=4,
         data_loader=TextualInversionSDDataLoaderConfig(
             dataset=ImageCaptionJsonlDatasetConfig(
