@@ -26,7 +26,10 @@ def build_hf_hub_image_caption_dataset(config: HFHubImageCaptionDatasetConfig) -
 
 def build_image_caption_jsonl_dataset(config: ImageCaptionJsonlDatasetConfig) -> HFImageCaptionDataset:
     return ImageCaptionJsonlDataset(
-        jsonl_path=config.jsonl_path, image_column=config.image_column, caption_column=config.caption_column
+        jsonl_path=config.jsonl_path,
+        image_column=config.image_column,
+        caption_column=config.caption_column,
+        keep_in_memory=config.keep_in_memory,
     )
 
 

@@ -25,6 +25,7 @@ class ImageCaptionJsonlDataset(torch.utils.data.Dataset):
         jsonl_path: Path | str,
         image_column: str = IMAGE_COLUMN_DEFAULT,
         caption_column: str = CAPTION_COLUMN_DEFAULT,
+        keep_in_memory: bool = False,
     ):
         super().__init__()
         self._jsonl_path = Path(jsonl_path)
@@ -41,6 +42,12 @@ class ImageCaptionJsonlDataset(torch.utils.data.Dataset):
                 raise ValueError(f"Column '{caption_column}' not found in jsonl file '{jsonl_path}'.")
             examples.append(ImageCaptionExample(image_path=d[image_column], caption=d[caption_column]))
         self.examples = examples
+
+        self._images = None
+        if keep_in_memory:
+            self._images = []
+            for i in range(len(self.examples)):
+                self._images.append(self._load_image(self._get_image_path(idx=i)))
 
     def save_jsonl(self):
         data = []
@@ -79,5 +86,5 @@ class ImageCaptionJsonlDataset(torch.utils.data.Dataset):
         return len(self.examples)
 
     def __getitem__(self, idx: int) -> typing.Dict[str, typing.Any]:
-        image = self._load_image(self._get_image_path(idx))
+        image = self._images[idx] if self._images is not None else self._load_image(self._get_image_path(idx))
         return {"id": str(idx), "image": image, "caption": self.examples[idx].caption}
