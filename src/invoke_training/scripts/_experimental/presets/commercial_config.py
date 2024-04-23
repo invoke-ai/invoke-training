@@ -42,6 +42,8 @@ def get_config_preset_from_commercial_config(commercial_config: CommercialConfig
                 placeholder_token="<TOK>",
                 # TODO(ryand): Rename initialPhrase to initialToken in the UI.
                 initializer_token=commercial_config.initialPhrase,
+                # TODO(ryand): We should probably expose num_vectors.
+                num_vectors=4,
                 learning_rate=commercial_config.learningRate,
                 validation_prompts=commercial_config.validationPrompts,
                 caption_preset=commercial_config.captionPreset,
@@ -58,6 +60,8 @@ def get_config_preset_from_commercial_config(commercial_config: CommercialConfig
                 placeholder_token="<TOK>",
                 # TODO(ryand): Rename initialPhrase to initialToken in the UI.
                 initializer_token=commercial_config.initialPhrase,
+                # TODO(ryand): We should probably expose num_vectors.
+                num_vectors=4,
                 learning_rate=commercial_config.learningRate,
                 validation_prompts=commercial_config.validationPrompts,
                 caption_preset=commercial_config.captionPreset,
