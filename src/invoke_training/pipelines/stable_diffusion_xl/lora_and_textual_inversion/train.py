@@ -230,6 +230,7 @@ def train(config: SdxlLoraAndTextualInversionConfig, callbacks: list[PipelineCal
             tokenizer_2=tokenizer_2,
             text_encoder_1=text_encoder_1,
             text_encoder_2=text_encoder_2,
+            logger=logger,
         )
         logger.info(f"Initialized {len(placeholder_tokens)} placeholder tokens: {placeholder_tokens}.")
 

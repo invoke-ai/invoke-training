@@ -80,6 +80,7 @@ def _initialize_placeholder_tokens(
     config: SdTextualInversionConfig,
     tokenizer: CLIPTokenizer,
     text_encoder: PreTrainedTokenizer,
+    logger: logging.Logger,
 ) -> tuple[list[str], list[int]]:
     """Prepare the tokenizer and text_encoder for TI training.
 
@@ -108,6 +109,7 @@ def _initialize_placeholder_tokens(
             initializer_token=config.initializer_token,
             placeholder_token=config.placeholder_token,
             num_vectors=config.num_vectors,
+            logger=logger,
         )
     elif config.initial_embedding_file is not None:
         placeholder_tokens, placeholder_token_ids = initialize_placeholder_tokens_from_initial_embedding(
@@ -166,7 +168,7 @@ def train(config: SdTextualInversionConfig, callbacks: list[PipelineCallbacks] |
     )
 
     placeholder_tokens, placeholder_token_ids = _initialize_placeholder_tokens(
-        config=config, tokenizer=tokenizer, text_encoder=text_encoder
+        config=config, tokenizer=tokenizer, text_encoder=text_encoder, logger=logger
     )
     logger.info(f"Initialized {len(placeholder_tokens)} placeholder tokens: {placeholder_tokens}.")
 

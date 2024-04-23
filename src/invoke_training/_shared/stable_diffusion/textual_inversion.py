@@ -1,3 +1,5 @@
+import logging
+
 import torch
 from accelerate import Accelerator
 from transformers import CLIPTextModel, CLIPTokenizer, PreTrainedTokenizer
@@ -69,14 +71,17 @@ def initialize_placeholder_tokens_from_initializer_token(
     initializer_token: str,
     placeholder_token: str,
     num_vectors: int,
+    logger: logging.Logger,
 ) -> tuple[list[str], list[int]]:
     # Convert the initializer_token to a token id.
     initializer_token_ids = tokenizer.encode(initializer_token, add_special_tokens=False)
     if len(initializer_token_ids) > 1:
-        raise ValueError(
-            f"The initializer_token '{initializer_token}' gets tokenized to {len(initializer_token_ids)} tokens."
-            " Choose a different initializer that maps to a single token."
+        logger.error(
+            f"The initializer_token '{initializer_token}' gets tokenized to {len(initializer_token_ids)} tokens. "
+            "Only the first token will be used. It is recommended to choose a different initializer_token that maps to "
+            "a single token."
         )
+
     initializer_token_id = initializer_token_ids[0]
 
     # Expand the tokenizer / text_encoder to include the placeholder tokens.
