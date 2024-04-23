@@ -1,7 +1,7 @@
 import os
 
 from invoke_training.pipelines.invoke_train import train
-from invoke_training.scripts._experimental.config_presets import (
+from invoke_training.scripts._experimental.presets.config_presets import (
     AnyFieldOverride,
     BaseOutputDirOverride,
     PipelineConfigOverride,
@@ -41,23 +41,23 @@ def run_training(
 
 def main():
     tests = [
-        {
-            "run_name": "bruce_lr_1e-3",
-            "jsonl_path": "/home/ryan/src/invoke-training/sample_data/bruce_the_gnome/bruce_ti.jsonl",
-            "dataset_size": 4,
-            "placeholder_token": "bruce_the_gnome",
-            "initializer_token": "gnome",
-            "validation_prompts": [
-                "A bruce_the_gnome stuffed gnome sitting on the beach with a pina colada in its hand.",
-                "A bruce_the_gnome stuffed gnome reading a book.",
-            ],
-            "caption_preset": "object",
-            "overrides": [
-                # AnyFieldOverride("data_loader.dataset.image_column", "file_name"),
-                AnyFieldOverride("optimizer.learning_rate", 1e-3),
-                # AnyFieldOverride("data_loader.dataset.keep_in_memory", True),
-            ],
-        },
+        # {
+        #     "run_name": "bruce_lr_1e-3",
+        #     "jsonl_path": "/home/ryan/src/invoke-training/sample_data/bruce_the_gnome/bruce_ti.jsonl",
+        #     "dataset_size": 4,
+        #     "placeholder_token": "bruce_the_gnome",
+        #     "initializer_token": "gnome",
+        #     "validation_prompts": [
+        #         "A bruce_the_gnome stuffed gnome sitting on the beach with a pina colada in its hand.",
+        #         "A bruce_the_gnome stuffed gnome reading a book.",
+        #     ],
+        #     "caption_preset": "object",
+        #     "overrides": [
+        #         # AnyFieldOverride("data_loader.dataset.image_column", "file_name"),
+        #         AnyFieldOverride("optimizer.learning_rate", 1e-3),
+        #         # AnyFieldOverride("data_loader.dataset.keep_in_memory", True),
+        #     ],
+        # },
         {
             "run_name": "face_lr_1e-3",
             "jsonl_path": "/home/ryan/data/ryan_db_v7/data_ti.jsonl",

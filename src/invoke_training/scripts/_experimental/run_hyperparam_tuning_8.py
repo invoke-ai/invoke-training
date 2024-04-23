@@ -1,7 +1,7 @@
 import os
 
 from invoke_training.pipelines.invoke_train import train
-from invoke_training.scripts._experimental.config_presets import (
+from invoke_training.scripts._experimental.presets.config_presets import (
     AnyFieldOverride,
     BaseOutputDirOverride,
     TrainBatchSizeOverride,
