@@ -1,5 +1,3 @@
-import math
-from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Literal
 
@@ -12,12 +10,8 @@ from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfi
 from invoke_training.config.pipeline_config import PipelineConfig
 from invoke_training.pipelines.stable_diffusion_xl.lora.config import SdxlLoraConfig
 from invoke_training.pipelines.stable_diffusion_xl.textual_inversion.config import SdxlTextualInversionConfig
-
-
-class PipelineConfigOverride(ABC):
-    @abstractmethod
-    def apply_override(self, config: PipelineConfig):
-        pass
+from invoke_training.scripts._experimental.presets.pipeline_config_override import PipelineConfigOverride
+from invoke_training.scripts._experimental.presets.training_length_override import TrainingLengthOverride
 
 
 def _load_config_from_file(config_path: Path) -> PipelineConfig:
@@ -27,46 +21,6 @@ def _load_config_from_file(config_path: Path) -> PipelineConfig:
     pipeline_adapter: TypeAdapter[PipelineConfig] = TypeAdapter(PipelineConfig)
     train_config = pipeline_adapter.validate_python(cfg)
     return train_config
-
-
-class TrainingLengthOverride(PipelineConfigOverride):
-    """An override to configure the training length and checkpoint frequency.
-
-    This override applies some simple heuristics based on the dataset size to obtain reasonable settings.
-    """
-
-    # TODO(ryand): Should there be a max_epochs limit?
-    def __init__(
-        self,
-        dataset_size: int,
-        target_steps: int = 2000,
-        min_epochs: int = 10,
-        max_epochs: int = 10000,
-        num_checkpoint: int = 10,
-    ):
-        self._dataset_size = dataset_size
-        self._target_steps = target_steps
-        self._min_epochs = min_epochs
-        self._max_epochs = max_epochs
-        self._num_checkpoint = num_checkpoint
-
-    def apply_override(self, config: PipelineConfig):
-        # TODO(ryand): Use effective batch size here.
-        steps_per_epoch = math.ceil(self._dataset_size / config.train_batch_size)
-        target_num_epochs = math.ceil(self._target_steps / steps_per_epoch)
-        num_epochs = min(max(target_num_epochs, self._min_epochs), self._max_epochs)
-        total_steps = num_epochs * steps_per_epoch
-
-        config.max_train_epochs = None
-        config.max_train_steps = total_steps
-
-        config.validate_every_n_epochs = None
-        config.validate_every_n_steps = total_steps // self._num_checkpoint
-
-        config.save_every_n_epochs = None
-        # TODO(ryand): Enable this. During testing, we just want to save images without saving checkpoints to save disk
-        # space.
-        config.save_every_n_steps = total_steps + 1
 
 
 class JsonlPathOverride(PipelineConfigOverride):
@@ -99,21 +53,6 @@ class ValidationPromptsOverride(PipelineConfigOverride):
 
     def apply_override(self, config: PipelineConfig):
         config.validation_prompts = self._validation_prompts
-
-
-class AnyFieldOverride(PipelineConfigOverride):
-    def __init__(self, field_name: str, value):
-        self._field_name = field_name
-        self._value = value
-
-    def apply_override(self, config: PipelineConfig):
-        field_names = self._field_name.split(".")
-        try:
-            for field_name in field_names[:-1]:
-                config = getattr(config, field_name)
-            setattr(config, field_names[-1], self._value)
-        except AttributeError:
-            raise ValueError(f"Field '{self._field_name}' not found in PipelineConfig.")
 
 
 def _prepare_config(config_path: Path, overrides: list[PipelineConfigOverride]) -> PipelineConfig:
@@ -223,6 +162,7 @@ def get_sdxl_ti_preset_config(
     for override in overrides + preset_overrides:
         override.apply_override(config)
 
+    # TODO(ryand): Validate after all the modifications?
     return config
 
 
