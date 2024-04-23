@@ -8,6 +8,7 @@ from invoke_training.config.data.data_loader_config import AspectRatioBucketConf
 from invoke_training.config.data.dataset_config import ImageCaptionJsonlDatasetConfig
 from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfig
 from invoke_training.config.pipeline_config import PipelineConfig
+from invoke_training.pipelines.stable_diffusion.textual_inversion.config import SdTextualInversionConfig
 from invoke_training.pipelines.stable_diffusion_xl.lora.config import SdxlLoraConfig
 from invoke_training.pipelines.stable_diffusion_xl.textual_inversion.config import SdxlTextualInversionConfig
 from invoke_training.scripts._experimental.presets.pipeline_config_override import PipelineConfigOverride
@@ -188,19 +189,55 @@ def get_sdxl_ti_preset_config(
 
 
 def get_sd_ti_preset_config(
-    jsonl_path: str, dataset_size: int, validation_prompts: list[str], overrides: list[PipelineConfigOverride]
-) -> SdxlLoraConfig:
+    jsonl_path: str,
+    dataset_size: int,
+    model: str,
+    placeholder_token: str,
+    initializer_token: str,
+    learning_rate: float,
+    validation_prompts: list[str],
+    caption_preset: Literal["style", "object"],
+    overrides: list[PipelineConfigOverride],
+) -> SdTextualInversionConfig:
     """Prepare a configuration for training a general SDXL TI model."""
-    config_path = Path(__file__).parent / "configs/presets/sd_ti_preset_1x24gb.yaml"
+
+    config = SdTextualInversionConfig(
+        model=model,
+        seed=0,
+        base_output_dir="output",
+        placeholder_token=placeholder_token,
+        initializer_token=initializer_token,
+        num_vectors=4,
+        optimizer=AdamOptimizerConfig(learning_rate=learning_rate),
+        lr_scheduler="constant_with_warmup",
+        lr_warmup_steps=200,
+        mixed_precision="fp16",
+        max_checkpoints=MAX_CHECKPOINTS,
+        gradient_checkpointing=True,
+        validation_prompts=validation_prompts,
+        num_validation_images_per_prompt=3,
+        train_batch_size=4,
+        data_loader=TextualInversionSDDataLoaderConfig(
+            dataset=ImageCaptionJsonlDatasetConfig(
+                jsonl_path=jsonl_path,
+                keep_in_memory=_should_keep_dataset_in_memory(dataset_size),
+            ),
+            caption_preset=caption_preset,
+            keep_original_captions=True,
+            aspect_ratio_buckets=ASPECT_RATIO_BUCKET_CONFIG_SD,
+            resolution=RESOLUTION_SD,
+            dataloader_num_workers=DATALOADER_NUM_WORKERS,
+        ),
+    )
 
     preset_overrides: list[PipelineConfigOverride] = [
-        # Override the dataset path.
-        JsonlPathOverride(jsonl_path),
-        # Override the validation prompts.
-        ValidationPromptsOverride(validation_prompts),
         # Configure the training length and checkpoint frequency.
         TrainingLengthOverride(dataset_size),
     ]
 
     #  Note that we apply the caller-provided overrides before the preset overrides.
-    return _prepare_config(config_path, overrides + preset_overrides)
+    for override in overrides + preset_overrides:
+        override.apply_override(config)
+
+    # TODO(ryand): Validate after all the modifications?
+    return config

@@ -2,7 +2,11 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from invoke_training.scripts._experimental.presets.config_presets import get_sdxl_ti_preset_config
+from invoke_training.config.pipeline_config import PipelineConfig
+from invoke_training.scripts._experimental.presets.config_presets import (
+    get_sd_ti_preset_config,
+    get_sdxl_ti_preset_config,
+)
 
 
 class CommercialConfig(BaseModel):
@@ -20,7 +24,7 @@ class CommercialConfig(BaseModel):
 # TODO(ryand): Under what conditions should we allow a captionPrefix to be set?
 
 
-def get_config_preset_from_commercial_config(commercial_config: CommercialConfig, dataset_size: int) -> dict:
+def get_config_preset_from_commercial_config(commercial_config: CommercialConfig, dataset_size: int) -> PipelineConfig:
     if commercial_config.jobType == "lora":
         if commercial_config.baseModel == "sd-1":
             raise NotImplementedError()
@@ -30,15 +34,27 @@ def get_config_preset_from_commercial_config(commercial_config: CommercialConfig
             raise ValueError(f"Unsupported base model: {commercial_config.baseModel}")
     elif commercial_config.jobType == "ti":
         if commercial_config.baseModel == "sd-1":
-            raise NotImplementedError()
+            return get_sd_ti_preset_config(
+                jsonl_path=commercial_config.modelPath,
+                dataset_size=dataset_size,
+                model=commercial_config.modelPath,
+                # TODO(ryand): How are we handling this?
+                placeholder_token="<TOK>",
+                # TODO(ryand): Rename initialPhrase to initialToken in the UI.
+                initializer_token=commercial_config.initialPhrase,
+                learning_rate=commercial_config.learningRate,
+                validation_prompts=commercial_config.validationPrompts,
+                caption_preset=commercial_config.captionPreset,
+                overrides=[],
+            )
         elif commercial_config.baseModel == "sdxl":
-            get_sdxl_ti_preset_config(
+            return get_sdxl_ti_preset_config(
                 jsonl_path=commercial_config.modelPath,
                 dataset_size=dataset_size,
                 model=commercial_config.modelPath,
                 # TODO(ryand): Fix SDXL VAE in mixed precision mode.
                 vae_model=None,
-                # TODO(ryand): How are handling this?
+                # TODO(ryand): How are we handling this?
                 placeholder_token="<TOK>",
                 # TODO(ryand): Rename initialPhrase to initialToken in the UI.
                 initializer_token=commercial_config.initialPhrase,
