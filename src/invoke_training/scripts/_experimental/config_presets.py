@@ -171,6 +171,10 @@ def get_sdxl_ti_preset_config(
     overrides: list[PipelineConfigOverride],
 ) -> SdxlTextualInversionConfig:
     """Prepare a configuration for training a general SDXL TI model."""
+
+    # TODO: Apply this to all training modes?
+    keep_in_memory = dataset_size < 10
+
     config = SdxlTextualInversionConfig(
         model="stabilityai/stable-diffusion-xl-base-1.0",
         vae_model="madebyollin/sdxl-vae-fp16-fix",
@@ -182,7 +186,6 @@ def get_sdxl_ti_preset_config(
         optimizer=AdamOptimizerConfig(learning_rate=1e-3),
         lr_scheduler="constant_with_warmup",
         lr_warmup_steps=200,
-        cache_vae_outputs=True,
         mixed_precision="fp16",
         # TODO(ryand): Enable this. During testing, we just want to save images without saving checkpoints to save disk.
         max_checkpoints=1,
@@ -193,6 +196,7 @@ def get_sdxl_ti_preset_config(
         data_loader=TextualInversionSDDataLoaderConfig(
             dataset=ImageCaptionJsonlDatasetConfig(
                 jsonl_path=jsonl_path,
+                keep_in_memory=keep_in_memory,
             ),
             caption_preset=caption_preset,
             keep_original_captions=True,
