@@ -51,6 +51,7 @@ class TrainingLengthOverride(PipelineConfigOverride):
         self._num_checkpoint = num_checkpoint
 
     def apply_override(self, config: PipelineConfig):
+        # TODO(ryand): Use effective batch size here.
         steps_per_epoch = math.ceil(self._dataset_size / config.train_batch_size)
         target_num_epochs = math.ceil(self._target_steps / steps_per_epoch)
         num_epochs = min(max(target_num_epochs, self._min_epochs), self._max_epochs)
@@ -164,6 +165,7 @@ def get_sdxl_ti_preset_config(
     jsonl_path: str,
     dataset_size: int,
     placeholder_token: str,
+    initializer_token: str,
     initial_phrase: str,
     validation_prompts: list[str],
     caption_preset: Literal["style", "object"],
@@ -176,7 +178,8 @@ def get_sdxl_ti_preset_config(
         seed=0,
         base_output_dir="output",
         placeholder_token=placeholder_token,
-        initial_phrase=initial_phrase,
+        initializer_token=initializer_token,
+        num_vectors=4,
         optimizer=AdamOptimizerConfig(learning_rate=1e-3),
         lr_scheduler="constant_with_warmup",
         lr_warmup_steps=200,
