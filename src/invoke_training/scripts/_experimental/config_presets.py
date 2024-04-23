@@ -166,7 +166,6 @@ def get_sdxl_ti_preset_config(
     dataset_size: int,
     placeholder_token: str,
     initializer_token: str,
-    initial_phrase: str,
     validation_prompts: list[str],
     caption_preset: Literal["style", "object"],
     overrides: list[PipelineConfigOverride],
@@ -183,6 +182,7 @@ def get_sdxl_ti_preset_config(
         optimizer=AdamOptimizerConfig(learning_rate=1e-3),
         lr_scheduler="constant_with_warmup",
         lr_warmup_steps=200,
+        cache_vae_outputs=True,
         mixed_precision="fp16",
         # TODO(ryand): Enable this. During testing, we just want to save images without saving checkpoints to save disk.
         max_checkpoints=1,
@@ -203,8 +203,9 @@ def get_sdxl_ti_preset_config(
                 divisible_by=128,
             ),
             resolution=1024,
-            center_crop=False,
+            center_crop=True,
             random_flip=False,
+            # TODO(ryand): Make this a constant shared by all presets.
             dataloader_num_workers=2,
         ),
     )
