@@ -41,6 +41,7 @@ from invoke_training._shared.stable_diffusion.min_snr_weighting import compute_s
 from invoke_training._shared.stable_diffusion.model_loading_utils import load_models_sdxl
 from invoke_training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sdxl
+from invoke_training._shared.utils.import_xformers import import_xformers
 from invoke_training.config.data.data_loader_config import DreamboothSDDataLoaderConfig, ImageCaptionSDDataLoaderConfig
 from invoke_training.pipelines.callbacks import ModelCheckpoint, ModelType, PipelineCallbacks, TrainingCheckpoint
 from invoke_training.pipelines.stable_diffusion.lora.train import cache_vae_outputs
@@ -366,7 +367,7 @@ def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = No
     )
 
     if config.xformers:
-        import xformers  # noqa: F401
+        import_xformers()
 
         # TODO(ryand): There is a known issue if xformers is enabled when training in mixed precision where xformers
         # will fail because Q, K, V have different dtypes.

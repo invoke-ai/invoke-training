@@ -35,10 +35,11 @@ dependencies = [
     "tqdm",
     "transformers~=4.36.0",
     "uvicorn[standard]",
-    "xformers>=0.0.23",
 ]
 
 [project.optional-dependencies]
+"xformers" = ["xformers>=0.0.23; sys_platform!='darwin'"]
+
 "test" = [
     "mkdocs",
     "mkdocs-material",

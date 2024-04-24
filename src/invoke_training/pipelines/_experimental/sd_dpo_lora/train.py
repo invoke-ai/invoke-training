@@ -38,6 +38,7 @@ from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
 from invoke_training._shared.stable_diffusion.model_loading_utils import load_models_sd
 from invoke_training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sd
+from invoke_training._shared.utils.import_xformers import import_xformers
 from invoke_training.pipelines._experimental.sd_dpo_lora.config import SdDirectPreferenceOptimizationLoraConfig
 from invoke_training.pipelines.callbacks import PipelineCallbacks
 from invoke_training.pipelines.stable_diffusion.lora.train import cache_text_encoder_outputs
@@ -234,7 +235,7 @@ def train(config: SdDirectPreferenceOptimizationLoraConfig, callbacks: list[Pipe
     ref_unet = copy.deepcopy(unet)
 
     if config.xformers:
-        import xformers  # noqa: F401
+        import_xformers()
 
         # TODO(ryand): There is a known issue if xformers is enabled when training in mixed precision where xformers
         # will fail because Q, K, V have different dtypes.

@@ -32,6 +32,7 @@ from invoke_training._shared.stable_diffusion.textual_inversion import (
     restore_original_embeddings,
 )
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sd
+from invoke_training._shared.utils.import_xformers import import_xformers
 from invoke_training.pipelines.callbacks import ModelCheckpoint, ModelType, PipelineCallbacks, TrainingCheckpoint
 from invoke_training.pipelines.stable_diffusion.lora.train import cache_vae_outputs, train_forward
 from invoke_training.pipelines.stable_diffusion.textual_inversion.config import SdTextualInversionConfig
@@ -189,7 +190,7 @@ def train(config: SdTextualInversionConfig, callbacks: list[PipelineCallbacks] |
         text_encoder.gradient_checkpointing_enable()
 
     if config.xformers:
-        import xformers  # noqa: F401
+        import_xformers()
 
         unet.enable_xformers_memory_efficient_attention()
         vae.enable_xformers_memory_efficient_attention()

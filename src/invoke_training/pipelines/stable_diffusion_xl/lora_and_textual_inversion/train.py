@@ -38,6 +38,7 @@ from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
 from invoke_training._shared.stable_diffusion.model_loading_utils import load_models_sdxl
 from invoke_training._shared.stable_diffusion.textual_inversion import restore_original_embeddings
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sdxl
+from invoke_training._shared.utils.import_xformers import import_xformers
 from invoke_training.pipelines.callbacks import ModelCheckpoint, ModelType, PipelineCallbacks, TrainingCheckpoint
 from invoke_training.pipelines.stable_diffusion_xl.lora.train import train_forward
 from invoke_training.pipelines.stable_diffusion_xl.lora_and_textual_inversion.config import (
@@ -158,7 +159,7 @@ def train(config: SdxlLoraAndTextualInversionConfig, callbacks: list[PipelineCal
     )
 
     if config.xformers:
-        import xformers  # noqa: F401
+        import_xformers()
 
         # TODO(ryand): There is a known issue if xformers is enabled when training in mixed precision where xformers
         # will fail because Q, K, V have different dtypes.
