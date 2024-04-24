@@ -5,6 +5,7 @@ import os
 import tempfile
 import time
 
+from invoke_training._shared.utils.import_xformers import import_xformers
 import torch
 import torch.utils.data
 from accelerate import Accelerator
@@ -219,7 +220,7 @@ def train(config: SdxlTextualInversionConfig, callbacks: list[PipelineCallbacks]
             te.gradient_checkpointing_enable()
 
     if config.xformers:
-        import xformers  # noqa: F401
+        import_xformers()
 
         unet.enable_xformers_memory_efficient_attention()
         vae.enable_xformers_memory_efficient_attention()

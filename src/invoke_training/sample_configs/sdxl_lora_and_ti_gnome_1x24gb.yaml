@@ -35,7 +35,6 @@ initializer_token: "gnome"
 cache_vae_outputs: False
 gradient_accumulation_steps: 1
 mixed_precision: fp16
-xformers: False
 gradient_checkpointing: True
 
 max_train_steps: 2000

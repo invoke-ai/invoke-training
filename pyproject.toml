@@ -35,7 +35,6 @@ dependencies = [
     "tqdm",
     "transformers~=4.36.0",
     "uvicorn[standard]",
-    "xformers>=0.0.23",
 ]
 
 [project.optional-dependencies]

@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 from typing import Literal, Optional, Union
 
+from invoke_training._shared.utils.import_xformers import import_xformers
 import peft
 import torch
 import torch.utils.data
@@ -295,7 +296,7 @@ def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None
     )
 
     if config.xformers:
-        import xformers  # noqa: F401
+        import_xformers()
 
         # TODO(ryand): There is a known issue if xformers is enabled when training in mixed precision where xformers
         # will fail because Q, K, V have different dtypes.

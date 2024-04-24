@@ -27,7 +27,6 @@ data_loader:
 model: runwayml/stable-diffusion-v1-5
 gradient_accumulation_steps: 2
 mixed_precision: fp16
-xformers: False
 gradient_checkpointing: True
 max_train_steps: 5000
 save_every_n_epochs: 1

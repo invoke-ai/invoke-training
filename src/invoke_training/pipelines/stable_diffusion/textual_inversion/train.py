@@ -5,6 +5,7 @@ import os
 import tempfile
 import time
 
+from invoke_training._shared.utils.import_xformers import import_xformers
 import torch
 from accelerate import Accelerator
 from accelerate.utils import set_seed
@@ -189,7 +190,7 @@ def train(config: SdTextualInversionConfig, callbacks: list[PipelineCallbacks] |
         text_encoder.gradient_checkpointing_enable()
 
     if config.xformers:
-        import xformers  # noqa: F401
+        import_xformers()
 
         unet.enable_xformers_memory_efficient_attention()
         vae.enable_xformers_memory_efficient_attention()

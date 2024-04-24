@@ -47,7 +47,6 @@ cache_text_encoder_outputs: True
 enable_cpu_offload_during_validation: True
 gradient_accumulation_steps: 4
 mixed_precision: fp16
-xformers: False
 gradient_checkpointing: True
 
 max_train_epochs: 6
