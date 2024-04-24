@@ -23,7 +23,7 @@ from invoke_training.ui.config_groups.sdxl_lora_config_group import SdxlLoraConf
 from invoke_training.ui.config_groups.sdxl_textual_inversion_config_group import SdxlTextualInversionConfigGroup
 from invoke_training.ui.gradio_blocks.header import Header
 from invoke_training.ui.gradio_blocks.pipeline_tab import PipelineTab
-from invoke_training.ui.utils import get_config_dir_path
+from invoke_training.ui.utils.utils import get_config_dir_path
 
 
 class TrainingPage:

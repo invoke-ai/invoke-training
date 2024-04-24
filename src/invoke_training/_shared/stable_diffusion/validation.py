@@ -70,7 +70,13 @@ def generate_validation_images_sd(  # noqa: C901
 
     # Run inference.
     with torch.no_grad():
-        for prompt_idx, prompt in enumerate(config.validation_prompts):
+        for prompt_idx in range(len(config.validation_prompts)):
+            positive_prompt = config.validation_prompts[prompt_idx]
+            negative_prompt = None
+            if config.negative_validation_prompts is not None:
+                negative_prompt = config.negative_validation_prompts[prompt_idx]
+            logger.info(f"Validation prompt {prompt_idx}, pos: '{positive_prompt}', neg: '{negative_prompt}'")
+
             generator = torch.Generator(device=accelerator.device)
             if config.seed is not None:
                 generator = generator.manual_seed(config.seed)
@@ -80,11 +86,12 @@ def generate_validation_images_sd(  # noqa: C901
                 with accelerator.autocast():
                     images.append(
                         pipeline(
-                            prompt,
+                            positive_prompt,
                             num_inference_steps=30,
                             generator=generator,
                             height=validation_resolution.height,
                             width=validation_resolution.width,
+                            negative_prompt=negative_prompt,
                         ).images[0]
                     )
 
@@ -184,7 +191,13 @@ def generate_validation_images_sdxl(  # noqa: C901
 
     # Run inference.
     with torch.no_grad():
-        for prompt_idx, prompt in enumerate(config.validation_prompts):
+        for prompt_idx in range(len(config.validation_prompts)):
+            positive_prompt = config.validation_prompts[prompt_idx]
+            negative_prompt = None
+            if config.negative_validation_prompts is not None:
+                negative_prompt = config.negative_validation_prompts[prompt_idx]
+            logger.info(f"Validation prompt {prompt_idx}, pos: '{positive_prompt}', neg: '{negative_prompt}'")
+
             generator = torch.Generator(device=accelerator.device)
             if config.seed is not None:
                 generator = generator.manual_seed(config.seed)
@@ -194,11 +207,12 @@ def generate_validation_images_sdxl(  # noqa: C901
                 with accelerator.autocast():
                     images.append(
                         pipeline(
-                            prompt,
+                            positive_prompt,
                             num_inference_steps=30,
                             generator=generator,
                             height=validation_resolution.height,
                             width=validation_resolution.width,
+                            negative_prompt=negative_prompt,
                         ).images[0]
                     )
 

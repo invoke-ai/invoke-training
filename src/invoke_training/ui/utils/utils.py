@@ -8,14 +8,14 @@ from invoke_training.config.pipeline_config import PipelineConfig
 
 
 def get_config_dir_path() -> Path:
-    p = Path(__file__).parent.parent / "sample_configs"
+    p = Path(__file__).parent.parent.parent / "sample_configs"
     if not p.exists():
         raise FileNotFoundError(f"Config directory not found: '{p}'")
     return p
 
 
 def get_assets_dir_path() -> Path:
-    p = Path(__file__).parent.parent / "assets"
+    p = Path(__file__).parent.parent.parent / "assets"
     if not p.exists():
         pass
     return p

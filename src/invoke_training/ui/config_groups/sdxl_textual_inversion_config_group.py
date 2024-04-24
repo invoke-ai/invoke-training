@@ -9,7 +9,11 @@ from invoke_training.ui.config_groups.textual_inversion_sd_data_loader_config_gr
     TextualInversionSDDataLoaderConfigGroup,
 )
 from invoke_training.ui.config_groups.ui_config_element import UIConfigElement
-from invoke_training.ui.utils import get_typing_literal_options
+from invoke_training.ui.utils.prompts import (
+    convert_pos_neg_prompts_to_ui_prompts,
+    convert_ui_prompts_to_pos_neg_prompts,
+)
+from invoke_training.ui.utils.utils import get_typing_literal_options
 
 
 class SdxlTextualInversionConfigGroup(UIConfigElement):
@@ -163,7 +167,11 @@ class SdxlTextualInversionConfigGroup(UIConfigElement):
         gr.Markdown("## Validation")
         with gr.Group():
             self.validation_prompts = gr.Textbox(
-                label="Validation Prompts", info="Enter one validation prompt per line.", lines=5, interactive=True
+                label="Validation Prompts",
+                info="Enter one validation prompt per line. Optionally, add negative prompts after a '[NEG]' "
+                "delimiter. For example: `positive prompt[NEG]negative prompt`. ",
+                lines=5,
+                interactive=True,
             )
             self.num_validation_images_per_prompt = gr.Number(
                 label="# of Validation Images to Generate per Prompt", precision=0, interactive=True
@@ -191,7 +199,9 @@ class SdxlTextualInversionConfigGroup(UIConfigElement):
             self.mixed_precision: config.mixed_precision,
             self.gradient_checkpointing: config.gradient_checkpointing,
             self.min_snr_gamma: config.min_snr_gamma,
-            self.validation_prompts: "\n".join(config.validation_prompts),
+            self.validation_prompts: convert_pos_neg_prompts_to_ui_prompts(
+                config.validation_prompts, config.negative_validation_prompts
+            ),
             self.num_validation_images_per_prompt: config.num_validation_images_per_prompt,
         }
         update_dict.update(
@@ -230,9 +240,9 @@ class SdxlTextualInversionConfigGroup(UIConfigElement):
         new_config.min_snr_gamma = ui_data.pop(self.min_snr_gamma)
         new_config.num_validation_images_per_prompt = ui_data.pop(self.num_validation_images_per_prompt)
 
-        validation_prompts: list[str] = ui_data.pop(self.validation_prompts).split("\n")
-        validation_prompts = [x.strip() for x in validation_prompts if x.strip() != ""]
-        new_config.validation_prompts = validation_prompts
+        positive_prompts, negative_prompts = convert_ui_prompts_to_pos_neg_prompts(ui_data.pop(self.validation_prompts))
+        new_config.validation_prompts = positive_prompts
+        new_config.negative_validation_prompts = negative_prompts
 
         new_config.data_loader = (
             self.textual_inversion_sd_data_loader_config_group.update_config_with_ui_component_data(

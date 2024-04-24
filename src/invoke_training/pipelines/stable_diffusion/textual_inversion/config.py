@@ -1,5 +1,7 @@
 from typing import Literal
 
+from pydantic import model_validator
+
 from invoke_training.config.base_pipeline_config import BasePipelineConfig
 from invoke_training.config.data.data_loader_config import TextualInversionSDDataLoaderConfig
 from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
@@ -148,6 +150,11 @@ class SdTextualInversionConfig(BasePipelineConfig):
     """A list of prompts that will be used to generate images throughout training for the purpose of tracking progress.
     """
 
+    negative_validation_prompts: list[str] | None = None
+    """A list of negative prompts that will be applied when generating validation images. If set, this list should have
+    the same length as 'validation_prompts'.
+    """
+
     num_validation_images_per_prompt: int = 4
     """The number of validation images to generate for each prompt in `validation_prompts`. Careful, validation can
     become very slow if this number is too large.
@@ -164,3 +171,14 @@ class SdTextualInversionConfig(BasePipelineConfig):
     [`TextualInversionSDDataLoaderConfig`][invoke_training.config.data.data_loader_config.TextualInversionSDDataLoaderConfig]
     for details.
     """
+
+    @model_validator(mode="after")
+    def check_validation_prompts(self):
+        if self.negative_validation_prompts is not None and len(self.negative_validation_prompts) != len(
+            self.validation_prompts
+        ):
+            raise ValueError(
+                f"The number of validation_prompts ({len(self.validation_prompts)}) must match the number of "
+                f"negative_validation_prompts ({len(self.negative_validation_prompts)})."
+            )
+        return self
