@@ -106,7 +106,7 @@ def generate_validation_images_sd(  # noqa: C901
             for image_idx, image in enumerate(images):
                 image_path = os.path.join(validation_dir, f"{image_idx:0>4}.jpg")
                 validation_images.images.append(
-                    ValidationImage(file_path=image_path, prompt=prompt, image_idx=image_idx)
+                    ValidationImage(file_path=image_path, prompt=positive_prompt, image_idx=image_idx)
                 )
                 image.save(image_path)
 
@@ -227,7 +227,7 @@ def generate_validation_images_sdxl(  # noqa: C901
             for image_idx, image in enumerate(images):
                 image_path = os.path.join(validation_dir, f"{image_idx:0>4}.jpg")
                 validation_images.images.append(
-                    ValidationImage(file_path=image_path, prompt=prompt, image_idx=image_idx)
+                    ValidationImage(file_path=image_path, prompt=positive_prompt, image_idx=image_idx)
                 )
                 image.save(image_path)
 
