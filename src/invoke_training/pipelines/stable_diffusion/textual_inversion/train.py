@@ -5,7 +5,6 @@ import os
 import tempfile
 import time
 
-from invoke_training._shared.utils.import_xformers import import_xformers
 import torch
 from accelerate import Accelerator
 from accelerate.utils import set_seed
@@ -33,6 +32,7 @@ from invoke_training._shared.stable_diffusion.textual_inversion import (
     restore_original_embeddings,
 )
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sd
+from invoke_training._shared.utils.import_xformers import import_xformers
 from invoke_training.pipelines.callbacks import ModelCheckpoint, ModelType, PipelineCallbacks, TrainingCheckpoint
 from invoke_training.pipelines.stable_diffusion.lora.train import cache_vae_outputs, train_forward
 from invoke_training.pipelines.stable_diffusion.textual_inversion.config import SdTextualInversionConfig
