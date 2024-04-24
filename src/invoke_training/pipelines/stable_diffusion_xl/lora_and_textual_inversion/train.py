@@ -18,6 +18,7 @@ from tqdm.auto import tqdm
 from transformers import CLIPTextModel
 
 from invoke_training._shared.accelerator.accelerator_utils import (
+    get_dtype_from_str,
     get_mixed_precision_dtype,
     initialize_accelerator,
     initialize_logging,
@@ -150,6 +151,7 @@ def train(config: SdxlLoraAndTextualInversionConfig, callbacks: list[PipelineCal
         json.dump(config.dict(), f, indent=2, default=str)
 
     weight_dtype = get_mixed_precision_dtype(accelerator)
+    vae_weight_dtype = weight_dtype if config.vae_dtype is None else get_dtype_from_str(config.vae_dtype)
 
     logger.info("Loading models.")
     tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = load_models_sdxl(
@@ -179,7 +181,7 @@ def train(config: SdxlLoraAndTextualInversionConfig, callbacks: list[PipelineCal
     if config.cache_vae_outputs:
         raise NotImplementedError("Caching VAE outputs is not yet supported.")
     else:
-        vae.to(accelerator.device, dtype=weight_dtype)
+        vae.to(accelerator.device, dtype=vae_weight_dtype)
 
     unet.to(accelerator.device, dtype=weight_dtype)
 

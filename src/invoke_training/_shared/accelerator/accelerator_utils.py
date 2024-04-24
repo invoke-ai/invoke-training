@@ -89,3 +89,12 @@ def get_mixed_precision_dtype(accelerator: Accelerator):
     else:
         raise NotImplementedError(f"mixed_precision mode '{accelerator.mixed_precision}' is not yet supported.")
     return weight_dtype
+
+
+def get_dtype_from_str(dtype_str: str) -> torch.dtype:
+    if dtype_str == "float16":
+        return torch.float16
+    elif dtype_str == "float32":
+        return torch.float32
+    else:
+        raise ValueError(f"Unrecognized dtype string: '{dtype_str}'.")

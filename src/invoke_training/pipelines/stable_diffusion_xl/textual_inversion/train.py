@@ -14,6 +14,7 @@ from tqdm.auto import tqdm
 from transformers import CLIPPreTrainedModel, CLIPTextModel, CLIPTokenizer, PreTrainedTokenizer
 
 from invoke_training._shared.accelerator.accelerator_utils import (
+    get_dtype_from_str,
     get_mixed_precision_dtype,
     initialize_accelerator,
     initialize_logging,
@@ -185,6 +186,7 @@ def train(config: SdxlTextualInversionConfig, callbacks: list[PipelineCallbacks]
         json.dump(config.dict(), f, indent=2, default=str)
 
     weight_dtype = get_mixed_precision_dtype(accelerator)
+    vae_weight_dtype = weight_dtype if config.vae_dtype is None else get_dtype_from_str(config.vae_dtype)
 
     logger.info("Loading models.")
     tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = load_models_sdxl(
@@ -240,7 +242,7 @@ def train(config: SdxlTextualInversionConfig, callbacks: list[PipelineCallbacks]
         if accelerator.is_local_main_process:
             # Only the main process should to populate the cache.
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
-            vae.to(accelerator.device, dtype=weight_dtype)
+            vae.to(accelerator.device, dtype=vae_weight_dtype)
             data_loader = build_textual_inversion_sd_dataloader(
                 config=config.data_loader,
                 placeholder_token=config.placeholder_token,
@@ -252,7 +254,7 @@ def train(config: SdxlTextualInversionConfig, callbacks: list[PipelineCallbacks]
         vae.to("cpu")
         accelerator.wait_for_everyone()
     else:
-        vae.to(accelerator.device, dtype=weight_dtype)
+        vae.to(accelerator.device, dtype=vae_weight_dtype)
 
     # For mixed precision training, we cast all non-trainable weights (unet, vae) to half-precision as these weights are
     # only used for inference, keeping weights in full precision is not required.

@@ -173,9 +173,22 @@ class SdxlTextualInversionConfig(BasePipelineConfig):
     """
 
     vae_model: str | None = None
-    """The name of the Hugging Face Hub VAE model to train against. If set, this will override the VAE bundled with the
-    base model (specified by the `model` parameter). This config option is provided for SDXL models, because SDXL 1.0
-    shipped with a VAE that produces NaNs in fp16 mode, so it is common to replace this VAE with a fixed version.
+    """The name of the Hugging Face Hub VAE model to train against. This will override the VAE bundled with the base
+    model (specified by the `model` parameter).
+
+    This config option is provided for SDXL model training, because SDXL shipped with a VAE that produces NaNs in fp16
+    mode. There are two ways to work around this problem:
+    - Set 'vae_dtype' to 'float32' to use the VAE in float32 mode.
+    - Set 'vae_model' to a fixed VAE model that does not produce NaNs in fp16 mode.
+    """
+
+    vae_dtype: Literal["float16", "float32"] | None = None
+    """The dtype to use for the VAE model. If set, then this value will override the 'mixed_precision' setting.
+
+    This config option is provided for SDXL model training, because SDXL shipped with a VAE that produces NaNs in fp16
+    mode. There are two ways to work around this problem:
+    - Set 'vae_dtype' to 'float32' to use the VAE in float32 mode.
+    - Set 'vae_model' to a fixed VAE model that does not produce NaNs in fp16 mode.
     """
 
     @model_validator(mode="after")
