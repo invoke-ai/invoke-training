@@ -38,8 +38,6 @@ def generate_validation_images_sd(  # noqa: C901
     """Generate validation images for the purpose of tracking image generation behaviour on fixed prompts throughout
     training.
     """
-    logger.info("Generating validation images.")
-
     # Record original model devices so that we can restore this state after running the pipeline with CPU model
     # offloading.
     unet_device = unet.device
@@ -67,6 +65,9 @@ def generate_validation_images_sd(  # noqa: C901
     validation_resolution = Resolution.parse(config.data_loader.resolution)
 
     validation_images = ValidationImages(images=[], epoch=epoch, step=step)
+
+    validation_step_dir = os.path.join(out_dir, "validation", f"epoch_{epoch:0>8}-step_{step:0>8}")
+    logger.info(f"Generating validation images ({validation_step_dir}).")
 
     # Run inference.
     with torch.no_grad():
@@ -96,15 +97,10 @@ def generate_validation_images_sd(  # noqa: C901
                     )
 
             # Save images to disk.
-            validation_dir = os.path.join(
-                out_dir,
-                "validation",
-                f"epoch_{epoch:0>8}-step_{step:0>8}",
-                f"prompt_{prompt_idx:0>4}",
-            )
-            os.makedirs(validation_dir)
+            validation_prompt_dir = os.path.join(validation_step_dir, f"prompt_{prompt_idx:0>4}")
+            os.makedirs(validation_prompt_dir)
             for image_idx, image in enumerate(images):
-                image_path = os.path.join(validation_dir, f"{image_idx:0>4}.jpg")
+                image_path = os.path.join(validation_prompt_dir, f"{image_idx:0>4}.jpg")
                 validation_images.images.append(
                     ValidationImage(file_path=image_path, prompt=positive_prompt, image_idx=image_idx)
                 )
@@ -160,8 +156,6 @@ def generate_validation_images_sdxl(  # noqa: C901
     """Generate validation images for the purpose of tracking image generation behaviour on fixed prompts throughout
     training.
     """
-    logger.info("Generating validation images.")
-
     # Record original model devices so that we can restore this state after running the pipeline with CPU model
     # offloading.
     unet_device = unet.device
@@ -188,6 +182,9 @@ def generate_validation_images_sdxl(  # noqa: C901
     validation_resolution = Resolution.parse(config.data_loader.resolution)
 
     validation_images = ValidationImages(images=[], epoch=epoch, step=step)
+
+    validation_step_dir = os.path.join(out_dir, "validation", f"epoch_{epoch:0>8}-step_{step:0>8}")
+    logger.info(f"Generating validation images ({validation_step_dir}).")
 
     # Run inference.
     with torch.no_grad():
@@ -217,15 +214,10 @@ def generate_validation_images_sdxl(  # noqa: C901
                     )
 
             # Save images to disk.
-            validation_dir = os.path.join(
-                out_dir,
-                "validation",
-                f"epoch_{epoch:0>8}-step_{step:0>8}",
-                f"prompt_{prompt_idx:0>4}",
-            )
-            os.makedirs(validation_dir)
+            validation_prompt_dir = os.path.join(validation_step_dir, f"prompt_{prompt_idx:0>4}")
+            os.makedirs(validation_prompt_dir)
             for image_idx, image in enumerate(images):
-                image_path = os.path.join(validation_dir, f"{image_idx:0>4}.jpg")
+                image_path = os.path.join(validation_prompt_dir, f"{image_idx:0>4}.jpg")
                 validation_images.images.append(
                     ValidationImage(file_path=image_path, prompt=positive_prompt, image_idx=image_idx)
                 )

@@ -117,11 +117,22 @@ class SdxlTextualInversionConfig(BasePipelineConfig):
     """
 
     mixed_precision: Literal["no", "fp16", "bf16", "fp8"] = "no"
-    """The mixed precision mode to use. This value is passed to Hugging Face Accelerate.
-    See
+    """The mixed precision mode to use.
+
+    If mixed precision is enabled, then all non-trainable parameters will be cast to the specified precision. The
+    trainable parameters are always kept in float32 precision to avoid issues with numerical stability.
+
+    Recommendations:
+
+    - `"no"`: Use this mode if you have plenty of VRAM available.
+    - `"bf16"`: Use this mode if you have limited VRAM and a GPU that supports bfloat16.
+    - `"fp16"`: Use this mode if you have limited VRAM and a GPU that does not support bfloat16.
+    - `"fp8"`: You are likely to run into numerical stability issues with this mode. Only use this mode if you know what you are doing and are willing to work through some issues.
+
+    This value is passed to Hugging Face Accelerate. See
     [`accelerate.Accelerator.mixed_precision`](https://huggingface.co/docs/accelerate/package_reference/accelerator#accelerate.Accelerator.mixed_precision)
     for more details.
-    """
+    """  # noqa: E501
 
     xformers: bool = False
     """If `True`, use xformers for more efficient attention blocks.
