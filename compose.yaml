@@ -1,5 +1,6 @@
 services:
   server:
+    image: invokeai-training
     build:
       context: .
     ports:
@@ -17,6 +18,7 @@ services:
               capabilities: [gpu]
   
   tensorboard:
+    image: invokeai-training
     build:
         context: .
     ports:
