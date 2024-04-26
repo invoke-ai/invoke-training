@@ -1,12 +1,14 @@
+name: invoke-training
 services:
   server:
-    image: invokeai-training
+    image: "local/invokeai-training:latest"
     build:
-      context: .
+      context: ..
+      dockerfile: docker/Dockerfile
     ports:
       - 8000:8000
     volumes:
-      - ./sample_data:/app/sample_data
+      - ../sample_data:/app/sample_data
       - ./output:/app/output
       - ./data:/home/appuser
     deploy:
@@ -18,9 +20,10 @@ services:
               capabilities: [gpu]
   
   tensorboard:
-    image: invokeai-training
+    image: "local/invokeai-training:latest"
     build:
-        context: .
+        context: ..
+        dockerfile: docker/Dockerfile
     ports:
       - 8001:8001
     volumes:
