@@ -1,0 +1,33 @@
+services:
+  server:
+    build:
+      context: .
+    ports:
+      - 8000:8000
+    volumes:
+      - ./sample_data:/app/sample_data
+      - ./output:/app/output
+      - ./data:/home/appuser
+    networks:
+      - internal
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+  
+  tensorboard:
+    build:
+        context: .
+    ports:
+      - 8002:8001
+    volumes:
+      - ./output:/app/output
+    networks:
+      - internal
+    command: tensorboard --logdir output/ --bind_all --port 8001
+        
+networks:
+    internal:
