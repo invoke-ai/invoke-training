@@ -8,8 +8,6 @@ services:
       - ./sample_data:/app/sample_data
       - ./output:/app/output
       - ./data:/home/appuser
-    networks:
-      - internal
     deploy:
       resources:
         reservations:
@@ -22,12 +20,7 @@ services:
     build:
         context: .
     ports:
-      - 8002:8001
+      - 8001:8001
     volumes:
       - ./output:/app/output
-    networks:
-      - internal
     command: tensorboard --logdir output/ --bind_all --port 8001
-        
-networks:
-    internal:
