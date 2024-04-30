@@ -292,7 +292,10 @@ def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None
 
     logger.info("Loading models.")
     tokenizer, noise_scheduler, text_encoder, vae, unet = load_models_sd(
-        model_name_or_path=config.model, hf_variant=config.hf_variant, base_embeddings=config.base_embeddings
+        model_name_or_path=config.model,
+        hf_variant=config.hf_variant,
+        base_embeddings=config.base_embeddings,
+        dtype=weight_dtype,
     )
 
     if config.xformers:

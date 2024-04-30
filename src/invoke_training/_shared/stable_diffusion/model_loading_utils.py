@@ -2,6 +2,7 @@ import os
 import typing
 from enum import Enum
 
+import torch
 from diffusers import (
     AutoencoderKL,
     DDPMScheduler,
@@ -56,6 +57,7 @@ def load_models_sd(
     model_name_or_path: str,
     hf_variant: str | None = None,
     base_embeddings: dict[str, str] = None,
+    dtype: torch.dtype | None = None,
 ) -> tuple[CLIPTokenizer, DDPMScheduler, CLIPTextModel, AutoencoderKL, UNet2DConditionModel]:
     """Load all models required for training from disk, transfer them to the
     target training device and cast their weight dtypes.
@@ -88,6 +90,11 @@ def load_models_sd(
     vae.requires_grad_(False)
     unet.requires_grad_(False)
 
+    if dtype is not None:
+        text_encoder = text_encoder.to(dtype=dtype)
+        vae = vae.to(dtype=dtype)
+        unet = unet.to(dtype=dtype)
+
     # Put models in 'eval' mode.
     text_encoder.eval()
     vae.eval()
@@ -101,6 +108,7 @@ def load_models_sdxl(
     hf_variant: str | None = None,
     vae_model: str | None = None,
     base_embeddings: dict[str, str] = None,
+    dtype: torch.dtype | None = None,
 ) -> tuple[
     CLIPTokenizer,
     CLIPTokenizer,
@@ -158,6 +166,12 @@ def load_models_sdxl(
     text_encoder_2.requires_grad_(False)
     vae.requires_grad_(False)
     unet.requires_grad_(False)
+
+    if dtype is not None:
+        text_encoder_1 = text_encoder_1.to(dtype=dtype)
+        text_encoder_2 = text_encoder_2.to(dtype=dtype)
+        vae = vae.to(dtype=dtype)
+        unet = unet.to(dtype=dtype)
 
     # Put models in 'eval' mode.
     text_encoder_1.eval()

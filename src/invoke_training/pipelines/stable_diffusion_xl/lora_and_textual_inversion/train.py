@@ -102,8 +102,8 @@ def _save_sdxl_lora_and_ti_checkpoint(
             .weight[min(placeholder_token_ids_2) : max(placeholder_token_ids_2) + 1]
         )
         learned_embeds_dict = {
-            "clip_l": learned_embeds_1.detach().cpu(),
-            "clip_g": learned_embeds_2.detach().cpu(),
+            "clip_l": learned_embeds_1.detach().cpu().to(dtype=torch.float32),
+            "clip_g": learned_embeds_2.detach().cpu().to(dtype=torch.float32),
         }
         save_state_dict(learned_embeds_dict, ti_checkpoint_path)
         training_checkpoint.models.append(
@@ -156,6 +156,7 @@ def train(config: SdxlLoraAndTextualInversionConfig, callbacks: list[PipelineCal
         model_name_or_path=config.model,
         hf_variant=config.hf_variant,
         vae_model=config.vae_model,
+        dtype=weight_dtype,
     )
 
     if config.xformers:

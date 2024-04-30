@@ -364,6 +364,7 @@ def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = No
         hf_variant=config.hf_variant,
         vae_model=config.vae_model,
         base_embeddings=config.base_embeddings,
+        dtype=weight_dtype,
     )
 
     if config.xformers:
