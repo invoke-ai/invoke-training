@@ -39,7 +39,6 @@ model: stabilityai/stable-diffusion-xl-base-1.0
 # vae_model: madebyollin/sdxl-vae-fp16-fix
 gradient_accumulation_steps: 1
 weight_dtype: bfloat16
-mixed_precision: "no"
 gradient_checkpointing: True
 cache_vae_outputs: True
 
