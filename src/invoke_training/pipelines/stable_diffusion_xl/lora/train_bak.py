@@ -20,6 +20,7 @@ from tqdm.auto import tqdm
 from transformers import CLIPPreTrainedModel, CLIPTextModel, PreTrainedTokenizer
 
 from invoke_training._shared.accelerator.accelerator_utils import (
+    get_mixed_precision_dtype,
     initialize_accelerator,
     initialize_logging,
 )
@@ -40,6 +41,7 @@ from invoke_training._shared.stable_diffusion.min_snr_weighting import compute_s
 from invoke_training._shared.stable_diffusion.model_loading_utils import load_models_sdxl
 from invoke_training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sdxl
+from invoke_training._shared.utils.import_xformers import import_xformers
 from invoke_training.config.data.data_loader_config import DreamboothSDDataLoaderConfig, ImageCaptionSDDataLoaderConfig
 from invoke_training.pipelines.callbacks import ModelCheckpoint, ModelType, PipelineCallbacks, TrainingCheckpoint
 from invoke_training.pipelines.stable_diffusion.lora.train import cache_vae_outputs
@@ -282,12 +284,7 @@ def train_forward(  # noqa: C901
         raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
 
     # Predict the noise residual.
-    torch.cuda.synchronize()
-    start = time.time()
     model_pred = unet(noisy_latents, timesteps, prompt_embeds, added_cond_kwargs=unet_conditions).sample
-    torch.cuda.synchronize()
-    end = time.time()
-    print(f">>> UNet forward: {end - start}")
 
     min_snr_weights = None
     if min_snr_gamma is not None:
@@ -339,7 +336,9 @@ def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = No
     ckpt_dir = os.path.join(out_dir, "checkpoints")
     os.makedirs(ckpt_dir)
 
-    accelerator = initialize_accelerator(out_dir, config.gradient_accumulation_steps, "no", config.report_to)
+    accelerator = initialize_accelerator(
+        out_dir, config.gradient_accumulation_steps, config.mixed_precision, config.report_to
+    )
     logger = initialize_logging(os.path.basename(__file__), accelerator)
 
     # Set the accelerate seed.
@@ -357,8 +356,7 @@ def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = No
     with open(os.path.join(out_dir, "config.json"), "w") as f:
         json.dump(config.dict(), f, indent=2, default=str)
 
-    # weight_dtype = get_mixed_precision_dtype(accelerator)
-    weight_dtype = torch.bfloat16
+    weight_dtype = get_mixed_precision_dtype(accelerator)
 
     logger.info("Loading models.")
     tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = load_models_sdxl(
@@ -367,6 +365,14 @@ def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = No
         vae_model=config.vae_model,
         base_embeddings=config.base_embeddings,
     )
+
+    if config.xformers:
+        import_xformers()
+
+        # TODO(ryand): There is a known issue if xformers is enabled when training in mixed precision where xformers
+        # will fail because Q, K, V have different dtypes.
+        unet.enable_xformers_memory_efficient_attention()
+        vae.enable_xformers_memory_efficient_attention()
 
     # Prepare text encoder output cache.
     text_encoder_output_cache_dir_name = None
@@ -477,8 +483,7 @@ def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = No
     for trainable_model in all_trainable_models:
         for param in trainable_model.parameters():
             if param.requires_grad:
-                pass
-                # param.data = param.to(torch.float32)
+                param.data = param.to(torch.float32)
 
     if config.gradient_checkpointing:
         # We want to enable gradient checkpointing in the UNet regardless of whether it is being trained.
@@ -660,22 +665,11 @@ def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = No
                 train_loss += avg_loss.item() / config.gradient_accumulation_steps
 
                 # Backpropagate.
-                torch.cuda.synchronize()
-                start_backward = time.time()
                 accelerator.backward(loss)
-                torch.cuda.synchronize()
-                end_backward = time.time()
-                print(f">>> Backward: {end_backward - start_backward}")
-
                 if accelerator.sync_gradients and config.max_grad_norm is not None:
                     params_to_clip = itertools.chain.from_iterable([m.parameters() for m in all_trainable_models])
                     accelerator.clip_grad_norm_(params_to_clip, config.max_grad_norm)
-
                 optimizer.step()
-                torch.cuda.synchronize()
-                end_optimizer_step = time.time()
-                print(f">>> Optimizer step: {end_optimizer_step - end_backward}")
-
                 lr_scheduler.step()
                 optimizer.zero_grad(set_to_none=True)
 

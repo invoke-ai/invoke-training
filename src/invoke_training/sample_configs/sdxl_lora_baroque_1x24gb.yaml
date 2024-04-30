@@ -16,40 +16,52 @@ type: SDXL_LORA
 seed: 1
 base_output_dir: output/baroque/sdxl_lora
 
+# optimizer:
+#   optimizer_type: Prodigy
+#   learning_rate: 1.0
+#   weight_decay: 0.01
+#   use_bias_correction: True
+#   safeguard_warmup: True
+
 optimizer:
-  optimizer_type: Prodigy
-  learning_rate: 1.0
-  weight_decay: 0.01
-  use_bias_correction: True
-  safeguard_warmup: True
+  optimizer_type: AdamW
+  learning_rate: 1e-3
 
 data_loader:
   type: IMAGE_CAPTION_SD_DATA_LOADER
   dataset:
     type: IMAGE_CAPTION_JSONL_DATASET
     # Update the jsonl_path field to point to the metadata.jsonl file of the downloaded dataset.
-    jsonl_path: data/nga-baroque/metadata.jsonl
-  resolution: 1024
-  aspect_ratio_buckets:
-    target_resolution: 1024
-    start_dim: 512
-    end_dim: 1536
-    divisible_by: 128
+    # jsonl_path: /home/ubuntu/src/hf_hub/nga-baroque/metadata_half.jsonl
+    jsonl_path: /home/ubuntu/src/hf_hub/nga-baroque/metadata_half.jsonl
+    # jsonl_path: /src/hf_hub/nga-baroque/metadata_half.jsonl
+    # keep_in_memory: True
+  resolution: 768
+  # aspect_ratio_buckets:
+  #   target_resolution: 1024
+  #   start_dim: 512
+  #   end_dim: 1536
+  #   divisible_by: 128
   caption_prefix: "A baroque painting of"
-  dataloader_num_workers: 4
+  dataloader_num_workers: 0
 
 # General
 model: stabilityai/stable-diffusion-xl-base-1.0
 vae_model: madebyollin/sdxl-vae-fp16-fix
 gradient_accumulation_steps: 1
-mixed_precision: fp16
-gradient_checkpointing: True
+mixed_precision: bf16
+gradient_checkpointing: False
+
+train_text_encoder: False
+train_unet: True
+cache_vae_outputs: True
+cache_text_encoder_outputs: True
 
 max_train_epochs: 16
-save_every_n_epochs: 2
-validate_every_n_epochs: 2
+save_every_n_epochs: 1000
+validate_every_n_epochs: 100
 
-max_checkpoints: 5
+max_checkpoints: 0
 validation_prompts:
   - A baroque painting of a woman carrying a basket of fruit.
   - A baroque painting of a cute Yoda creature.
