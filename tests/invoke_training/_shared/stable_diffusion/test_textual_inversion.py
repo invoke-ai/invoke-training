@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import pytest
@@ -41,6 +42,7 @@ def test_initialize_placeholder_tokens_from_initializer_token():
         initializer_token=initializer_token,
         placeholder_token="dog_placeholder",
         num_vectors=num_vectors,
+        logger=logging.getLogger(),
     )
 
     assert len(placeholder_tokens) == num_vectors
