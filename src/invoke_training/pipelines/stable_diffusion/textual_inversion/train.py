@@ -13,7 +13,7 @@ from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer, PreTrainedTokenizer
 
 from invoke_training._shared.accelerator.accelerator_utils import (
-    get_mixed_precision_dtype,
+    get_dtype_from_str,
     initialize_accelerator,
     initialize_logging,
 )
@@ -161,7 +161,7 @@ def train(config: SdTextualInversionConfig, callbacks: list[PipelineCallbacks] |
     with open(os.path.join(out_dir, "config.json"), "w") as f:
         json.dump(config.dict(), f, indent=2, default=str)
 
-    weight_dtype = get_mixed_precision_dtype(accelerator)
+    weight_dtype = get_dtype_from_str(config.weight_dtype)
 
     logger.info("Loading models.")
     tokenizer, noise_scheduler, text_encoder, vae, unet = load_models_sd(

@@ -18,7 +18,7 @@ from tqdm.auto import tqdm
 from transformers import CLIPTextModel
 
 from invoke_training._shared.accelerator.accelerator_utils import (
-    get_mixed_precision_dtype,
+    get_dtype_from_str,
     initialize_accelerator,
     initialize_logging,
 )
@@ -149,7 +149,7 @@ def train(config: SdxlLoraAndTextualInversionConfig, callbacks: list[PipelineCal
     with open(os.path.join(out_dir, "config.json"), "w") as f:
         json.dump(config.dict(), f, indent=2, default=str)
 
-    weight_dtype = get_mixed_precision_dtype(accelerator)
+    weight_dtype = get_dtype_from_str(config.weight_dtype)
 
     logger.info("Loading models.")
     tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = load_models_sdxl(
@@ -249,11 +249,12 @@ def train(config: SdxlLoraAndTextualInversionConfig, callbacks: list[PipelineCal
             }
             trainable_param_groups.append(param_group)
 
-    # Make sure all trainable params are in float32.
-    for trainable_model in all_trainable_models:
-        for param in trainable_model.parameters():
-            if param.requires_grad:
-                param.data = param.to(torch.float32)
+    # If mixed_precision is enabled, cast all trainable params to float32.
+    if config.mixed_precision != "no":
+        for trainable_model in all_trainable_models:
+            for param in trainable_model.parameters():
+                if param.requires_grad:
+                    param.data = param.to(torch.float32)
 
     if config.gradient_checkpointing:
         # We want to enable gradient checkpointing in the UNet regardless of whether it is being trained.

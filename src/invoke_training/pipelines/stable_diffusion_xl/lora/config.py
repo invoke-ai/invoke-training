@@ -110,18 +110,24 @@ class SdxlLoraConfig(BasePipelineConfig):
     Accelerate. This is an alternative to increasing the batch size when training with limited VRAM.
     """
 
-    mixed_precision: Literal["no", "fp16", "bf16", "fp8"] = "no"
-    """The mixed precision mode to use.
-
-    If mixed precision is enabled, then all non-trainable parameters will be cast to the specified precision. The
-    trainable parameters are always kept in float32 precision to avoid issues with numerical stability.
+    weight_dtype: Literal["float32", "float16", "bfloat16"] = "bfloat16"
+    """All weights (trainable and fixed) will be cast to this precision. Lower precision dtypes require less VRAM, and
+    result in faster training, but are more prone to issues with numerical stability.
 
     Recommendations:
 
-    - `"no"`: Use this mode if you have plenty of VRAM available.
-    - `"bf16"`: Use this mode if you have limited VRAM and a GPU that supports bfloat16.
-    - `"fp16"`: Use this mode if you have limited VRAM and a GPU that does not support bfloat16.
-    - `"fp8"`: You are likely to run into numerical stability issues with this mode. Only use this mode if you know what you are doing and are willing to work through some issues.
+    - `"float32"`: Use this mode if you have plenty of VRAM available.
+    - `"bfloat16"`: Use this mode if you have limited VRAM and a GPU that supports bfloat16.
+    - `"float16"`: Use this mode if you have limited VRAM and a GPU that does not support bfloat16.
+
+    See also [`mixed_precision`][invoke_training.pipelines.stable_diffusion_xl.lora.config.SdxlLoraConfig.mixed_precision].
+    """  # noqa: E501
+
+    mixed_precision: Literal["no", "fp16", "bf16", "fp8"] = "no"
+    """The mixed precision mode to use.
+
+    If mixed precision is enabled, then all non-trainable parameters will be cast to the specified `weight_dtype`, and
+    trainable parameters are kept in float32 precision to avoid issues with numerical stability.
 
     This value is passed to Hugging Face Accelerate. See
     [`accelerate.Accelerator.mixed_precision`](https://huggingface.co/docs/accelerate/package_reference/accelerator#accelerate.Accelerator.mixed_precision)

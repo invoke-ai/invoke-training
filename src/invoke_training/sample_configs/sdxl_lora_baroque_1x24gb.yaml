@@ -42,6 +42,7 @@ data_loader:
 model: stabilityai/stable-diffusion-xl-base-1.0
 vae_model: madebyollin/sdxl-vae-fp16-fix
 gradient_accumulation_steps: 1
+weight_dtype: float16
 mixed_precision: fp16
 gradient_checkpointing: True
 

@@ -19,7 +19,7 @@ from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
 
 from invoke_training._shared.accelerator.accelerator_utils import (
-    get_mixed_precision_dtype,
+    get_dtype_from_str,
     initialize_accelerator,
     initialize_logging,
 )
@@ -225,7 +225,7 @@ def train(config: SdDirectPreferenceOptimizationLoraConfig, callbacks: list[Pipe
     with open(os.path.join(out_dir, "config.json"), "w") as f:
         json.dump(config.dict(), f, indent=2, default=str)
 
-    weight_dtype = get_mixed_precision_dtype(accelerator)
+    weight_dtype = get_dtype_from_str(config.weight_dtype)
 
     logger.info("Loading models.")
     tokenizer, noise_scheduler, text_encoder, vae, unet = load_models_sd(
@@ -352,11 +352,12 @@ def train(config: SdDirectPreferenceOptimizationLoraConfig, callbacks: list[Pipe
     training_unet = prep_peft_model(unet, config.unet_learning_rate)
     training_text_encoder = prep_peft_model(text_encoder, config.text_encoder_learning_rate)
 
-    # Make sure all trainable params are in float32.
-    for trainable_model in all_trainable_models:
-        for param in trainable_model.parameters():
-            if param.requires_grad:
-                param.data = param.to(torch.float32)
+    # If mixed_precision is enabled, cast all trainable params to float32.
+    if config.mixed_precision != "no":
+        for trainable_model in all_trainable_models:
+            for param in trainable_model.parameters():
+                if param.requires_grad:
+                    param.data = param.to(torch.float32)
 
     if config.gradient_checkpointing:
         # We want to enable gradient checkpointing in the UNet regardless of whether it is being trained.

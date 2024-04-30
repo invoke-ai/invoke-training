@@ -40,6 +40,7 @@ data_loader:
 # General
 model: runwayml/stable-diffusion-v1-5
 gradient_accumulation_steps: 1
+weight_dtype: float16
 mixed_precision: fp16
 gradient_checkpointing: True
 
