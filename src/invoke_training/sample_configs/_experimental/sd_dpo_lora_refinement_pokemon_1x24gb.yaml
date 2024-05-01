@@ -26,6 +26,7 @@ data_loader:
 model: runwayml/stable-diffusion-v1-5
 initial_lora: output/sd_lora_pokemon/1704824279.2765746/checkpoint_epoch-00000003
 gradient_accumulation_steps: 2
+weight_dtype: float16
 mixed_precision: fp16
 gradient_checkpointing: True
 max_train_steps: 5000

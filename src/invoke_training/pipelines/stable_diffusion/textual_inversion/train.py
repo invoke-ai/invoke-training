@@ -13,7 +13,7 @@ from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer, PreTrainedTokenizer
 
 from invoke_training._shared.accelerator.accelerator_utils import (
-    get_mixed_precision_dtype,
+    get_dtype_from_str,
     initialize_accelerator,
     initialize_logging,
 )
@@ -62,7 +62,7 @@ def _save_ti_embeddings(
         .get_input_embeddings()
         .weight[min(placeholder_token_ids) : max(placeholder_token_ids) + 1]
     )
-    learned_embeds_dict = {"emb_params": learned_embeds.detach().cpu()}
+    learned_embeds_dict = {"emb_params": learned_embeds.detach().cpu().to(torch.float32)}
 
     save_state_dict(learned_embeds_dict, save_path)
 
@@ -161,11 +161,11 @@ def train(config: SdTextualInversionConfig, callbacks: list[PipelineCallbacks] |
     with open(os.path.join(out_dir, "config.json"), "w") as f:
         json.dump(config.dict(), f, indent=2, default=str)
 
-    weight_dtype = get_mixed_precision_dtype(accelerator)
+    weight_dtype = get_dtype_from_str(config.weight_dtype)
 
     logger.info("Loading models.")
     tokenizer, noise_scheduler, text_encoder, vae, unet = load_models_sd(
-        model_name_or_path=config.model, hf_variant=config.hf_variant
+        model_name_or_path=config.model, hf_variant=config.hf_variant, dtype=weight_dtype
     )
 
     placeholder_tokens, placeholder_token_ids = _initialize_placeholder_tokens(
@@ -226,9 +226,8 @@ def train(config: SdTextualInversionConfig, callbacks: list[PipelineCallbacks] |
     else:
         vae.to(accelerator.device, dtype=weight_dtype)
 
-    # For mixed precision training, we cast all non-trainable weights (unet, vae) to half-precision as these weights are
-    # only used for inference, keeping weights in full precision is not required.
     unet.to(accelerator.device, dtype=weight_dtype)
+    text_encoder.to(accelerator.device, dtype=weight_dtype)
 
     # Initialize the optimizer to only optimize the token embeddings.
     optimizer = initialize_optimizer(config.optimizer, text_encoder.get_input_embeddings().parameters())

@@ -40,7 +40,7 @@ data_loader:
 # General
 model: runwayml/stable-diffusion-v1-5
 gradient_accumulation_steps: 1
-mixed_precision: fp16
+weight_dtype: bfloat16
 gradient_checkpointing: True
 
 max_train_epochs: 15

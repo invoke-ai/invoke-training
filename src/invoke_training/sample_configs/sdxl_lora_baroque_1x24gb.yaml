@@ -17,11 +17,8 @@ seed: 1
 base_output_dir: output/baroque/sdxl_lora
 
 optimizer:
-  optimizer_type: Prodigy
-  learning_rate: 1.0
-  weight_decay: 0.01
-  use_bias_correction: True
-  safeguard_warmup: True
+  optimizer_type: AdamW
+  learning_rate: 1e-3
 
 data_loader:
   type: IMAGE_CAPTION_SD_DATA_LOADER
@@ -36,14 +33,14 @@ data_loader:
     end_dim: 1536
     divisible_by: 128
   caption_prefix: "A baroque painting of"
-  dataloader_num_workers: 4
 
 # General
 model: stabilityai/stable-diffusion-xl-base-1.0
-vae_model: madebyollin/sdxl-vae-fp16-fix
+# vae_model: madebyollin/sdxl-vae-fp16-fix
 gradient_accumulation_steps: 1
-mixed_precision: fp16
+weight_dtype: bfloat16
 gradient_checkpointing: True
+cache_vae_outputs: True
 
 max_train_epochs: 16
 save_every_n_epochs: 2

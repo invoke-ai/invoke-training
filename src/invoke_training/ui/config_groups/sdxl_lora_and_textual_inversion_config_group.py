@@ -104,11 +104,12 @@ class SdxlLoraAndTextualInversionConfigGroup(UIConfigElement):
                     interactive=True,
                 )
             with gr.Row():
-                self.mixed_precision = gr.Dropdown(
-                    label="Mixed Precision",
-                    info="The mixed precision training mode to used. Using a lower precision can speed up training and "
-                    "reduce memory usage, with a minor quality hit.",
-                    choices=get_typing_literal_options(SdxlLoraAndTextualInversionConfig, "mixed_precision"),
+                self.weight_dtype = gr.Dropdown(
+                    label="Weight Type",
+                    info="The precision of the model weights. Lower precision can speed up training and reduce memory, "
+                    "with increased risk of numerical stability issues. 'bfloat16' is recommended for most use cases "
+                    "if your GPU supports it.",
+                    choices=get_typing_literal_options(SdxlLoraAndTextualInversionConfig, "weight_dtype"),
                     interactive=True,
                 )
             with gr.Row():
@@ -230,7 +231,7 @@ class SdxlLoraAndTextualInversionConfigGroup(UIConfigElement):
             self.cache_vae_outputs: config.cache_vae_outputs,
             self.enable_cpu_offload_during_validation: config.enable_cpu_offload_during_validation,
             self.gradient_accumulation_steps: config.gradient_accumulation_steps,
-            self.mixed_precision: config.mixed_precision,
+            self.weight_dtype: config.weight_dtype,
             self.gradient_checkpointing: config.gradient_checkpointing,
             self.lora_rank_dim: config.lora_rank_dim,
             self.min_snr_gamma: config.min_snr_gamma,
@@ -278,7 +279,7 @@ class SdxlLoraAndTextualInversionConfigGroup(UIConfigElement):
         new_config.cache_vae_outputs = ui_data.pop(self.cache_vae_outputs)
         new_config.enable_cpu_offload_during_validation = ui_data.pop(self.enable_cpu_offload_during_validation)
         new_config.gradient_accumulation_steps = ui_data.pop(self.gradient_accumulation_steps)
-        new_config.mixed_precision = ui_data.pop(self.mixed_precision)
+        new_config.weight_dtype = ui_data.pop(self.weight_dtype)
         new_config.gradient_checkpointing = ui_data.pop(self.gradient_checkpointing)
         new_config.lora_rank_dim = ui_data.pop(self.lora_rank_dim)
         new_config.min_snr_gamma = ui_data.pop(self.min_snr_gamma)
