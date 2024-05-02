@@ -1,328 +1,40 @@
 import itertools
 import json
-import logging
 import math
 import os
 import tempfile
 import time
-from pathlib import Path
-from typing import Literal, Optional, Union
 
 import peft
 import torch
 import torch.utils.data
-from accelerate import Accelerator
 from accelerate.utils import set_seed
-from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel
+from diffusers import UNet2DConditionModel
 from diffusers.optimization import get_scheduler
-from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
-from transformers import CLIPPreTrainedModel, CLIPTextModel, PreTrainedTokenizer
+from transformers import CLIPTextModel
 
 from invoke_training._shared.accelerator.accelerator_utils import (
     get_dtype_from_str,
     initialize_accelerator,
     initialize_logging,
 )
-from invoke_training._shared.checkpoints.checkpoint_tracker import CheckpointTracker
-from invoke_training._shared.data.data_loaders.dreambooth_sd_dataloader import build_dreambooth_sd_dataloader
-from invoke_training._shared.data.data_loaders.image_caption_sd_dataloader import build_image_caption_sd_dataloader
 from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import log_aspect_ratio_buckets
-from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
-from invoke_training._shared.data.utils.resolution import Resolution
 from invoke_training._shared.optimizer.optimizer_utils import initialize_optimizer
-from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
-    TEXT_ENCODER_TARGET_MODULES,
-    UNET_TARGET_MODULES,
-    save_sdxl_kohya_checkpoint,
-    save_sdxl_peft_checkpoint,
-)
-from invoke_training._shared.stable_diffusion.min_snr_weighting import compute_snr
 from invoke_training._shared.stable_diffusion.model_loading_utils import load_models_sdxl
-from invoke_training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sdxl
 from invoke_training._shared.utils.import_xformers import import_xformers
-from invoke_training.config.data.data_loader_config import DreamboothSDDataLoaderConfig, ImageCaptionSDDataLoaderConfig
-from invoke_training.pipelines.callbacks import ModelCheckpoint, ModelType, PipelineCallbacks, TrainingCheckpoint
+from invoke_training.pipelines.callbacks import PipelineCallbacks
 from invoke_training.pipelines.stable_diffusion.lora.train import cache_vae_outputs
-from invoke_training.pipelines.stable_diffusion_xl.lora.config import SdxlLoraConfig
+from invoke_training.pipelines.stable_diffusion_xl.finetune.config import SdxlFinetuneConfig
+from invoke_training.pipelines.stable_diffusion_xl.lora.train import (
+    _build_data_loader,
+    cache_text_encoder_outputs,
+    train_forward,
+)
 
 
-def _save_sdxl_lora_checkpoint(
-    epoch: int,
-    step: int,
-    unet: peft.PeftModel | None,
-    text_encoder_1: peft.PeftModel | None,
-    text_encoder_2: peft.PeftModel | None,
-    logger: logging.Logger,
-    checkpoint_tracker: CheckpointTracker,
-    lora_checkpoint_format: Literal["invoke_peft", "kohya"],
-    callbacks: list[PipelineCallbacks] | None,
-):
-    # Prune checkpoints and get new checkpoint path.
-    num_pruned = checkpoint_tracker.prune(1)
-    if num_pruned > 0:
-        logger.info(f"Pruned {num_pruned} checkpoint(s).")
-    save_path = checkpoint_tracker.get_path(epoch=epoch, step=step)
-
-    if lora_checkpoint_format == "invoke_peft":
-        model_type = ModelType.SD1_LORA_PEFT
-        save_sdxl_peft_checkpoint(
-            Path(save_path), unet=unet, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2
-        )
-    elif lora_checkpoint_format == "kohya":
-        model_type = ModelType.SD1_LORA_KOHYA
-        save_sdxl_kohya_checkpoint(
-            Path(save_path), unet=unet, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2
-        )
-    else:
-        raise ValueError(f"Unsupported lora_checkpoint_format: '{lora_checkpoint_format}'.")
-
-    if callbacks is not None:
-        for cb in callbacks:
-            cb.on_save_checkpoint(
-                TrainingCheckpoint(
-                    models=[ModelCheckpoint(file_path=save_path, model_type=model_type)], epoch=epoch, step=step
-                )
-            )
-
-
-def _build_data_loader(
-    data_loader_config: Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig],
-    batch_size: int,
-    text_encoder_output_cache_dir: Optional[str] = None,
-    vae_output_cache_dir: Optional[str] = None,
-    shuffle: bool = True,
-    sequential_batching: bool = False,
-) -> DataLoader:
-    if data_loader_config.type == "IMAGE_CAPTION_SD_DATA_LOADER":
-        return build_image_caption_sd_dataloader(
-            config=data_loader_config,
-            batch_size=batch_size,
-            text_encoder_output_cache_dir=text_encoder_output_cache_dir,
-            text_encoder_cache_field_to_output_field={
-                "prompt_embeds": "prompt_embeds",
-                "pooled_prompt_embeds": "pooled_prompt_embeds",
-            },
-            vae_output_cache_dir=vae_output_cache_dir,
-            shuffle=shuffle,
-        )
-    elif data_loader_config.type == "DREAMBOOTH_SD_DATA_LOADER":
-        return build_dreambooth_sd_dataloader(
-            config=data_loader_config,
-            batch_size=batch_size,
-            text_encoder_output_cache_dir=text_encoder_output_cache_dir,
-            text_encoder_cache_field_to_output_field={
-                "prompt_embeds": "prompt_embeds",
-                "pooled_prompt_embeds": "pooled_prompt_embeds",
-            },
-            vae_output_cache_dir=vae_output_cache_dir,
-            shuffle=shuffle,
-            sequential_batching=sequential_batching,
-        )
-    else:
-        raise ValueError(f"Unsupported data loader config type: '{data_loader_config.type}'.")
-
-
-# encode_prompt was adapted from:
-# https://github.com/huggingface/diffusers/blob/7b07f9812a58bfa96c06ed8ffe9e6b584286e2fd/examples/text_to_image/train_text_to_image_lora_sdxl.py#L470-L496
-def _encode_prompt(text_encoders: list[CLIPPreTrainedModel], prompt_token_ids_list: list[torch.Tensor]):
-    prompt_embeds_list = []
-
-    for i, text_encoder in enumerate(text_encoders):
-        text_input_ids = prompt_token_ids_list[i]
-
-        prompt_embeds = text_encoder(
-            text_input_ids.to(text_encoder.device),
-            output_hidden_states=True,
-        )
-
-        # We are only ALWAYS interested in the pooled output of the final text encoder.
-        # TODO(ryand): Document this logic more clearly.
-        pooled_prompt_embeds = prompt_embeds[0]
-        prompt_embeds = prompt_embeds.hidden_states[-2]
-        bs_embed, seq_len, _ = prompt_embeds.shape
-        prompt_embeds = prompt_embeds.view(bs_embed, seq_len, -1)
-        prompt_embeds_list.append(prompt_embeds)
-
-    prompt_embeds = torch.concat(prompt_embeds_list, dim=-1)
-    pooled_prompt_embeds = pooled_prompt_embeds.view(bs_embed, -1)
-    return prompt_embeds, pooled_prompt_embeds
-
-
-# TODO(ryand): Cache VAE outputs and text encoder outputs at the same time in a single pass over the dataset.
-
-
-def cache_text_encoder_outputs(
-    cache_dir: str,
-    config: SdxlLoraConfig,
-    tokenizer_1: PreTrainedTokenizer,
-    tokenizer_2: PreTrainedTokenizer,
-    text_encoder_1: CLIPPreTrainedModel,
-    text_encoder_2: CLIPPreTrainedModel,
-):
-    """Run the text encoder on all captions in the dataset and cache the results to disk.
-    Args:
-        cache_dir (str): The directory where the results will be cached.
-        config (FinetuneLoRAConfig): Training config.
-        tokenizer_1 (PreTrainedTokenizer):
-        tokenizer_2 (PreTrainedTokenizer):
-        text_encoder_1 (CLIPPreTrainedModel):
-        text_encoder_2 (CLIPPreTrainedModel):
-    """
-    data_loader = _build_data_loader(
-        data_loader_config=config.data_loader,
-        batch_size=config.train_batch_size,
-        shuffle=False,
-        sequential_batching=True,
-    )
-
-    cache = TensorDiskCache(cache_dir)
-
-    for data_batch in tqdm(data_loader):
-        caption_token_ids_1 = tokenize_captions(tokenizer_1, data_batch["caption"])
-        caption_token_ids_2 = tokenize_captions(tokenizer_2, data_batch["caption"])
-        prompt_embeds, pooled_prompt_embeds = _encode_prompt(
-            [text_encoder_1, text_encoder_2], [caption_token_ids_1, caption_token_ids_2]
-        )
-
-        # Split batch before caching.
-        for i in range(len(data_batch["id"])):
-            embeds = {
-                "prompt_embeds": prompt_embeds[i],
-                "pooled_prompt_embeds": pooled_prompt_embeds[i],
-            }
-            cache.save(data_batch["id"][i], embeds)
-
-
-def train_forward(  # noqa: C901
-    accelerator: Accelerator,
-    data_batch: dict,
-    vae: AutoencoderKL,
-    noise_scheduler: DDPMScheduler,
-    tokenizer_1: PreTrainedTokenizer,
-    tokenizer_2: PreTrainedTokenizer,
-    text_encoder_1: CLIPPreTrainedModel,
-    text_encoder_2: CLIPPreTrainedModel,
-    unet: UNet2DConditionModel,
-    weight_dtype: torch.dtype,
-    resolution: int | tuple[int, int],
-    prediction_type=None,
-    min_snr_gamma: float | None = None,
-):
-    """Run the forward training pass for a single data_batch.
-
-    Returns:
-        torch.Tensor: Loss
-    """
-    # Convert images to latent space.
-    # The VAE output may have been cached and included in the data_batch. If not, we calculate it here.
-    latents = data_batch.get("vae_output", None)
-    if latents is None:
-        latents = vae.encode(data_batch["image"].to(dtype=weight_dtype)).latent_dist.sample()
-        latents = latents * vae.config.scaling_factor
-
-    # Sample noise that we'll add to the latents.
-    noise = torch.randn_like(latents)
-
-    batch_size = latents.shape[0]
-    # Sample a random timestep for each image.
-    timesteps = torch.randint(
-        0,
-        noise_scheduler.config.num_train_timesteps,
-        (batch_size,),
-        device=latents.device,
-    )
-    timesteps = timesteps.long()
-
-    # Add noise to the latents according to the noise magnitude at each timestep (this is the forward diffusion
-    # process).
-    noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
-
-    # compute_time_ids was copied from:
-    # https://github.com/huggingface/diffusers/blob/7b07f9812a58bfa96c06ed8ffe9e6b584286e2fd/examples/text_to_image/train_text_to_image_lora_sdxl.py#L1033-L1039
-    # "time_ids" may seem like a weird naming choice. The name comes from the diffusers SDXL implementation. Presumably,
-    # it is a result of the fact that the original size and crop values get concatenated with the time embeddings.
-    def compute_time_ids(original_size, crops_coords_top_left):
-        # Adapted from pipeline.StableDiffusionXLPipeline._get_add_time_ids
-        target_size = Resolution.parse(resolution).to_tuple()
-        add_time_ids = list(original_size + crops_coords_top_left + target_size)
-        add_time_ids = torch.tensor([add_time_ids])
-        add_time_ids = add_time_ids.to(accelerator.device, dtype=weight_dtype)
-        return add_time_ids
-
-    add_time_ids = torch.cat(
-        [compute_time_ids(s, c) for s, c in zip(data_batch["original_size_hw"], data_batch["crop_top_left_yx"])]
-    )
-    unet_conditions = {"time_ids": add_time_ids}
-
-    # Get the text embedding for conditioning.
-    # The text encoder output may have been cached and included in the data_batch. If not, we calculate it here.
-    if "prompt_embeds" in data_batch:
-        prompt_embeds = data_batch["prompt_embeds"]
-        pooled_prompt_embeds = data_batch["pooled_prompt_embeds"]
-    else:
-        caption_token_ids_1 = tokenize_captions(tokenizer_1, data_batch["caption"])
-        caption_token_ids_2 = tokenize_captions(tokenizer_2, data_batch["caption"])
-        prompt_embeds, pooled_prompt_embeds = _encode_prompt(
-            [text_encoder_1, text_encoder_2], [caption_token_ids_1, caption_token_ids_2]
-        )
-        prompt_embeds = prompt_embeds.to(dtype=weight_dtype)
-        pooled_prompt_embeds = pooled_prompt_embeds.to(dtype=weight_dtype)
-
-    unet_conditions["text_embeds"] = pooled_prompt_embeds
-
-    # Get the target for loss depending on the prediction type.
-    if prediction_type is not None:
-        # Set the prediction_type of scheduler if it's defined in config.
-        noise_scheduler.register_to_config(prediction_type=prediction_type)
-    if noise_scheduler.config.prediction_type == "epsilon":
-        target = noise
-    elif noise_scheduler.config.prediction_type == "v_prediction":
-        target = noise_scheduler.get_velocity(latents, noise, timesteps)
-    else:
-        raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
-
-    # Predict the noise residual.
-    model_pred = unet(noisy_latents, timesteps, prompt_embeds, added_cond_kwargs=unet_conditions).sample
-
-    min_snr_weights = None
-    if min_snr_gamma is not None:
-        # Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.
-        # Since we predict the noise instead of x_0, the original formulation is slightly changed.
-        # This is discussed in Section 4.2 of the same paper.
-
-        snr = compute_snr(noise_scheduler, timesteps)
-
-        # Note: We divide by snr here per Section 4.2 of the paper, since we are predicting the noise instead of x_0.
-        # w_t = min(1, SNR(t)) / SNR(t)
-        min_snr_weights = torch.clamp(snr, max=min_snr_gamma) / snr
-
-        if noise_scheduler.config.prediction_type == "epsilon":
-            pass
-        elif noise_scheduler.config.prediction_type == "v_prediction":
-            # Velocity objective needs to be floored to an SNR weight of one.
-            min_snr_weights = min_snr_weights + 1
-        else:
-            raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
-
-    loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="none")
-
-    # Mean-reduce the loss along all dimensions except for the batch dimension.
-    loss = loss.mean(dim=list(range(1, len(loss.shape))))
-
-    # Apply min_snr_weights.
-    if min_snr_weights is not None:
-        loss = loss * min_snr_weights
-
-    # Apply per-example loss weights.
-    if "loss_weight" in data_batch:
-        loss = loss * data_batch["loss_weight"]
-
-    return loss.mean()
-
-
-def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = None):  # noqa: C901
+def train(config: SdxlFinetuneConfig, callbacks: list[PipelineCallbacks] | None = None):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     # TODO(ryan): Update this check to work with single-file SD checkpoints.
     # check_base_model_version(
@@ -363,7 +75,7 @@ def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = No
         model_name_or_path=config.model,
         hf_variant=config.hf_variant,
         vae_model=config.vae_model,
-        base_embeddings=config.base_embeddings,
+        base_embeddings=None,
         dtype=weight_dtype,
     )
 
@@ -382,9 +94,6 @@ def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = No
         # are a number of configurations that would cause variation in the text encoder outputs and should not be used
         # with caching.
 
-        if config.train_text_encoder:
-            raise ValueError("'cache_text_encoder_outputs' and 'train_text_encoder' cannot both be True.")
-
         # We use a temporary directory for the cache. The directory will automatically be cleaned up when
         # tmp_text_encoder_output_cache_dir is destroyed.
         tmp_text_encoder_output_cache_dir = tempfile.TemporaryDirectory()
@@ -394,6 +103,8 @@ def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = No
             logger.info(f"Generating text encoder output cache ('{text_encoder_output_cache_dir_name}').")
             text_encoder_1.to(accelerator.device, dtype=weight_dtype)
             text_encoder_2.to(accelerator.device, dtype=weight_dtype)
+            # TODO(ryan): Move cache_text_encoder_outputs to a shared location so that it is not imported from another
+            # pipeline.
             cache_text_encoder_outputs(
                 text_encoder_output_cache_dir_name, config, tokenizer_1, tokenizer_2, text_encoder_1, text_encoder_2
             )
@@ -421,6 +132,8 @@ def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = No
             # Only the main process should to populate the cache.
             logger.info(f"Generating VAE output cache ('{vae_output_cache_dir_name}').")
             vae.to(accelerator.device, dtype=weight_dtype)
+            # TODO(ryan): Move cache_text_encoder_outputs to a shared location so that it is not imported from another
+            # pipeline.
             data_loader = _build_data_loader(
                 data_loader_config=config.data_loader,
                 batch_size=config.train_batch_size,
@@ -436,49 +149,10 @@ def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = No
 
     unet.to(accelerator.device, dtype=weight_dtype)
 
-    # Add LoRA layers to the models being trained.
-    trainable_param_groups = []
-    all_trainable_models: list[peft.PeftModel] = []
-
-    def inject_lora_layers(model, lora_config: peft.LoraConfig, lr: float | None = None) -> peft.PeftModel:
-        peft_model = peft.get_peft_model(model, lora_config)
-        peft_model.print_trainable_parameters()
-
-        # Populate `trainable_param_groups`, to be passed to the optimizer.
-        param_group = {"params": list(filter(lambda p: p.requires_grad, peft_model.parameters()))}
-        if lr is not None:
-            param_group["lr"] = lr
-        trainable_param_groups.append(param_group)
-
-        # Populate all_trainable_models.
-        all_trainable_models.append(peft_model)
-
-        peft_model.train()
-
-        return peft_model
-
-    if config.train_unet:
-        unet_lora_config = peft.LoraConfig(
-            r=config.lora_rank_dim,
-            # TODO(ryand): Diffusers uses lora_alpha=config.lora_rank_dim. Is that preferred?
-            lora_alpha=1.0,
-            target_modules=UNET_TARGET_MODULES,
-        )
-        unet = inject_lora_layers(unet, unet_lora_config, lr=config.unet_learning_rate)
-
-    if config.train_text_encoder:
-        text_encoder_lora_config = peft.LoraConfig(
-            r=config.lora_rank_dim,
-            lora_alpha=1.0,
-            # init_lora_weights="gaussian",
-            target_modules=TEXT_ENCODER_TARGET_MODULES,
-        )
-        text_encoder_1 = inject_lora_layers(
-            text_encoder_1, text_encoder_lora_config, lr=config.text_encoder_learning_rate
-        )
-        text_encoder_2 = inject_lora_layers(
-            text_encoder_2, text_encoder_lora_config, lr=config.text_encoder_learning_rate
-        )
+    # Make UNet trainable.
+    unet.requires_grad_(True)
+    unet.train()
+    all_trainable_models = [unet]
 
     # If mixed_precision is enabled, cast all trainable params to float32.
     if config.mixed_precision != "no":
@@ -494,23 +168,8 @@ def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = No
         # At the time of writing, the unet dropout probabilities default to 0, so putting the unet in train mode does
         # not change its forward behavior.
         unet.train()
-        if config.train_text_encoder:
-            for te in [text_encoder_1, text_encoder_2]:
-                te.gradient_checkpointing_enable()
 
-                # The text encoders must be in train() mode for gradient checkpointing to take effect. This should
-                # already be the case, since we are training the text_encoders, be we do it explicitly to make it clear
-                # that this is required.
-                # At the time of writing, the text encoder dropout probabilities default to 0, so putting the text
-                # encoders in train mode does not change their forward behavior.
-                te.train()
-
-                # Set requires_grad = True on the first parameters of the text encoders. Without this, the text encoder
-                # LoRA weights would have 0 gradients, and so would not get trained. Note that the set of
-                # trainable_param_groups has already been populated - the embeddings will not be trained.
-                te.text_model.embeddings.requires_grad_(True)
-
-    optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
+    optimizer = initialize_optimizer(config.optimizer, unet.parameters())
 
     data_loader = _build_data_loader(
         data_loader_config=config.data_loader,
@@ -575,12 +234,13 @@ def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = No
         # Tensorboard uses markdown formatting, so we wrap the config json in a code block.
         accelerator.log({"configuration": f"```json\n{json.dumps(config.dict(), indent=2, default=str)}\n```\n"})
 
-    checkpoint_tracker = CheckpointTracker(
-        base_dir=ckpt_dir,
-        prefix="checkpoint",
-        max_checkpoints=config.max_checkpoints,
-        extension=".safetensors" if config.lora_checkpoint_format == "kohya" else None,
-    )
+    # checkpoint_tracker = CheckpointTracker(
+    #     base_dir=ckpt_dir,
+    #     prefix="checkpoint",
+    #     max_checkpoints=config.max_checkpoints,
+    #     # TODO(ryand): Revisit this extension when we add checkpointing.
+    #     extension=".safetensors",
+    # )
 
     # Train!
     total_batch_size = config.train_batch_size * accelerator.num_processes * config.gradient_accumulation_steps
@@ -607,17 +267,7 @@ def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = No
     def save_checkpoint(num_completed_epochs: int, num_completed_steps: int):
         accelerator.wait_for_everyone()
         if accelerator.is_main_process:
-            _save_sdxl_lora_checkpoint(
-                epoch=num_completed_epochs,
-                step=num_completed_steps,
-                unet=unet if config.train_unet else None,
-                text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
-                text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
-                logger=logger,
-                checkpoint_tracker=checkpoint_tracker,
-                lora_checkpoint_format=config.lora_checkpoint_format,
-                callbacks=callbacks,
-            )
+            logger.info("TODO: Save checkpoint.")
         accelerator.wait_for_everyone()
 
     def validate(num_completed_epochs: int, num_completed_steps: int):

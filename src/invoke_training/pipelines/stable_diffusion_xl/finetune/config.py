@@ -59,6 +59,11 @@ class SdxlFinetuneConfig(BasePipelineConfig):
     images. This reduces VRAM requirements at the cost of slower generation of validation images.
     """
 
+    gradient_accumulation_steps: int = 1
+    """The number of gradient steps to accumulate before each weight update. This value is passed to Hugging Face
+    Accelerate. This is an alternative to increasing the batch size when training with limited VRAM.
+    """
+
     weight_dtype: Literal["float32", "float16", "bfloat16"] = "bfloat16"
     """All weights (trainable and fixed) will be cast to this precision. Lower precision dtypes require less VRAM, and
     result in faster training, but are more prone to issues with numerical stability.
@@ -71,6 +76,21 @@ class SdxlFinetuneConfig(BasePipelineConfig):
 
     See also [`mixed_precision`][invoke_training.pipelines.stable_diffusion_xl.lora.config.SdxlLoraConfig.mixed_precision].
     """  # noqa: E501
+
+    mixed_precision: Literal["no", "fp16", "bf16", "fp8"] = "no"
+    """The mixed precision mode to use.
+
+    If mixed precision is enabled, then all non-trainable parameters will be cast to the specified `weight_dtype`, and
+    trainable parameters are kept in float32 precision to avoid issues with numerical stability.
+
+    This value is passed to Hugging Face Accelerate. See
+    [`accelerate.Accelerator.mixed_precision`](https://huggingface.co/docs/accelerate/package_reference/accelerator#accelerate.Accelerator.mixed_precision)
+    for more details.
+    """  # noqa: E501
+
+    xformers: bool = False
+    """If true, use xformers for more efficient attention blocks.
+    """
 
     gradient_checkpointing: bool = False
     """Whether or not to use gradient checkpointing to save memory at the expense of a slower backward pass. Enabling
