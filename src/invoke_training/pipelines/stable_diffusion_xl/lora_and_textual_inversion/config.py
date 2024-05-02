@@ -10,9 +10,9 @@ from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfi
 class SdxlLoraAndTextualInversionConfig(BasePipelineConfig):
     type: Literal["SDXL_LORA_AND_TEXTUAL_INVERSION"] = "SDXL_LORA_AND_TEXTUAL_INVERSION"
 
-    model: str = "runwayml/stable-diffusion-v1-5"
+    model: str = "stabilityai/stable-diffusion-xl-base-1.0"
     """Name or path of the base model to train. Can be in diffusers format, or a single stable diffusion checkpoint
-    file. (E.g. 'runwayml/stable-diffusion-v1-5', '/path/to/realisticVisionV51_v51VAE.safetensors', etc. )
+    file. (E.g. 'stabilityai/stable-diffusion-xl-base-1.0', '/path/to/JuggernautXL.safetensors', etc. )
     """
 
     hf_variant: str | None = "fp16"
