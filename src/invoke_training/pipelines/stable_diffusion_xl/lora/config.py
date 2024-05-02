@@ -53,6 +53,33 @@ class SdxlLoraConfig(BasePipelineConfig):
 
     optimizer: AdamOptimizerConfig | ProdigyOptimizerConfig = AdamOptimizerConfig()
 
+    loss_reduction: Literal["mean", "sum", "target_batch_size_normalization"] = "mean"
+    """The reduction method to apply over the batch dimension when calculating the loss.
+
+    Descriptions:
+    - `"mean"`: Take the mean of the loss over the batch dimension.
+    - `"sum"`: Sum the loss over the batch dimension.
+    - `"target_batch_size_normalization"`: Calculate the sum over the batch dimension, then normalize by the *target*
+      batch size. For most batches, this is equivalent to 'mean' reduction. However, if the actual batch size is less
+      than the target batch size this mode behaves differently.
+
+    In selecting a loss_reduction method, consider the following:
+    - Unbalanced batch sizes: Batch sizes can be unbalanced if the dataset (or aspect ratio buckets) are not evenly
+      divisible by the batch size. In this case, `sum` or `target_batch_size_normalization` reduction may be more
+      appropriate. `mean` reduction will normalize the loss by the batch size, which results in overweighting of samples
+      in smaller batches. Conversely, `sum` and `target_batch_size_normalization` reduction will assign equal weight to
+      all samples.
+    - Loss reporting: `mean` reduction produces loss values that are directly comparable between batches of different
+      sizes. `sum` and `target_batch_size_normalization` produce loss values that are batch-size-dependent.
+    - Tuning: If the batch size is changed, the corresponding adjustment to learning rate and training run length will
+      be different depending on the loss reduction method. If `mean` or `target_batch_size_normalization` reduction are
+      used, the magnitude of the per-step gradient updates will not change with batch size. If `sum` reduction is used,
+      the magnitude of the gradient updates will increase with batch size.
+
+    **WARNING: Gradient accumulation does not currently adhere to the `loss_reduction` setting. If you are not using
+    `loss_reduction="mean"` or have unbalanced batch sizes, it is recommended to set `gradient_accumulation_steps=1`**
+    """
+
     text_encoder_learning_rate: float | None = None
     """The learning rate to use for the text encoder model. If set, this overrides the optimizer's default learning
     rate.
