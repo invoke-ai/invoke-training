@@ -5,13 +5,14 @@ base_output_dir: output/baroque/sdxl_finetune
 optimizer:
   optimizer_type: AdamW
   learning_rate: 1e-3
+  use_8bit: True
 
 data_loader:
   type: IMAGE_CAPTION_SD_DATA_LOADER
   dataset:
     type: IMAGE_CAPTION_JSONL_DATASET
     # Update the jsonl_path field to point to the metadata.jsonl file of the downloaded dataset.
-    jsonl_path: /home/ubuntu/src/hf_hub/nga-baroque/metadata.jsonl
+    jsonl_path: data/nga-baroque/metadata.jsonl
   resolution: 1024
   aspect_ratio_buckets:
     target_resolution: 1024

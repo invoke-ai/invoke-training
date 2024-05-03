@@ -17,6 +17,11 @@ class AdamOptimizerConfig(ConfigBaseModel):
     weight_decay: float = 1e-2
     epsilon: float = 1e-8
 
+    use_8bit: bool = False
+    """Use an 8-bit version of the Adam optimizer. This requires the bitsandbytes library to be installed. use_8bit
+    reduces the VRAM usage of the optimizer, but increases the risk of issues with numerical stability.
+    """
+
 
 class ProdigyOptimizerConfig(ConfigBaseModel):
     optimizer_type: typing.Literal["Prodigy"] = "Prodigy"
