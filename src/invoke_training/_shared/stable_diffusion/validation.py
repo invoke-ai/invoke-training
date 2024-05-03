@@ -76,7 +76,7 @@ def generate_validation_images_sd(  # noqa: C901
             negative_prompt = None
             if config.negative_validation_prompts is not None:
                 negative_prompt = config.negative_validation_prompts[prompt_idx]
-            logger.info(f"Validation prompt {prompt_idx}, pos: '{positive_prompt}', neg: '{negative_prompt}'")
+            logger.info(f"Validation prompt {prompt_idx}, pos: '{positive_prompt}', neg: '{negative_prompt or ''}'")
 
             generator = torch.Generator(device=accelerator.device)
             if config.seed is not None:
@@ -193,7 +193,7 @@ def generate_validation_images_sdxl(  # noqa: C901
             negative_prompt = None
             if config.negative_validation_prompts is not None:
                 negative_prompt = config.negative_validation_prompts[prompt_idx]
-            logger.info(f"Validation prompt {prompt_idx}, pos: '{positive_prompt}', neg: '{negative_prompt}'")
+            logger.info(f"Validation prompt {prompt_idx}, pos: '{positive_prompt}', neg: '{negative_prompt or ''}'")
 
             generator = torch.Generator(device=accelerator.device)
             if config.seed is not None:
