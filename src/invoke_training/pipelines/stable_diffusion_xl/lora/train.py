@@ -30,6 +30,7 @@ from invoke_training._shared.data.data_loaders.image_caption_sd_dataloader impor
 from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import log_aspect_ratio_buckets
 from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training._shared.data.utils.resolution import Resolution
+from invoke_training._shared.optimizer.loss_utils import reduce_loss
 from invoke_training._shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
     TEXT_ENCODER_TARGET_MODULES,
@@ -209,6 +210,7 @@ def train_forward(  # noqa: C901
     resolution: int | tuple[int, int],
     prediction_type=None,
     min_snr_gamma: float | None = None,
+    reduction_mode: Literal["mean", "sum"] = "mean",
 ):
     """Run the forward training pass for a single data_batch.
 
@@ -319,7 +321,7 @@ def train_forward(  # noqa: C901
     if "loss_weight" in data_batch:
         loss = loss * data_batch["loss_weight"]
 
-    return loss.mean()
+    return reduce_loss(loss, reduction_mode=reduction_mode)
 
 
 def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = None):  # noqa: C901
@@ -659,6 +661,7 @@ def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = No
                     resolution=config.data_loader.resolution,
                     prediction_type=config.prediction_type,
                     min_snr_gamma=config.min_snr_gamma,
+                    reduction_mode=config.loss_reduction,
                 )
 
                 # Gather the losses across all processes for logging (if we use distributed training).

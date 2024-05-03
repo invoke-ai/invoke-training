@@ -56,6 +56,12 @@ class SdxlLoraConfig(BasePipelineConfig):
     loss_reduction: Literal["mean", "sum", "target_batch_size_normalization"] = "mean"
     """The reduction method to apply over the batch dimension when calculating the loss.
 
+    TODO(ryand): Instead may want to have 2 configs:
+    - loss_reduction: Literal["mean", "sum"]
+    - normalize_lr_by_batch_size: bool
+    Setting loss_reduction="sum" and normalize_lr_by_batch_size=True would be equivalent to
+    "target_batch_size_normalization".
+
     Descriptions:
     - `"mean"`: Take the mean of the loss over the batch dimension.
     - `"sum"`: Sum the loss over the batch dimension.
