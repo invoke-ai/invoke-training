@@ -4,8 +4,12 @@ base_output_dir: output/baroque/sdxl_finetune
 
 optimizer:
   optimizer_type: AdamW
-  learning_rate: 1e-3
+  learning_rate: 1e-4
+  weight_decay: 1e-3
   use_8bit: True
+
+lr_scheduler: constant_with_warmup
+lr_warmup_steps: 200
 
 data_loader:
   type: IMAGE_CAPTION_SD_DATA_LOADER
@@ -19,7 +23,7 @@ data_loader:
     start_dim: 512
     end_dim: 1536
     divisible_by: 128
-  caption_prefix: "A baroque painting of"
+  caption_prefix: "A b4r0que painting of"
 
 # General
 model: stabilityai/stable-diffusion-xl-base-1.0
@@ -30,13 +34,15 @@ gradient_checkpointing: True
 cache_vae_outputs: True
 cache_text_encoder_outputs: True
 
-max_train_epochs: 16
+max_train_epochs: 24
+# Currently, we set save_every_n_epochs to a large value so that we don't save any checkpoints. They take up lots of
+# disk space, so this config is just intended for viewing the validation images.
 save_every_n_epochs: 100
 validate_every_n_epochs: 2
 
 max_checkpoints: 0
 validation_prompts:
-  - A baroque painting of a woman carrying a basket of fruit.
-  - A baroque painting of a cute Yoda creature.
-train_batch_size: 1
+  - A b4r0que painting of a woman carrying a basket of fruit.
+  - A b4r0que painting of a cute Yoda creature.
+train_batch_size: 4
 num_validation_images_per_prompt: 3
