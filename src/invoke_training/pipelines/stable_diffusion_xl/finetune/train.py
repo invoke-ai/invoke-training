@@ -333,16 +333,10 @@ def train(config: SdxlFinetuneConfig, callbacks: list[PipelineCallbacks] | None 
                 log = {"train_loss": train_loss}
 
                 lrs = lr_scheduler.get_last_lr()
-                if config.train_unet:
-                    # When training the UNet, it will always be the first parameter group.
-                    log["lr/unet"] = float(lrs[0])
-                    if config.optimizer.optimizer_type == "Prodigy":
-                        log["lr/d*lr/unet"] = optimizer.param_groups[0]["d"] * optimizer.param_groups[0]["lr"]
-                if config.train_text_encoder:
-                    # When training the text encoder, it will always be the last parameter group.
-                    log["lr/text_encoder"] = float(lrs[-1])
-                    if config.optimizer.optimizer_type == "Prodigy":
-                        log["lr/d*lr/text_encoder"] = optimizer.param_groups[-1]["d"] * optimizer.param_groups[-1]["lr"]
+                # When training the UNet, it will always be the first parameter group.
+                log["lr/unet"] = float(lrs[0])
+                if config.optimizer.optimizer_type == "Prodigy":
+                    log["lr/d*lr/unet"] = optimizer.param_groups[0]["d"] * optimizer.param_groups[0]["lr"]
 
                 accelerator.log(log, step=global_step)
                 train_loss = 0.0
