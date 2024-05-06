@@ -230,7 +230,7 @@ def train(config: SdxlFinetuneConfig, callbacks: list[PipelineCallbacks] | None 
     unet, text_encoder_1, text_encoder_2, optimizer, data_loader, lr_scheduler = prepared_result
 
     if accelerator.is_main_process:
-        accelerator.init_trackers("lora_training")
+        accelerator.init_trackers("finetune")
         # Tensorboard uses markdown formatting, so we wrap the config json in a code block.
         accelerator.log({"configuration": f"```json\n{json.dumps(config.dict(), indent=2, default=str)}\n```\n"})
 
