@@ -21,6 +21,11 @@ class ModelType(Enum):
     # A Stable Diffusion XL Textual Inversion model.
     SDXL_TEXTUAL_INVERSION = "SDXL_TEXTUAL_INVERSION"
 
+    # A Stable Diffusion 1.x UNet checkpoint in diffusers format.
+    SD1_UNET_DIFFUSERS = "SD1_UNET_DIFFUSERS"
+    # A Stable Diffusion XL UNet checkpoint in diffusers format.
+    SDXL_UNET_DIFFUSERS = "SDXL_UNET_DIFFUSERS"
+
 
 class ModelCheckpoint:
     """A single model checkpoint."""

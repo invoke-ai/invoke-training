@@ -1,5 +1,6 @@
 import itertools
 import json
+import logging
 import math
 import os
 import tempfile
@@ -19,12 +20,13 @@ from invoke_training._shared.accelerator.accelerator_utils import (
     initialize_accelerator,
     initialize_logging,
 )
+from invoke_training._shared.checkpoints.checkpoint_tracker import CheckpointTracker
 from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import log_aspect_ratio_buckets
 from invoke_training._shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training._shared.stable_diffusion.model_loading_utils import load_models_sdxl
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sdxl
 from invoke_training._shared.utils.import_xformers import import_xformers
-from invoke_training.pipelines.callbacks import PipelineCallbacks
+from invoke_training.pipelines.callbacks import ModelCheckpoint, ModelType, PipelineCallbacks, TrainingCheckpoint
 from invoke_training.pipelines.stable_diffusion.lora.train import cache_vae_outputs
 from invoke_training.pipelines.stable_diffusion_xl.finetune.config import SdxlFinetuneConfig
 from invoke_training.pipelines.stable_diffusion_xl.lora.train import (
@@ -32,6 +34,34 @@ from invoke_training.pipelines.stable_diffusion_xl.lora.train import (
     cache_text_encoder_outputs,
     train_forward,
 )
+
+
+def _save_sdxl_checkpoint(
+    epoch: int,
+    step: int,
+    unet: UNet2DConditionModel,
+    logger: logging.Logger,
+    checkpoint_tracker: CheckpointTracker,
+    callbacks: list[PipelineCallbacks] | None,
+):
+    # Prune checkpoints and get new checkpoint path.
+    num_pruned = checkpoint_tracker.prune(1)
+    if num_pruned > 0:
+        logger.info(f"Pruned {num_pruned} checkpoint(s).")
+    save_path = checkpoint_tracker.get_path(epoch=epoch, step=step)
+
+    model_type = ModelType.SDXL_UNET_DIFFUSERS
+    unet.save_pretrained(save_path)
+
+    if callbacks is not None:
+        for cb in callbacks:
+            cb.on_save_checkpoint(
+                TrainingCheckpoint(
+                    models=[ModelCheckpoint(file_path=save_path, model_type=model_type)],
+                    epoch=epoch,
+                    step=step,
+                )
+            )
 
 
 def train(config: SdxlFinetuneConfig, callbacks: list[PipelineCallbacks] | None = None):  # noqa: C901
@@ -234,13 +264,9 @@ def train(config: SdxlFinetuneConfig, callbacks: list[PipelineCallbacks] | None 
         # Tensorboard uses markdown formatting, so we wrap the config json in a code block.
         accelerator.log({"configuration": f"```json\n{json.dumps(config.dict(), indent=2, default=str)}\n```\n"})
 
-    # checkpoint_tracker = CheckpointTracker(
-    #     base_dir=ckpt_dir,
-    #     prefix="checkpoint",
-    #     max_checkpoints=config.max_checkpoints,
-    #     # TODO(ryand): Revisit this extension when we add checkpointing.
-    #     extension=".safetensors",
-    # )
+    checkpoint_tracker = CheckpointTracker(
+        base_dir=ckpt_dir, prefix="checkpoint", max_checkpoints=config.max_checkpoints
+    )
 
     # Train!
     total_batch_size = config.train_batch_size * accelerator.num_processes * config.gradient_accumulation_steps
@@ -267,7 +293,14 @@ def train(config: SdxlFinetuneConfig, callbacks: list[PipelineCallbacks] | None 
     def save_checkpoint(num_completed_epochs: int, num_completed_steps: int):
         accelerator.wait_for_everyone()
         if accelerator.is_main_process:
-            logger.info("TODO: Save checkpoint.")
+            _save_sdxl_checkpoint(
+                epoch=num_completed_epochs,
+                step=num_completed_steps,
+                unet=unet,
+                logger=logger,
+                checkpoint_tracker=checkpoint_tracker,
+                callbacks=callbacks,
+            )
         accelerator.wait_for_everyone()
 
     def validate(num_completed_epochs: int, num_completed_steps: int):
