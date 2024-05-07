@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import pytest
@@ -6,7 +7,10 @@ from transformers import CLIPTextModel, CLIPTokenizer
 
 from invoke_training._shared.stable_diffusion.model_loading_utils import load_models_sd, load_models_sdxl
 
-from .ti_embedding_checkpoint_fixture import sdv1_embedding_path, sdxl_embedding_path  # noqa: F401
+from .ti_embedding_checkpoint_fixture import (  # noqa: F401
+    sdv1_embedding_path,
+    sdxl_embedding_path,
+)
 
 
 @pytest.mark.loads_model
@@ -14,6 +18,7 @@ def test_load_models_sd(sdv1_embedding_path):  # noqa: F811
     model_name = "runwayml/stable-diffusion-v1-5"
 
     tokenizer, noise_scheduler, text_encoder, vae, unet = load_models_sd(
+        logger=logging.getLogger(__name__),
         model_name_or_path=model_name,
         hf_variant="fp16",
         base_embeddings={"special_test_token": str(sdv1_embedding_path)},
@@ -34,6 +39,7 @@ def test_load_models_sdxl(sdxl_embedding_path: Path):  # noqa: F811
     model_name = "stabilityai/stable-diffusion-xl-base-1.0"
 
     tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = load_models_sdxl(
+        logger=logging.getLogger(__name__),
         model_name_or_path=model_name,
         hf_variant="fp16",
         base_embeddings={"special_test_token": str(sdxl_embedding_path)},

@@ -191,7 +191,11 @@ def train(config: SdxlTextualInversionConfig, callbacks: list[PipelineCallbacks]
 
     logger.info("Loading models.")
     tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = load_models_sdxl(
-        model_name_or_path=config.model, hf_variant=config.hf_variant, vae_model=config.vae_model, dtype=weight_dtype
+        logger=logger,
+        model_name_or_path=config.model,
+        hf_variant=config.hf_variant,
+        vae_model=config.vae_model,
+        dtype=weight_dtype,
     )
 
     placeholder_tokens, placeholder_token_ids_1, placeholder_token_ids_2 = _initialize_placeholder_tokens(

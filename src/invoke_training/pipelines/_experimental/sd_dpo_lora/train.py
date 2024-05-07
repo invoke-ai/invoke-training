@@ -229,6 +229,7 @@ def train(config: SdDirectPreferenceOptimizationLoraConfig, callbacks: list[Pipe
 
     logger.info("Loading models.")
     tokenizer, noise_scheduler, text_encoder, vae, unet = load_models_sd(
+        logger=logger,
         model_name_or_path=config.model,
         hf_variant=config.hf_variant,
         base_embeddings=config.base_embeddings,
