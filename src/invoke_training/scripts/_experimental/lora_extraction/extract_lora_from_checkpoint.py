@@ -12,7 +12,8 @@ from typing import Literal
 
 import lora
 import torch
-from library import sai_model_spec, sdxl_model_util
+from diffusers import UNet2DConditionModel
+from library import sai_model_spec
 from safetensors.torch import save_file
 from tqdm import tqdm
 
@@ -29,7 +30,7 @@ def save_to_file(file_name, model, state_dict, dtype):
         torch.save(model, file_name)
 
 
-def str_to_dtype(dtype_str: str):
+def str_to_dtype(dtype_str: Literal["fp32", "fp16", "bf16"]):
     if dtype_str == "fp32":
         return torch.float32
     elif dtype_str == "fp16":
@@ -40,24 +41,29 @@ def str_to_dtype(dtype_str: str):
         raise ValueError(f"Unexpected dtype: {dtype_str}")
 
 
+def load_sdxl_unet(model_path: str) -> UNet2DConditionModel:
+    unet = UNet2DConditionModel.from_pretrained(model_path, local_files_only=True)
+    return unet
+
+
 def svd(
     logger: logging.Logger,
     model_type: Literal["sd1", "sdxl"],
+    model_orig_path: str,
+    model_tuned_path: str,
+    load_precision: Literal["fp32", "fp16", "bf16"],
+    save_precision: Literal["fp32", "fp16", "bf16"],
     model_org=None,
     model_tuned=None,
     save_to=None,
     dim=4,
     conv_dim=None,
     device=None,
-    save_precision=None,
     clamp_quantile=0.99,
     min_diff=0.01,
     no_metadata=False,
-    load_precision=None,
-    load_original_model_to=None,
-    load_tuned_model_to=None,
 ):
-    load_dtype = str_to_dtype(load_precision) if load_precision else None
+    load_dtype = str_to_dtype(load_precision)
     save_dtype = str_to_dtype(save_precision)
     work_device = "cpu"
 
@@ -65,30 +71,14 @@ def svd(
     if model_type == "sd1":
         raise NotImplementedError("SD1 support is not yet implemented.")
     elif model_type == "sdxl":
-        device_org = load_original_model_to if load_original_model_to else "cpu"
-        device_tuned = load_tuned_model_to if load_tuned_model_to else "cpu"
+        logger.info(f"Loading original SDXL model: '{model_orig_path}'.")
+        unet_orig = load_sdxl_unet(model_orig_path)
+        logger.info(f"Loading tuned SDXL model: '{model_tuned_path}'.")
+        unet_tuned = load_sdxl_unet(model_tuned_path)
 
-        logger.info(f"loading original SDXL model : {model_org}")
-        text_encoder_o1, text_encoder_o2, _, unet_o, _, _ = sdxl_model_util.load_models_from_sdxl_checkpoint(
-            sdxl_model_util.MODEL_VERSION_SDXL_BASE_V1_0, model_org, device_org
-        )
-        text_encoders_o = [text_encoder_o1, text_encoder_o2]
         if load_dtype is not None:
-            text_encoder_o1 = text_encoder_o1.to(load_dtype)
-            text_encoder_o2 = text_encoder_o2.to(load_dtype)
-            unet_o = unet_o.to(load_dtype)
-
-        logger.info(f"loading original SDXL model : {model_tuned}")
-        text_encoder_t1, text_encoder_t2, _, unet_t, _, _ = sdxl_model_util.load_models_from_sdxl_checkpoint(
-            sdxl_model_util.MODEL_VERSION_SDXL_BASE_V1_0, model_tuned, device_tuned
-        )
-        text_encoders_t = [text_encoder_t1, text_encoder_t2]
-        if load_dtype is not None:
-            text_encoder_t1 = text_encoder_t1.to(load_dtype)
-            text_encoder_t2 = text_encoder_t2.to(load_dtype)
-            unet_t = unet_t.to(load_dtype)
-
-        model_version = sdxl_model_util.MODEL_VERSION_SDXL_BASE_V1_0
+            unet_orig = unet_orig.to(load_dtype)
+            unet_tuned = unet_tuned.to(load_dtype)
     else:
         raise ValueError(f"Unexpected model type: '{model_type}'.")
 
@@ -253,32 +243,28 @@ def setup_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-type", type=str, default="sd1", choices=["sd1", "sdxl"], help="The base model type.")
     parser.add_argument(
-        "--load_precision",
-        type=str,
-        default=None,
-        choices=[None, "float", "fp16", "bf16"],
-        help="precision in loading, model default if omitted / 読み込み時に精度を変更して読み込む、省略時はモデルファイルによる",
+        "--load-precision", type=str, default="bf16", choices=["fp32", "fp16", "bf16"], help="Model load precision."
     )
     parser.add_argument(
-        "--save_precision",
+        "--save-precision",
         type=str,
-        default=None,
-        choices=[None, "float", "fp16", "bf16"],
-        help="precision in saving, same to merging if omitted / 保存時に精度を変更して保存する、省略時はfloat",
+        default="fp32",
+        choices=["fp32", "fp16", "bf16"],
+        help="Model save precision.",
     )
     parser.add_argument(
-        "--model_org",
+        "--model-orig",
         type=str,
         default=None,
         required=True,
-        help="Stable Diffusion original model: ckpt or safetensors file / 元モデル、ckptまたはsafetensors",
+        help="Path to the original model.",
     )
     parser.add_argument(
-        "--model_tuned",
+        "--model-tuned",
         type=str,
         default=None,
         required=True,
-        help="Stable Diffusion tuned model, LoRA is difference of `original to tuned`: ckpt or safetensors file / 派生モデル（生成されるLoRAは元→派生の差分になります）、ckptまたはsafetensors",
+        help="Path to the tuned model.",
     )
     parser.add_argument(
         "--save_to",
@@ -317,18 +303,6 @@ def setup_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="do not save sai modelspec metadata (minimum ss_metadata for LoRA is saved) / "
         + "sai modelspecのメタデータを保存しない（LoRAの最低限のss_metadataは保存される）",
-    )
-    parser.add_argument(
-        "--load_original_model_to",
-        type=str,
-        default=None,
-        help="location to load original model, cpu or cuda, cuda:0, etc, default is cpu, only for SDXL / 元モデル読み込み先、cpuまたはcuda、cuda:0など、省略時はcpu、SDXLのみ有効",
-    )
-    parser.add_argument(
-        "--load_tuned_model_to",
-        type=str,
-        default=None,
-        help="location to load tuned model, cpu or cuda, cuda:0, etc, default is cpu, only for SDXL / 派生モデル読み込み先、cpuまたはcuda、cuda:0など、省略時はcpu、SDXLのみ有効",
     )
 
     return parser
