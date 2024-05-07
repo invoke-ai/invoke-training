@@ -4,18 +4,17 @@
 
 
 import argparse
-import json
 import logging
 import os
-import time
 from typing import Literal
 
-import lora
+import peft
 import torch
 from diffusers import UNet2DConditionModel
-from library import sai_model_spec
 from safetensors.torch import save_file
 from tqdm import tqdm
+
+from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import UNET_TARGET_MODULES
 
 
 def save_to_file(file_name, model, state_dict, dtype):
@@ -42,7 +41,19 @@ def str_to_dtype(dtype_str: Literal["fp32", "fp16", "bf16"]):
 
 
 def load_sdxl_unet(model_path: str) -> UNet2DConditionModel:
-    unet = UNet2DConditionModel.from_pretrained(model_path, local_files_only=True)
+    variants_to_try = [None, "fp16"]
+    unet = None
+    for variant in variants_to_try:
+        try:
+            unet = UNet2DConditionModel.from_pretrained(model_path, variant=variant, local_files_only=True)
+        except OSError as e:
+            if "no file named" in str(e):
+                # Ok. We'll try a different variant.
+                pass
+            else:
+                raise
+    if unet is None:
+        raise RuntimeError(f"Failed to load UNet from '{model_path}'.")
     return unet
 
 
@@ -51,21 +62,15 @@ def svd(
     model_type: Literal["sd1", "sdxl"],
     model_orig_path: str,
     model_tuned_path: str,
+    save_to: str,
     load_precision: Literal["fp32", "fp16", "bf16"],
     save_precision: Literal["fp32", "fp16", "bf16"],
-    model_org=None,
-    model_tuned=None,
-    save_to=None,
-    dim=4,
-    conv_dim=None,
-    device=None,
+    lora_rank: int,
     clamp_quantile=0.99,
-    min_diff=0.01,
-    no_metadata=False,
 ):
+    device = torch.cpu
     load_dtype = str_to_dtype(load_precision)
     save_dtype = str_to_dtype(save_precision)
-    work_device = "cpu"
 
     # Load models.
     if model_type == "sd1":
@@ -82,63 +87,37 @@ def svd(
     else:
         raise ValueError(f"Unexpected model type: '{model_type}'.")
 
-    # create LoRA network to extract weights: Use dim (rank) as alpha
-    if conv_dim is None:
-        kwargs = {}
-    else:
-        kwargs = {"conv_dim": conv_dim, "conv_alpha": conv_dim}
+    # Apply LoRA to the UNet.
+    # The only reason we do this is to get the module names for the weights that we'll extract. We don't actually use
+    # the LoRA weights initialized here.
+    unet_lora_config = peft.LoraConfig(
+        r=lora_rank,
+        # TODO(ryand): Should I set this to lora_rank?
+        lora_alpha=1.0,
+        target_modules=UNET_TARGET_MODULES,
+    )
+    unet_tuned = peft.get_peft_model(unet_tuned, unet_lora_config)
+    unet_orig = peft.get_peft_model(unet_orig, unet_lora_config)
 
-    lora_network_o = lora.create_network(1.0, dim, dim, None, text_encoders_o, unet_o, **kwargs)
-    lora_network_t = lora.create_network(1.0, dim, dim, None, text_encoders_t, unet_t, **kwargs)
-    assert (
-        len(lora_network_o.text_encoder_loras) == len(lora_network_t.text_encoder_loras)
-    ), "model version is different (SD1.x vs SD2.x) / それぞれのモデルのバージョンが違います（SD1.xベースとSD2.xベース） "
+    diffs: dict[str, torch.Tensor] = {}
+    state_dict_tuned = unet_tuned.state_dict()
+    state_dict_orig = unet_orig.state_dict()
+    peft_base_layer_suffix = ".base_layer.weight"
+    peft_base_layer_prefix = "base_model.model."
+    for weight_name in state_dict_tuned:
+        # Weights that end with ".base_layer.weight" are the original weights for LoRA layers.
+        if weight_name.endswith(peft_base_layer_suffix):
+            # Extract the base module name.
+            module_name = weight_name[: -len(peft_base_layer_suffix)]
+            assert module_name.startswith(peft_base_layer_prefix)
+            module_name = module_name[len(peft_base_layer_prefix) :]
 
-    # get diffs
-    diffs = {}
-    text_encoder_different = False
-    for i, (lora_o, lora_t) in enumerate(zip(lora_network_o.text_encoder_loras, lora_network_t.text_encoder_loras)):
-        lora_name = lora_o.lora_name
-        module_o = lora_o.org_module
-        module_t = lora_t.org_module
-        diff = module_t.weight.to(work_device) - module_o.weight.to(work_device)
+            diffs[module_name] = state_dict_tuned[weight_name] - state_dict_orig[weight_name]
 
-        # clear weight to save memory
-        module_o.weight = None
-        module_t.weight = None
-
-        # Text Encoder might be same
-        if not text_encoder_different and torch.max(torch.abs(diff)) > min_diff:
-            text_encoder_different = True
-            logger.info(f"Text encoder is different. {torch.max(torch.abs(diff))} > {min_diff}")
-
-        diffs[lora_name] = diff
-
-    # clear target Text Encoder to save memory
-    for text_encoder in text_encoders_t:
-        del text_encoder
-
-    if not text_encoder_different:
-        logger.warning("Text encoder is same. Extract U-Net only.")
-        lora_network_o.text_encoder_loras = []
-        diffs = {}  # clear diffs
-
-    for i, (lora_o, lora_t) in enumerate(zip(lora_network_o.unet_loras, lora_network_t.unet_loras)):
-        lora_name = lora_o.lora_name
-        module_o = lora_o.org_module
-        module_t = lora_t.org_module
-        diff = module_t.weight.to(work_device) - module_o.weight.to(work_device)
-
-        # clear weight to save memory
-        module_o.weight = None
-        module_t.weight = None
-
-        diffs[lora_name] = diff
-
-    # clear LoRA network, target U-Net to save memory
-    del lora_network_o
-    del lora_network_t
-    del unet_t
+    # Clear tuned UNet to save memory.
+    # TODO(ryand): We also need to clear the state_dicts. Move the diff extraction to a separate function so that memory
+    # cleanup is handled by scoping.
+    del unet_tuned
 
     # make LoRA with svd
     logger.info("calculating by svd")
@@ -213,104 +192,46 @@ def svd(
     if dir_name and not os.path.exists(dir_name):
         os.makedirs(dir_name, exist_ok=True)
 
-    # minimum metadata
-    net_kwargs = {}
-    if conv_dim is not None:
-        net_kwargs["conv_dim"] = str(conv_dim)
-        net_kwargs["conv_alpha"] = str(float(conv_dim))
-
-    metadata = {
-        "ss_v2": str(v2),
-        "ss_base_model_version": model_version,
-        "ss_network_module": "networks.lora",
-        "ss_network_dim": str(dim),
-        "ss_network_alpha": str(float(dim)),
-        "ss_network_args": json.dumps(net_kwargs),
-    }
-
-    if not no_metadata:
-        title = os.path.splitext(os.path.basename(save_to))[0]
-        sai_metadata = sai_model_spec.build_metadata(
-            None, v2, v_parameterization, sdxl, True, False, time.time(), title=title
-        )
-        metadata.update(sai_metadata)
-
     lora_network_save.save_weights(save_to, save_dtype, metadata)
     logger.info(f"LoRA weights are saved to: {save_to}")
 
 
-def setup_parser() -> argparse.ArgumentParser:
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-type", type=str, default="sd1", choices=["sd1", "sdxl"], help="The base model type.")
+
+    parser.add_argument("--model-orig", type=str, required=True, help="Path to the original model.")
+    parser.add_argument("--model-tuned", type=str, required=True, help="Path to the tuned model.")
+    parser.add_argument(
+        "--save-to",
+        type=str,
+        required=True,
+        help="Destination file path (must have a .safetensors extension).",
+    )
     parser.add_argument(
         "--load-precision", type=str, default="bf16", choices=["fp32", "fp16", "bf16"], help="Model load precision."
     )
     parser.add_argument(
-        "--save-precision",
-        type=str,
-        default="fp32",
-        choices=["fp32", "fp16", "bf16"],
-        help="Model save precision.",
-    )
-    parser.add_argument(
-        "--model-orig",
-        type=str,
-        default=None,
-        required=True,
-        help="Path to the original model.",
-    )
-    parser.add_argument(
-        "--model-tuned",
-        type=str,
-        default=None,
-        required=True,
-        help="Path to the tuned model.",
-    )
-    parser.add_argument(
-        "--save_to",
-        type=str,
-        default=None,
-        required=True,
-        help="destination file name: ckpt or safetensors file / 保存先のファイル名、ckptまたはsafetensors",
-    )
-    parser.add_argument(
-        "--dim", type=int, default=4, help="dimension (rank) of LoRA (default 4) / LoRAの次元数（rank）（デフォルト4）"
-    )
-    parser.add_argument(
-        "--conv_dim",
-        type=int,
-        default=None,
-        help="dimension (rank) of LoRA for Conv2d-3x3 (default None, disabled) / LoRAのConv2d-3x3の次元数（rank）（デフォルトNone、適用なし）",
-    )
-    parser.add_argument(
-        "--device", type=str, default=None, help="device to use, cuda for GPU / 計算を行うデバイス、cuda でGPUを使う"
-    )
-    parser.add_argument(
-        "--clamp_quantile",
-        type=float,
-        default=0.99,
-        help="Quantile clamping value, float, (0-1). Default = 0.99 / 値をクランプするための分位点、float、(0-1)。デフォルトは0.99",
-    )
-    parser.add_argument(
-        "--min_diff",
-        type=float,
-        default=0.01,
-        help="Minimum difference between finetuned model and base to consider them different enough to extract, float, (0-1). Default = 0.01 /"
-        + "LoRAを抽出するために元モデルと派生モデルの差分の最小値、float、(0-1)。デフォルトは0.01",
-    )
-    parser.add_argument(
-        "--no_metadata",
-        action="store_true",
-        help="do not save sai modelspec metadata (minimum ss_metadata for LoRA is saved) / "
-        + "sai modelspecのメタデータを保存しない（LoRAの最低限のss_metadataは保存される）",
+        "--save-precision", type=str, default="fp32", choices=["fp32", "fp16", "bf16"], help="Model save precision."
     )
 
-    return parser
-
-
-if __name__ == "__main__":
-    parser = setup_parser()
+    parser.add_argument("--lora-rank", type=int, default=4, help="LoRA rank dimension.")
+    parser.add_argument("--clamp-quantile", type=float, default=0.99, help="Quantile clamping value. (0-1)")
 
     args = parser.parse_args()
     logger = logging.getLogger(__name__)
-    svd(logger=logger, **vars(args))
+    svd(
+        logger=logger,
+        model_type=args.model_type,
+        model_orig_path=args.model_orig,
+        model_tuned_path=args.model_tuned,
+        save_to=args.save_to,
+        load_precision=args.load_precision,
+        save_precision=args.save_precision,
+        lora_rank=args.lora_rank,
+        clamp_quantile=args.clamp_quantile,
+    )
+
+
+if __name__ == "__main__":
+    main()
