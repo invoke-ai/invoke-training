@@ -8,10 +8,11 @@ import json
 import logging
 import os
 import time
+from typing import Literal
 
 import lora
 import torch
-from library import model_util, sai_model_spec, sdxl_model_util
+from library import sai_model_spec, sdxl_model_util
 from safetensors.torch import save_file
 from tqdm import tqdm
 
@@ -41,14 +42,12 @@ def str_to_dtype(dtype_str: str):
 
 def svd(
     logger: logging.Logger,
+    model_type: Literal["sd1", "sdxl"],
     model_org=None,
     model_tuned=None,
     save_to=None,
     dim=4,
-    v2=None,
-    sdxl=None,
     conv_dim=None,
-    v_parameterization=None,
     device=None,
     save_precision=None,
     clamp_quantile=0.99,
@@ -58,34 +57,14 @@ def svd(
     load_original_model_to=None,
     load_tuned_model_to=None,
 ):
-    assert v2 != sdxl or (
-        not v2 and not sdxl
-    ), "v2 and sdxl cannot be specified at the same time / v2とsdxlは同時に指定できません"
-    if v_parameterization is None:
-        v_parameterization = v2
-
     load_dtype = str_to_dtype(load_precision) if load_precision else None
     save_dtype = str_to_dtype(save_precision)
     work_device = "cpu"
 
-    # load models
-    if not sdxl:
-        logger.info(f"loading original SD model : {model_org}")
-        text_encoder_o, _, unet_o = model_util.load_models_from_stable_diffusion_checkpoint(v2, model_org)
-        text_encoders_o = [text_encoder_o]
-        if load_dtype is not None:
-            text_encoder_o = text_encoder_o.to(load_dtype)
-            unet_o = unet_o.to(load_dtype)
-
-        logger.info(f"loading tuned SD model : {model_tuned}")
-        text_encoder_t, _, unet_t = model_util.load_models_from_stable_diffusion_checkpoint(v2, model_tuned)
-        text_encoders_t = [text_encoder_t]
-        if load_dtype is not None:
-            text_encoder_t = text_encoder_t.to(load_dtype)
-            unet_t = unet_t.to(load_dtype)
-
-        model_version = model_util.get_model_version_str_for_sd1_sd2(v2, v_parameterization)
-    else:
+    # Load models.
+    if model_type == "sd1":
+        raise NotImplementedError("SD1 support is not yet implemented.")
+    elif model_type == "sdxl":
         device_org = load_original_model_to if load_original_model_to else "cpu"
         device_tuned = load_tuned_model_to if load_tuned_model_to else "cpu"
 
@@ -110,6 +89,8 @@ def svd(
             unet_t = unet_t.to(load_dtype)
 
         model_version = sdxl_model_util.MODEL_VERSION_SDXL_BASE_V1_0
+    else:
+        raise ValueError(f"Unexpected model type: '{model_type}'.")
 
     # create LoRA network to extract weights: Use dim (rank) as alpha
     if conv_dim is None:
@@ -270,20 +251,7 @@ def svd(
 
 def setup_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--v2", action="store_true", help="load Stable Diffusion v2.x model / Stable Diffusion 2.xのモデルを読み込む"
-    )
-    parser.add_argument(
-        "--v_parameterization",
-        action="store_true",
-        default=None,
-        help="make LoRA metadata for v-parameterization (default is same to v2) / 作成するLoRAのメタデータにv-parameterization用と設定する（省略時はv2と同じ）",
-    )
-    parser.add_argument(
-        "--sdxl",
-        action="store_true",
-        help="load Stable Diffusion SDXL base model / Stable Diffusion SDXL baseのモデルを読み込む",
-    )
+    parser.add_argument("--model-type", type=str, default="sd1", choices=["sd1", "sdxl"], help="The base model type.")
     parser.add_argument(
         "--load_precision",
         type=str,
