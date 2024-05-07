@@ -82,6 +82,11 @@ def main(image_dir: str, prompt: str, use_cpu: bool, batch_size: int):
     print(f"Using device: {device}")
     print(f"Using dtype: {dtype}")
 
+    # Check that the output file does not already exist before spending time generating captions.
+    out_path = Path("output.jsonl")
+    if out_path.exists():
+        raise FileExistsError(f"Output file already exists: {out_path}")
+
     # Load the model.
     model_id = "vikhyatk/moondream2"
     model_revision = "2024-04-02"
@@ -104,7 +109,7 @@ def main(image_dir: str, prompt: str, use_cpu: bool, batch_size: int):
         for image_path, answer in zip(image_paths, answers, strict=True):
             results.append({"image": image_path, "text": answer})
 
-    out_path = Path("output.jsonl")
+    # Check that the output file does not exist immediately before writing to it.
     if out_path.exists():
         raise FileExistsError(f"Output file already exists: {out_path}")
 
