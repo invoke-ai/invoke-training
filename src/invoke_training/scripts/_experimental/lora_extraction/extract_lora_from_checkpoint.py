@@ -1,6 +1,7 @@
-# extract approximating LoRA by svd from two SD models
-# The code is based on https://github.com/cloneofsimo/lora/blob/develop/lora_diffusion/cli_svd.py
-# Thanks to cloneofsimo!
+# This script is based on
+# https://raw.githubusercontent.com/kohya-ss/sd-scripts/bfb352bc433326a77aca3124248331eb60c49e8c/networks/extract_lora_from_models.py
+# That script was originally based on https://github.com/cloneofsimo/lora/blob/develop/lora_diffusion/cli_svd.py
+
 
 import argparse
 import json
