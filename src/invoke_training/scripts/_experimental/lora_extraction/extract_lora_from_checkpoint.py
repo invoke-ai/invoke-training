@@ -5,23 +5,15 @@
 
 import argparse
 import json
+import logging
 import os
 import time
 
 import lora
 import torch
 from library import model_util, sai_model_spec, sdxl_model_util
-from library.utils import setup_logging
 from safetensors.torch import save_file
 from tqdm import tqdm
-
-setup_logging()
-import logging
-
-logger = logging.getLogger(__name__)
-
-# CLAMP_QUANTILE = 0.99
-# MIN_DIFF = 1e-1
 
 
 def save_to_file(file_name, model, state_dict, dtype):
@@ -36,7 +28,19 @@ def save_to_file(file_name, model, state_dict, dtype):
         torch.save(model, file_name)
 
 
+def str_to_dtype(dtype_str: str):
+    if dtype_str == "fp32":
+        return torch.float32
+    elif dtype_str == "fp16":
+        return torch.float16
+    elif dtype_str == "bf16":
+        return torch.bfloat16
+    else:
+        raise ValueError(f"Unexpected dtype: {dtype_str}")
+
+
 def svd(
+    logger: logging.Logger,
     model_org=None,
     model_tuned=None,
     save_to=None,
@@ -54,15 +58,6 @@ def svd(
     load_original_model_to=None,
     load_tuned_model_to=None,
 ):
-    def str_to_dtype(p):
-        if p == "float":
-            return torch.float
-        if p == "fp16":
-            return torch.float16
-        if p == "bf16":
-            return torch.bfloat16
-        return None
-
     assert v2 != sdxl or (
         not v2 and not sdxl
     ), "v2 and sdxl cannot be specified at the same time / v2とsdxlは同時に指定できません"
@@ -375,4 +370,5 @@ if __name__ == "__main__":
     parser = setup_parser()
 
     args = parser.parse_args()
-    svd(**vars(args))
+    logger = logging.getLogger(__name__)
+    svd(logger=logger, **vars(args))
