@@ -6,6 +6,7 @@
 import argparse
 import logging
 import os
+from pathlib import Path
 from typing import Literal
 
 import peft
@@ -14,7 +15,10 @@ from diffusers import UNet2DConditionModel
 from safetensors.torch import save_file
 from tqdm import tqdm
 
-from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import UNET_TARGET_MODULES
+from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
+    UNET_TARGET_MODULES,
+    save_sdxl_kohya_checkpoint,
+)
 
 
 def save_to_file(file_name, model, state_dict, dtype):
@@ -162,31 +166,30 @@ def svd(
     del unet_tuned
 
     # Apply SVD (Singluar Value Decomposition) to the diffs.
-    logger.info("calculating by svd")
-    lora_weights = extract_lora_from_diffs(diffs, lora_rank, clamp_quantile)
-
-    # make state dict for LoRA
-    lora_sd = {}
-    for lora_name, (up_weight, down_weight) in lora_weights.items():
-        lora_sd[lora_name + ".lora_up.weight"] = up_weight
-        lora_sd[lora_name + ".lora_down.weight"] = down_weight
-        lora_sd[lora_name + ".alpha"] = torch.tensor(down_weight.size()[0])
-
-    # load state dict to LoRA and save it
-    lora_network_save, lora_sd = lora.create_network_from_weights(
-        1.0, None, None, text_encoders_o, unet_o, weights_sd=lora_sd
+    logger.info("Calculating LoRA weights with SVD.")
+    lora_weights = extract_lora_from_diffs(
+        diffs=diffs, rank=lora_rank, clamp_quantile=clamp_quantile, out_dtype=save_dtype
     )
-    lora_network_save.apply_to(text_encoders_o, unet_o)  # create internal module references for state_dict
 
-    info = lora_network_save.load_state_dict(lora_sd)
-    logger.info(f"Loading extracted LoRA weights: {info}")
+    # Prepare state dict for LoRA.
+    lora_state_dict = {}
+    for module_name, (up_weight, down_weight) in lora_weights.items():
+        lora_state_dict[peft_base_layer_suffix + module_name + ".lora_A.weight"] = up_weight
+        lora_state_dict[peft_base_layer_suffix + module_name + ".lora_B.weight"] = down_weight
+        # TODO(ryand): Double-check that this is correct.
+        lora_state_dict[peft_base_layer_suffix + module_name + ".alpha"] = torch.tensor(down_weight.size()[0])
 
-    dir_name = os.path.dirname(save_to)
-    if dir_name and not os.path.exists(dir_name):
-        os.makedirs(dir_name, exist_ok=True)
+    # Load the state_dict into the LoRA model.
+    unet_orig.load_state_dict(lora_state_dict, assign=True)
 
-    lora_network_save.save_weights(save_to, save_dtype, metadata)
-    logger.info(f"LoRA weights are saved to: {save_to}")
+    save_to_path = Path(save_to)
+    assert save_to_path.suffix == ".safetensors"
+    if save_to_path.exists():
+        raise FileExistsError(f"Destination file already exists: '{save_to}'.")
+    save_to_path.parent.mkdir(parents=True, exist_ok=True)
+    save_sdxl_kohya_checkpoint(save_to_path, unet=unet_orig, text_encoder_1=None, text_encoder_2=None)
+
+    logger.info(f"Saved LoRA weights to: {save_to_path}")
 
 
 def main():
