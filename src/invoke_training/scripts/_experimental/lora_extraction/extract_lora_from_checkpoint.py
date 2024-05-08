@@ -59,55 +59,43 @@ def load_sdxl_unet(model_path: str) -> UNet2DConditionModel:
 
 @torch.no_grad()
 def extract_lora_from_diffs(
-    diffs: dict[str, torch.Tensor], rank: int, clamp_quantile: float
+    diffs: dict[str, torch.Tensor], rank: int, clamp_quantile: float, out_dtype: torch.dtype
 ) -> dict[str, tuple[torch.Tensor, torch.Tensor]]:
     lora_weights = {}
     for lora_name, mat in tqdm(list(diffs.items())):
-        mat = mat.to(torch.float)  # calc by float
+        # Use full precision for the intermediate calculations.
+        mat = mat.to(torch.float32)
 
-        # if conv_dim is None, diffs do not include LoRAs for conv2d-3x3
-        conv2d = len(mat.size()) == 4
-        kernel_size = None if not conv2d else mat.size()[2:4]
-        conv2d_3x3 = conv2d and kernel_size != (1, 1)
+        is_conv2d = len(mat.size()) == 4
+        if is_conv2d:
+            # TODO(ryand)
+            raise NotImplementedError("Conv2D support is not yet implemented.")
 
-        rank = dim if not conv2d_3x3 or conv_dim is None else conv_dim
         out_dim, in_dim = mat.size()[0:2]
 
-        if device:
-            mat = mat.to(device)
+        # LoRA rank cannot exceed the original dimensions.
+        assert rank < in_dim
+        assert rank < out_dim
 
-        # logger.info(lora_name, mat.size(), mat.device, rank, in_dim, out_dim)
-        rank = min(rank, in_dim, out_dim)  # LoRA rank cannot exceed the original dim
+        u, s, v_h = torch.linalg.svd(mat)
 
-        if conv2d:
-            if conv2d_3x3:
-                mat = mat.flatten(start_dim=1)
-            else:
-                mat = mat.squeeze()
+        u = u[:, :rank]
+        s = s[:rank]
+        u = u @ torch.diag(s)
 
-        U, S, Vh = torch.linalg.svd(mat)
+        v_h = v_h[:rank, :]
 
-        U = U[:, :rank]
-        S = S[:rank]
-        U = U @ torch.diag(S)
-
-        Vh = Vh[:rank, :]
-
-        dist = torch.cat([U.flatten(), Vh.flatten()])
+        dist = torch.cat([u.flatten(), v_h.flatten()])
         hi_val = torch.quantile(dist, clamp_quantile)
         low_val = -hi_val
 
-        U = U.clamp(low_val, hi_val)
-        Vh = Vh.clamp(low_val, hi_val)
+        u = u.clamp(low_val, hi_val)
+        v_h = v_h.clamp(low_val, hi_val)
 
-        if conv2d:
-            U = U.reshape(out_dim, rank, 1, 1)
-            Vh = Vh.reshape(rank, in_dim, kernel_size[0], kernel_size[1])
+        u = u.to(dtype=out_dtype).contiguous()
+        v_h = v_h.to(dtype=out_dtype).contiguous()
 
-        U = U.to(work_device, dtype=save_dtype).contiguous()
-        Vh = Vh.to(work_device, dtype=save_dtype).contiguous()
-
-        lora_weights[lora_name] = (U, Vh)
+        lora_weights[lora_name] = (u, v_h)
     return lora_weights
 
 
@@ -123,7 +111,6 @@ def svd(
     lora_rank: int,
     clamp_quantile=0.99,
 ):
-    device = torch.cpu
     load_dtype = str_to_dtype(load_precision)
     save_dtype = str_to_dtype(save_precision)
 
