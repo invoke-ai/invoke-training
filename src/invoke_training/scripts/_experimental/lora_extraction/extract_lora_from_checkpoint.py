@@ -57,6 +57,7 @@ def load_sdxl_unet(model_path: str) -> UNet2DConditionModel:
     return unet
 
 
+@torch.no_grad()
 def svd(
     logger: logging.Logger,
     model_type: Literal["sd1", "sdxl"],
@@ -119,58 +120,57 @@ def svd(
     # cleanup is handled by scoping.
     del unet_tuned
 
-    # make LoRA with svd
+    # Apply SVD (Singluar Value Decomposition) to the diffs.
     logger.info("calculating by svd")
     lora_weights = {}
-    with torch.no_grad():
-        for lora_name, mat in tqdm(list(diffs.items())):
-            if args.device:
-                mat = mat.to(args.device)
-            mat = mat.to(torch.float)  # calc by float
+    for lora_name, mat in tqdm(list(diffs.items())):
+        if args.device:
+            mat = mat.to(args.device)
+        mat = mat.to(torch.float)  # calc by float
 
-            # if conv_dim is None, diffs do not include LoRAs for conv2d-3x3
-            conv2d = len(mat.size()) == 4
-            kernel_size = None if not conv2d else mat.size()[2:4]
-            conv2d_3x3 = conv2d and kernel_size != (1, 1)
+        # if conv_dim is None, diffs do not include LoRAs for conv2d-3x3
+        conv2d = len(mat.size()) == 4
+        kernel_size = None if not conv2d else mat.size()[2:4]
+        conv2d_3x3 = conv2d and kernel_size != (1, 1)
 
-            rank = dim if not conv2d_3x3 or conv_dim is None else conv_dim
-            out_dim, in_dim = mat.size()[0:2]
+        rank = dim if not conv2d_3x3 or conv_dim is None else conv_dim
+        out_dim, in_dim = mat.size()[0:2]
 
-            if device:
-                mat = mat.to(device)
+        if device:
+            mat = mat.to(device)
 
-            # logger.info(lora_name, mat.size(), mat.device, rank, in_dim, out_dim)
-            rank = min(rank, in_dim, out_dim)  # LoRA rank cannot exceed the original dim
+        # logger.info(lora_name, mat.size(), mat.device, rank, in_dim, out_dim)
+        rank = min(rank, in_dim, out_dim)  # LoRA rank cannot exceed the original dim
 
-            if conv2d:
-                if conv2d_3x3:
-                    mat = mat.flatten(start_dim=1)
-                else:
-                    mat = mat.squeeze()
+        if conv2d:
+            if conv2d_3x3:
+                mat = mat.flatten(start_dim=1)
+            else:
+                mat = mat.squeeze()
 
-            U, S, Vh = torch.linalg.svd(mat)
+        U, S, Vh = torch.linalg.svd(mat)
 
-            U = U[:, :rank]
-            S = S[:rank]
-            U = U @ torch.diag(S)
+        U = U[:, :rank]
+        S = S[:rank]
+        U = U @ torch.diag(S)
 
-            Vh = Vh[:rank, :]
+        Vh = Vh[:rank, :]
 
-            dist = torch.cat([U.flatten(), Vh.flatten()])
-            hi_val = torch.quantile(dist, clamp_quantile)
-            low_val = -hi_val
+        dist = torch.cat([U.flatten(), Vh.flatten()])
+        hi_val = torch.quantile(dist, clamp_quantile)
+        low_val = -hi_val
 
-            U = U.clamp(low_val, hi_val)
-            Vh = Vh.clamp(low_val, hi_val)
+        U = U.clamp(low_val, hi_val)
+        Vh = Vh.clamp(low_val, hi_val)
 
-            if conv2d:
-                U = U.reshape(out_dim, rank, 1, 1)
-                Vh = Vh.reshape(rank, in_dim, kernel_size[0], kernel_size[1])
+        if conv2d:
+            U = U.reshape(out_dim, rank, 1, 1)
+            Vh = Vh.reshape(rank, in_dim, kernel_size[0], kernel_size[1])
 
-            U = U.to(work_device, dtype=save_dtype).contiguous()
-            Vh = Vh.to(work_device, dtype=save_dtype).contiguous()
+        U = U.to(work_device, dtype=save_dtype).contiguous()
+        Vh = Vh.to(work_device, dtype=save_dtype).contiguous()
 
-            lora_weights[lora_name] = (U, Vh)
+        lora_weights[lora_name] = (U, Vh)
 
     # make state dict for LoRA
     lora_sd = {}
