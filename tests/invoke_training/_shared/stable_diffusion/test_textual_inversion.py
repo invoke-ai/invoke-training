@@ -31,7 +31,7 @@ def test_expand_placeholder_token_raises_on_invalid_num_vectors():
 @pytest.mark.loads_model
 def test_initialize_placeholder_tokens_from_initializer_token():
     tokenizer, noise_scheduler, text_encoder, vae, unet = load_models_sd(
-        model_name_or_path="runwayml/stable-diffusion-v1-5", hf_variant="fp16"
+        logger=logging.getLogger(__name__), model_name_or_path="runwayml/stable-diffusion-v1-5", hf_variant="fp16"
     )
 
     initializer_token = "dog"
@@ -59,7 +59,7 @@ def test_initialize_placeholder_tokens_from_initializer_token():
 @pytest.mark.loads_model
 def test_initialize_placeholder_tokens_from_initial_phrase():
     tokenizer, noise_scheduler, text_encoder, vae, unet = load_models_sd(
-        model_name_or_path="runwayml/stable-diffusion-v1-5", hf_variant="fp16"
+        logger=logging.getLogger(__name__), model_name_or_path="runwayml/stable-diffusion-v1-5", hf_variant="fp16"
     )
 
     initial_phrase = "little brown dog"
@@ -86,7 +86,7 @@ def test_initialize_placeholder_tokens_from_initial_phrase():
 @pytest.mark.loads_model
 def test_initialize_placeholder_tokens_from_initial_embedding(sdv1_embedding_path: Path):  # noqa: F811
     tokenizer, noise_scheduler, text_encoder, vae, unet = load_models_sd(
-        model_name_or_path="runwayml/stable-diffusion-v1-5", hf_variant="fp16"
+        logger=logging.getLogger(__name__), model_name_or_path="runwayml/stable-diffusion-v1-5", hf_variant="fp16"
     )
 
     placeholder_token = "custom_token"

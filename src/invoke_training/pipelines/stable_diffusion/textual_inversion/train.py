@@ -165,7 +165,7 @@ def train(config: SdTextualInversionConfig, callbacks: list[PipelineCallbacks] |
 
     logger.info("Loading models.")
     tokenizer, noise_scheduler, text_encoder, vae, unet = load_models_sd(
-        model_name_or_path=config.model, hf_variant=config.hf_variant, dtype=weight_dtype
+        logger=logger, model_name_or_path=config.model, hf_variant=config.hf_variant, dtype=weight_dtype
     )
 
     placeholder_tokens, placeholder_token_ids = _initialize_placeholder_tokens(

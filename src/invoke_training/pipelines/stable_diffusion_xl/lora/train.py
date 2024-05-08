@@ -360,6 +360,7 @@ def train(config: SdxlLoraConfig, callbacks: list[PipelineCallbacks] | None = No
 
     logger.info("Loading models.")
     tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, unet = load_models_sdxl(
+        logger=logger,
         model_name_or_path=config.model,
         hf_variant=config.hf_variant,
         vae_model=config.vae_model,

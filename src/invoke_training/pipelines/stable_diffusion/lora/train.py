@@ -292,6 +292,7 @@ def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None
 
     logger.info("Loading models.")
     tokenizer, noise_scheduler, text_encoder, vae, unet = load_models_sd(
+        logger=logger,
         model_name_or_path=config.model,
         hf_variant=config.hf_variant,
         base_embeddings=config.base_embeddings,

@@ -1,3 +1,4 @@
+import logging
 import os
 import typing
 from enum import Enum
@@ -14,6 +15,8 @@ from transformers import CLIPTextModel, CLIPTokenizer
 
 from invoke_training._shared.checkpoints.serialization import load_state_dict
 
+HF_VARIANT_FALLBACKS = [None, "fp16"]
+
 
 class PipelineVersionEnum(Enum):
     SD = "SD"
@@ -21,7 +24,7 @@ class PipelineVersionEnum(Enum):
 
 
 def load_pipeline(
-    model_name_or_path: str, pipeline_version: PipelineVersionEnum, variant: str | None = None
+    logger: logging.Logger, model_name_or_path: str, pipeline_version: PipelineVersionEnum, variant: str | None = None
 ) -> typing.Union[StableDiffusionPipeline, StableDiffusionXLPipeline]:
     """Load a Stable Diffusion pipeline from disk.
 
@@ -45,15 +48,38 @@ def load_pipeline(
     if os.path.isfile(model_name_or_path):
         return pipeline_class.from_single_file(model_name_or_path, load_safety_checker=False)
 
-    return pipeline_class.from_pretrained(
-        model_name_or_path,
-        safety_checker=None,
-        variant=variant,
-        requires_safety_checker=False,
-    )
+    variants_to_try = [variant] + [v for v in HF_VARIANT_FALLBACKS if v != variant]
+
+    pipeline = None
+    for variant_to_try in variants_to_try:
+        if variant_to_try != variant:
+            logger.warning(f"Trying fallback variant '{variant_to_try}'.")
+        try:
+            pipeline = pipeline_class.from_pretrained(
+                model_name_or_path,
+                safety_checker=None,
+                variant=variant_to_try,
+                requires_safety_checker=False,
+            )
+        except OSError as e:
+            if "no file named" in str(e):
+                # Ok; we'll try the variant fallbacks.
+                logger.warning(
+                    f"Failed to load pipeline '{model_name_or_path}' with variant '{variant_to_try}'. Error: {e}."
+                )
+            else:
+                raise
+
+        if pipeline is not None:
+            break
+
+    if pipeline is None:
+        raise RuntimeError(f"Failed to load pipeline '{model_name_or_path}'.")
+    return pipeline
 
 
 def load_models_sd(
+    logger: logging.Logger,
     model_name_or_path: str,
     hf_variant: str | None = None,
     base_embeddings: dict[str, str] = None,
@@ -65,7 +91,10 @@ def load_models_sd(
     base_embeddings = base_embeddings or {}
 
     pipeline: StableDiffusionPipeline = load_pipeline(
-        model_name_or_path=model_name_or_path, pipeline_version=PipelineVersionEnum.SD, variant=hf_variant
+        logger=logger,
+        model_name_or_path=model_name_or_path,
+        pipeline_version=PipelineVersionEnum.SD,
+        variant=hf_variant,
     )
 
     for token, embedding_path in base_embeddings.items():
@@ -104,6 +133,7 @@ def load_models_sd(
 
 
 def load_models_sdxl(
+    logger: logging.Logger,
     model_name_or_path: str,
     hf_variant: str | None = None,
     vae_model: str | None = None,
@@ -124,7 +154,10 @@ def load_models_sdxl(
     base_embeddings = base_embeddings or {}
 
     pipeline: StableDiffusionXLPipeline = load_pipeline(
-        model_name_or_path=model_name_or_path, pipeline_version=PipelineVersionEnum.SDXL, variant=hf_variant
+        logger=logger,
+        model_name_or_path=model_name_or_path,
+        pipeline_version=PipelineVersionEnum.SDXL,
+        variant=hf_variant,
     )
 
     for token, embedding_path in base_embeddings.items():
