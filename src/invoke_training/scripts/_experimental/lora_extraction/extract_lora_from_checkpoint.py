@@ -81,14 +81,24 @@ def extract_lora_from_diffs(
         assert rank < in_dim
         assert rank < out_dim
 
+        u: torch.Tensor
+        s: torch.Tensor
+        v_h: torch.Tensor
         u, s, v_h = torch.linalg.svd(mat)
 
+        # Apply the Eckart-Young-Mirsky theorem.
+        # https://en.wikipedia.org/wiki/Low-rank_approximation#Proof_of_Eckart%E2%80%93Young%E2%80%93Mirsky_theorem_(for_Frobenius_norm)
         u = u[:, :rank]
         s = s[:rank]
         u = u @ torch.diag(s)
 
         v_h = v_h[:rank, :]
 
+        # At this point, u is the lora_up (a.k.a. lora_B) weight, and v_h is the lora_down (a.k.a. lora_A) weight.
+        # The reason we don't use more appropriate variable names is to keep memory usage low - we want the old tensors
+        # to get cleaned up after each operation.
+
+        # Clamp the outliers.
         dist = torch.cat([u.flatten(), v_h.flatten()])
         hi_val = torch.quantile(dist, clamp_quantile)
         low_val = -hi_val
@@ -138,8 +148,7 @@ def svd(
     # the LoRA weights initialized here.
     unet_lora_config = peft.LoraConfig(
         r=lora_rank,
-        # TODO(ryand): Should I set this to lora_rank?
-        lora_alpha=1.0,
+        lora_alpha=lora_rank,
         target_modules=UNET_TARGET_MODULES,
     )
     unet_tuned = peft.get_peft_model(unet_tuned, unet_lora_config)
@@ -173,14 +182,14 @@ def svd(
 
     # Prepare state dict for LoRA.
     lora_state_dict = {}
-    for module_name, (up_weight, down_weight) in lora_weights.items():
-        lora_state_dict[peft_base_layer_suffix + module_name + ".lora_A.weight"] = up_weight
-        lora_state_dict[peft_base_layer_suffix + module_name + ".lora_B.weight"] = down_weight
-        # TODO(ryand): Double-check that this is correct.
-        lora_state_dict[peft_base_layer_suffix + module_name + ".alpha"] = torch.tensor(down_weight.size()[0])
+    for module_name, (lora_up, lora_down) in lora_weights.items():
+        lora_state_dict[peft_base_layer_prefix + module_name + ".lora_A.default.weight"] = lora_down
+        lora_state_dict[peft_base_layer_prefix + module_name + ".lora_B.default.weight"] = lora_up
+        # TODO(ryand): Double-check that this isn't needed with peft.
+        # lora_state_dict[peft_base_layer_suffix + module_name + ".alpha"] = torch.tensor(down_weight.size()[0])
 
     # Load the state_dict into the LoRA model.
-    unet_orig.load_state_dict(lora_state_dict, assign=True)
+    unet_orig.load_state_dict(lora_state_dict, strict=False, assign=True)
 
     save_to_path = Path(save_to)
     assert save_to_path.suffix == ".safetensors"
