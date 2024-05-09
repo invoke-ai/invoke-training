@@ -19,6 +19,19 @@ class SdxlFinetuneConfig(BasePipelineConfig):
     """The Hugging Face Hub model variant to use. Only applies if `model` is a Hugging Face Hub model name.
     """
 
+    save_checkpoint_format: Literal["full_diffusers", "trained_only_diffusers"] = "trained_only_diffusers"
+    """The save format for the checkpoints.
+
+    Options:
+
+    - `full_diffusers`: Save the full model in diffusers format (including models that weren't finetuned). If you want a
+    single output artifact that can be used for generation, then this is the recommended option.
+    - `trained_only_diffusers`: Save only the models that were finetuned in diffusers format. For example, if only the
+    UNet model was trained, then only the UNet model will be saved. This option will significantly reduce the disk space
+    consumed by the saved checkpoints. If you plan to extract a LoRA from the fine-tuned model, then this is the
+    recommended option.
+    """
+
     optimizer: AdamOptimizerConfig | ProdigyOptimizerConfig = AdamOptimizerConfig()
 
     lr_scheduler: Literal[

@@ -25,6 +25,8 @@ class ModelType(Enum):
     SD1_UNET_DIFFUSERS = "SD1_UNET_DIFFUSERS"
     # A Stable Diffusion XL UNet checkpoint in diffusers format.
     SDXL_UNET_DIFFUSERS = "SDXL_UNET_DIFFUSERS"
+    # A full Stable Diffusion XL checkpoint in diffusers format.
+    SDXL_FULL_DIFFUSERS = "SDXL_FULL_DIFFUSERS"
 
 
 class ModelCheckpoint:

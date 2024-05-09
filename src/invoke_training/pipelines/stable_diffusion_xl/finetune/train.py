@@ -5,15 +5,16 @@ import math
 import os
 import tempfile
 import time
+from typing import Literal
 
 import peft
 import torch
 import torch.utils.data
 from accelerate.utils import set_seed
-from diffusers import UNet2DConditionModel
+from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel
 from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
-from transformers import CLIPTextModel
+from transformers import CLIPTextModel, CLIPTokenizer
 
 from invoke_training._shared.accelerator.accelerator_utils import (
     get_dtype_from_str,
@@ -23,6 +24,10 @@ from invoke_training._shared.accelerator.accelerator_utils import (
 from invoke_training._shared.checkpoints.checkpoint_tracker import CheckpointTracker
 from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import log_aspect_ratio_buckets
 from invoke_training._shared.optimizer.optimizer_utils import initialize_optimizer
+from invoke_training._shared.stable_diffusion.checkpoint_utils import (
+    save_sdxl_diffusers_checkpoint,
+    save_sdxl_diffusers_unet_checkpoint,
+)
 from invoke_training._shared.stable_diffusion.model_loading_utils import load_models_sdxl
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sdxl
 from invoke_training._shared.utils.import_xformers import import_xformers
@@ -39,6 +44,13 @@ from invoke_training.pipelines.stable_diffusion_xl.lora.train import (
 def _save_sdxl_checkpoint(
     epoch: int,
     step: int,
+    save_checkpoint_format: Literal["full_diffusers", "trained_only_diffusers"],
+    vae: AutoencoderKL,
+    text_encoder_1: CLIPTextModel,
+    text_encoder_2: CLIPTextModel,
+    tokenizer_1: CLIPTokenizer,
+    tokenizer_2: CLIPTokenizer,
+    noise_scheduler: DDPMScheduler,
     unet: UNet2DConditionModel,
     logger: logging.Logger,
     checkpoint_tracker: CheckpointTracker,
@@ -50,8 +62,25 @@ def _save_sdxl_checkpoint(
         logger.info(f"Pruned {num_pruned} checkpoint(s).")
     save_path = checkpoint_tracker.get_path(epoch=epoch, step=step)
 
-    model_type = ModelType.SDXL_UNET_DIFFUSERS
-    unet.save_pretrained(save_path)
+    if save_checkpoint_format == "trained_only_diffusers":
+        model_type = ModelType.SDXL_UNET_DIFFUSERS
+        save_sdxl_diffusers_unet_checkpoint(save_path, unet)
+    elif save_checkpoint_format == "full_diffusers":
+        model_type = ModelType.SDXL_FULL_DIFFUSERS
+        save_sdxl_diffusers_checkpoint(
+            checkpoint_path=save_path,
+            vae=vae,
+            text_encoder_1=text_encoder_1,
+            text_encoder_2=text_encoder_2,
+            tokenizer_1=tokenizer_1,
+            tokenizer_2=tokenizer_2,
+            noise_scheduler=noise_scheduler,
+            unet=unet,
+            # TODO(ryand): Make this configurable.
+            save_dtype=torch.float16,
+        )
+    else:
+        raise ValueError(f"Invalid save_checkpoint_format: '{save_checkpoint_format}'.")
 
     if callbacks is not None:
         for cb in callbacks:
@@ -296,6 +325,13 @@ def train(config: SdxlFinetuneConfig, callbacks: list[PipelineCallbacks] | None 
             _save_sdxl_checkpoint(
                 epoch=num_completed_epochs,
                 step=num_completed_steps,
+                save_checkpoint_format=config.save_checkpoint_format,
+                vae=vae,
+                text_encoder_1=text_encoder_1,
+                text_encoder_2=text_encoder_2,
+                tokenizer_1=tokenizer_1,
+                tokenizer_2=tokenizer_2,
+                noise_scheduler=noise_scheduler,
                 unet=unet,
                 logger=logger,
                 checkpoint_tracker=checkpoint_tracker,
