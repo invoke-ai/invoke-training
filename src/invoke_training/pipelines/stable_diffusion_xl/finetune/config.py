@@ -32,6 +32,10 @@ class SdxlFinetuneConfig(BasePipelineConfig):
     recommended option.
     """
 
+    save_dtype: Literal["float32", "float16", "bfloat16"] = "float16"
+    """The dtype to use when saving the model.
+    """
+
     optimizer: AdamOptimizerConfig | ProdigyOptimizerConfig = AdamOptimizerConfig()
 
     lr_scheduler: Literal[

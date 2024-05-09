@@ -37,7 +37,9 @@ data_loader:
 
 # General
 model: stabilityai/stable-diffusion-xl-base-1.0
+save_checkpoint_format: trained_only_diffusers
 # vae_model: madebyollin/sdxl-vae-fp16-fix
+save_dtype: float16
 gradient_accumulation_steps: 1
 weight_dtype: bfloat16
 gradient_checkpointing: True
@@ -45,12 +47,11 @@ cache_vae_outputs: True
 cache_text_encoder_outputs: True
 
 max_train_epochs: 50
-# Currently, we set save_every_n_epochs to a large value so that we don't save any checkpoints. They take up lots of
-# disk space, so this config is just intended for viewing the validation images.
-save_every_n_epochs: 100
-validate_every_n_epochs: 2
+save_every_n_epochs: 3
+validate_every_n_epochs: 3
+# We save a max of 1 checkpoint for demo purposes, because the checkpoints take up a lot of disk space.
+max_checkpoints: 1
 
-max_checkpoints: 0
 validation_prompts:
   - A baroque style painting of a woman carrying a basket of fruit.
   - A baroque style painting of a cute Yoda creature.

@@ -52,6 +52,7 @@ def _save_sdxl_checkpoint(
     tokenizer_2: CLIPTokenizer,
     noise_scheduler: DDPMScheduler,
     unet: UNet2DConditionModel,
+    save_dtype: torch.dtype,
     logger: logging.Logger,
     checkpoint_tracker: CheckpointTracker,
     callbacks: list[PipelineCallbacks] | None,
@@ -64,7 +65,7 @@ def _save_sdxl_checkpoint(
 
     if save_checkpoint_format == "trained_only_diffusers":
         model_type = ModelType.SDXL_UNET_DIFFUSERS
-        save_sdxl_diffusers_unet_checkpoint(save_path, unet)
+        save_sdxl_diffusers_unet_checkpoint(checkpoint_path=save_path, unet=unet, save_dtype=save_dtype)
     elif save_checkpoint_format == "full_diffusers":
         model_type = ModelType.SDXL_FULL_DIFFUSERS
         save_sdxl_diffusers_checkpoint(
@@ -76,8 +77,7 @@ def _save_sdxl_checkpoint(
             tokenizer_2=tokenizer_2,
             noise_scheduler=noise_scheduler,
             unet=unet,
-            # TODO(ryand): Make this configurable.
-            save_dtype=torch.float16,
+            save_dtype=save_dtype,
         )
     else:
         raise ValueError(f"Invalid save_checkpoint_format: '{save_checkpoint_format}'.")
@@ -333,6 +333,7 @@ def train(config: SdxlFinetuneConfig, callbacks: list[PipelineCallbacks] | None 
                 tokenizer_2=tokenizer_2,
                 noise_scheduler=noise_scheduler,
                 unet=unet,
+                save_dtype=get_dtype_from_str(config.save_dtype),
                 logger=logger,
                 checkpoint_tracker=checkpoint_tracker,
                 callbacks=callbacks,

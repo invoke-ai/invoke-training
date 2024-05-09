@@ -5,8 +5,21 @@ from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionXLPipeline, U
 from transformers import CLIPTextModel, CLIPTokenizer
 
 
-def save_sdxl_diffusers_unet_checkpoint(checkpoint_path: Path | str, unet: UNet2DConditionModel):
+def save_sdxl_diffusers_unet_checkpoint(
+    checkpoint_path: Path | str, unet: UNet2DConditionModel, save_dtype: torch.dtype
+):
+    # Record original device and dtype so that we can restore it afterward.
+    model_list = [unet]
+    original_devices = [model.device for model in model_list]
+    original_dtypes = [model.dtype for model in model_list]
+
+    # Save UNet.
+    unet.to(dtype=save_dtype)
     unet.save_pretrained(Path(checkpoint_path) / "unet")
+
+    # Restore original device/dtype.
+    for model, device, dtype in zip(model_list, original_devices, original_dtypes, strict=True):
+        model.to(device=device, dtype=dtype)
 
 
 def save_sdxl_diffusers_checkpoint(
@@ -38,11 +51,11 @@ def save_sdxl_diffusers_checkpoint(
         unet=unet,
         scheduler=noise_scheduler,
     )
-    pipeline = pipeline.to(device="cpu", dtype=save_dtype)
+    pipeline = pipeline.to(dtype=save_dtype)
 
     # Save pipeline.
     pipeline.save_pretrained(checkpoint_path)
 
     # Restore original device/dtype.
     for model, device, dtype in zip(model_list, original_devices, original_dtypes, strict=True):
-        model = model.to(device=device, dtype=dtype)
+        model.to(device=device, dtype=dtype)
