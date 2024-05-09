@@ -24,55 +24,56 @@ markdown_extensions:
   - pymdownx.superfences
 
 nav:
-- Welcome: index.md
-- Get Started:
-  - get-started/installation.md
-  - get-started/quick-start.md
-- Tutorials:
-  - tutorials/index.md
-  - Stable Diffusion:
-    # - tutorials/stable_diffusion/finetune_lora_sd.md
-    # - tutorials/stable_diffusion/dreambooth_lora_sd.md
-    - tutorials/stable_diffusion/textual_inversion_sdxl.md
-    # - tutorials/stable_diffusion/pivotal_tuning_sd.md
-    # - tutorials/stable_diffusion/the_chosen_one_sd.md
-    - tutorials/stable_diffusion/dpo_lora_sd.md
-- Concepts:
-  - concepts/index.md
-  - concepts/dataset_formats.md
-- YAML Config Reference:
-  - reference/config/index.md
-  - pipelines:
-    - SD LoRA Config: reference/config/pipelines/sd_lora.md
-    - SD Textual Inversion Config: reference/config/pipelines/sd_textual_inversion.md
-    - SDXL LoRA Config: reference/config/pipelines/sdxl_lora.md
-    - SDXL Textual Inversion Config: reference/config/pipelines/sdxl_textual_inversion.md
-    - SDXL LoRA and Textual Inversion Config: reference/config/pipelines/sdxl_lora_and_textual_inversion.md
-  - shared:
-    - data_loader_config: reference/config/shared/data/data_loader_config.md
-    - dataset_config: reference/config/shared/data/dataset_config.md
-    - optimizer_config: reference/config/shared/optimizer_config.md
-- Contributing:
-  - contributing/development_environment.md
-  - contributing/directory_structure.md
-  - contributing/tests.md
-  - contributing/documentation.md
+  - Welcome: index.md
+  - Get Started:
+      - get-started/installation.md
+      - get-started/quick-start.md
+  - Tutorials:
+      - tutorials/index.md
+      - Stable Diffusion:
+          # - tutorials/stable_diffusion/finetune_lora_sd.md
+          # - tutorials/stable_diffusion/dreambooth_lora_sd.md
+          - tutorials/stable_diffusion/textual_inversion_sdxl.md
+          # - tutorials/stable_diffusion/pivotal_tuning_sd.md
+          # - tutorials/stable_diffusion/the_chosen_one_sd.md
+          - tutorials/stable_diffusion/dpo_lora_sd.md
+  - Concepts:
+      - concepts/index.md
+      - concepts/dataset_formats.md
+  - YAML Config Reference:
+      - reference/config/index.md
+      - pipelines:
+          - SD LoRA Config: reference/config/pipelines/sd_lora.md
+          - SD Textual Inversion Config: reference/config/pipelines/sd_textual_inversion.md
+          - SDXL LoRA Config: reference/config/pipelines/sdxl_lora.md
+          - SDXL Textual Inversion Config: reference/config/pipelines/sdxl_textual_inversion.md
+          - SDXL LoRA and Textual Inversion Config: reference/config/pipelines/sdxl_lora_and_textual_inversion.md
+          - SDXL Finetune Config: reference/config/pipelines/sdxl_finetune.md
+      - shared:
+          - data_loader_config: reference/config/shared/data/data_loader_config.md
+          - dataset_config: reference/config/shared/data/dataset_config.md
+          - optimizer_config: reference/config/shared/optimizer_config.md
+  - Contributing:
+      - contributing/development_environment.md
+      - contributing/directory_structure.md
+      - contributing/tests.md
+      - contributing/documentation.md
 
 plugins:
-- search
-- mkdocstrings:
-    default_handler: python
-    custom_templates: docs/templates
-    handlers:
-      python:
-        options:
-          show_root_heading: false
-          show_root_toc_entry: false
-          show_bases: false
-          show_source: false
-          show_if_no_docstring: true
-          inherited_members: true
-          annotations_path: brief
-          separate_signature: true
-          show_signature_annotations: true
-          members_order: source
+  - search
+  - mkdocstrings:
+      default_handler: python
+      custom_templates: docs/templates
+      handlers:
+        python:
+          options:
+            show_root_heading: false
+            show_root_toc_entry: false
+            show_bases: false
+            show_source: false
+            show_if_no_docstring: true
+            inherited_members: true
+            annotations_path: brief
+            separate_signature: true
+            show_signature_annotations: true
+            members_order: source
