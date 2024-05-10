@@ -45,6 +45,15 @@ def str_to_dtype(dtype_str: Literal["fp32", "fp16", "bf16"]):
         raise ValueError(f"Unexpected dtype: {dtype_str}")
 
 
+def str_to_device(device_str: Literal["cuda", "cpu"]) -> torch.device:
+    if device_str == "cuda":
+        return torch.device("cuda")
+    elif device_str == "cpu":
+        return torch.device("cpu")
+    else:
+        raise ValueError(f"Unexpected device: {device_str}")
+
+
 def load_sdxl_unet(model_path: str) -> UNet2DConditionModel:
     variants_to_try = [None, "fp16"]
     unet = None
@@ -60,6 +69,10 @@ def load_sdxl_unet(model_path: str) -> UNet2DConditionModel:
     if unet is None:
         raise RuntimeError(f"Failed to load UNet from '{model_path}'.")
     return unet
+
+
+def state_dict_to_device(state_dict: dict[str, torch.Tensor], device: torch.device) -> dict[str, torch.Tensor]:
+    return {k: v.to(device=device) for k, v in state_dict.items()}
 
 
 @torch.no_grad()
@@ -123,11 +136,13 @@ def extract_lora(
     save_to: str,
     load_precision: Literal["fp32", "fp16", "bf16"],
     save_precision: Literal["fp32", "fp16", "bf16"],
+    device: Literal["cuda", "cpu"],
     lora_rank: int,
     clamp_quantile=0.99,
 ):
     load_dtype = str_to_dtype(load_precision)
     save_dtype = str_to_dtype(save_precision)
+    device = str_to_device(device)
 
     # Load models.
     if model_type == "sd1":
@@ -176,7 +191,9 @@ def extract_lora(
     del unet_tuned
 
     # Apply SVD (Singluar Value Decomposition) to the diffs.
+    # We just use the device for this calculation, since it's slow, then we move the results back to the CPU.
     logger.info("Calculating LoRA weights with SVD.")
+    diffs = state_dict_to_device(diffs, device)
     lora_weights = extract_lora_from_diffs(
         diffs=diffs, rank=lora_rank, clamp_quantile=clamp_quantile, out_dtype=save_dtype
     )
@@ -188,6 +205,8 @@ def extract_lora(
         lora_state_dict[peft_base_layer_prefix + module_name + ".lora_B.default.weight"] = lora_up
         # TODO(ryand): Double-check that this isn't needed with peft.
         # lora_state_dict[peft_base_layer_suffix + module_name + ".alpha"] = torch.tensor(down_weight.size()[0])
+
+    lora_state_dict = state_dict_to_device(lora_state_dict, torch.device("cpu"))
 
     # Load the state_dict into the LoRA model.
     unet_orig.load_state_dict(lora_state_dict, strict=False, assign=True)
@@ -233,6 +252,9 @@ def main():
 
     parser.add_argument("--lora-rank", type=int, default=4, help="LoRA rank dimension.")
     parser.add_argument("--clamp-quantile", type=float, default=0.99, help="Quantile clamping value. (0-1)")
+    parser.add_argument(
+        "--device", type=str, default="cuda", choices=["cuda", "cpu"], help="Device to use. (cuda or cpu)"
+    )
 
     args = parser.parse_args()
 
@@ -247,6 +269,7 @@ def main():
         save_to=args.save_to,
         load_precision=args.load_precision,
         save_precision=args.save_precision,
+        device=args.device,
         lora_rank=args.lora_rank,
         clamp_quantile=args.clamp_quantile,
     )
