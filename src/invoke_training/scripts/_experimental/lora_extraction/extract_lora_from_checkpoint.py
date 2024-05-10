@@ -6,6 +6,7 @@
 import argparse
 import logging
 import os
+import sys
 from pathlib import Path
 from typing import Literal
 
@@ -114,7 +115,7 @@ def extract_lora_from_diffs(
 
 
 @torch.no_grad()
-def svd(
+def extract_lora(
     logger: logging.Logger,
     model_type: Literal["sd1", "sdxl"],
     model_orig_path: str,
@@ -203,10 +204,20 @@ def svd(
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-type", type=str, default="sd1", choices=["sd1", "sdxl"], help="The base model type.")
+    parser.add_argument("--model-type", type=str, required=True, choices=["sd1", "sdxl"], help="The base model type.")
 
-    parser.add_argument("--model-orig", type=str, required=True, help="Path to the original model.")
-    parser.add_argument("--model-tuned", type=str, required=True, help="Path to the tuned model.")
+    parser.add_argument(
+        "--model-orig",
+        type=str,
+        required=True,
+        help="Path to the original model. (This should be a unet directory in diffusers format.)",
+    )
+    parser.add_argument(
+        "--model-tuned",
+        type=str,
+        required=True,
+        help="Path to the tuned model. (This should be a unet directory in diffusers format.)",
+    )
     parser.add_argument(
         "--save-to",
         type=str,
@@ -217,15 +228,18 @@ def main():
         "--load-precision", type=str, default="bf16", choices=["fp32", "fp16", "bf16"], help="Model load precision."
     )
     parser.add_argument(
-        "--save-precision", type=str, default="fp32", choices=["fp32", "fp16", "bf16"], help="Model save precision."
+        "--save-precision", type=str, default="fp16", choices=["fp32", "fp16", "bf16"], help="Model save precision."
     )
 
     parser.add_argument("--lora-rank", type=int, default=4, help="LoRA rank dimension.")
     parser.add_argument("--clamp-quantile", type=float, default=0.99, help="Quantile clamping value. (0-1)")
 
     args = parser.parse_args()
-    logger = logging.getLogger(__name__)
-    svd(
+
+    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    extract_lora(
         logger=logger,
         model_type=args.model_type,
         model_orig_path=args.model_orig,
