@@ -1,3 +1,0 @@
-# Pivotal Tuning
-
-Coming soon.
