@@ -3,6 +3,7 @@ from invoke_training.pipelines._experimental.sd_dpo_lora.train import train as t
 from invoke_training.pipelines.callbacks import PipelineCallbacks
 from invoke_training.pipelines.stable_diffusion.lora.train import train as train_sd_lora
 from invoke_training.pipelines.stable_diffusion.textual_inversion.train import train as train_sd_ti
+from invoke_training.pipelines.stable_diffusion_xl.finetune.train import train as train_sdxl_finetune
 from invoke_training.pipelines.stable_diffusion_xl.lora.train import train as train_sdxl_lora
 from invoke_training.pipelines.stable_diffusion_xl.lora_and_textual_inversion.train import (
     train as train_sdxl_lora_and_ti,
@@ -27,6 +28,8 @@ def train(config: PipelineConfig, callbacks: list[PipelineCallbacks] | None = No
         train_sdxl_ti(config, callbacks)
     elif config.type == "SDXL_LORA_AND_TEXTUAL_INVERSION":
         train_sdxl_lora_and_ti(config, callbacks)
+    elif config.type == "SDXL_FINETUNE":
+        train_sdxl_finetune(config, callbacks)
     elif config.type == "SD_DIRECT_PREFERENCE_OPTIMIZATION_LORA":
         print(f"Running EXPERIMENTAL pipeline: '{config.type}'.")
         train_sd_ddpo_lora(config, callbacks)

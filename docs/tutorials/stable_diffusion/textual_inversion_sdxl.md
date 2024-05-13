@@ -8,8 +8,8 @@ For this tutorial, we'll use a dataset consisting of 4 images of Bruce the Gnome
 
 | | |
 | - | - |
-| ![bruce_the_gnome dataset image 1.](../../images/bruce_the_gnome/001.png) | ![bruce_the_gnome dataset image 2.](../../images/bruce_the_gnome/002.png) |
-| ![bruce_the_gnome dataset image 3.](../../images/bruce_the_gnome/003.png) | ![bruce_the_gnome dataset image 4.](../../images/bruce_the_gnome/004.png) |
+| ![bruce_the_gnome dataset image 1.](../../images/bruce_the_gnome/001.jpg) | ![bruce_the_gnome dataset image 2.](../../images/bruce_the_gnome/002.jpg) |
+| ![bruce_the_gnome dataset image 3.](../../images/bruce_the_gnome/003.jpg) | ![bruce_the_gnome dataset image 4.](../../images/bruce_the_gnome/004.jpg) |
 
 This sample dataset is included in the invoke-training repo under [sample_data/bruce_the_gnome](https://github.com/invoke-ai/invoke-training/tree/main/sample_data/bruce_the_gnome).
 

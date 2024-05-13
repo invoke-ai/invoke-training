@@ -39,6 +39,7 @@ dependencies = [
 
 [project.optional-dependencies]
 "xformers" = ["xformers>=0.0.23; sys_platform!='darwin'"]
+"bitsandbytes" = ["bitsandbytes>=0.43.1"]
 
 "test" = [
     "mkdocs",

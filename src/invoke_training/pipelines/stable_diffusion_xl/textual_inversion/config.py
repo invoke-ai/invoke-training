@@ -12,13 +12,9 @@ class SdxlTextualInversionConfig(BasePipelineConfig):
     """Must be `SDXL_TEXTUAL_INVERSION`. This is what differentiates training pipeline types.
     """
 
-    model: str
+    model: str = "stabilityai/stable-diffusion-xl-base-1.0"
     """Name or path of the base model to train. Can be in diffusers format, or a single stable diffusion checkpoint
-    file. (E.g. `"runwayml/stable-diffusion-v1-5"`, `"stabilityai/stable-diffusion-xl-base-1.0"`,
-    `"/path/to/local/model.safetensors"`, etc.)
-
-    The model architecture must match the training pipeline being run. For example, if running a
-    Textual Inversion SDXL pipeline, then `model` must refer to an SDXL model.
+    file. (E.g. 'stabilityai/stable-diffusion-xl-base-1.0', '/path/to/JuggernautXL.safetensors', etc. )
     """
 
     hf_variant: str | None = "fp16"
