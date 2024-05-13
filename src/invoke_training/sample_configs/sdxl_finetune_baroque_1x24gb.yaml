@@ -1,4 +1,4 @@
-# Training mode: Finetuning with LoRA
+# Training mode: Full Finetuning
 # Base model:    SDXL
 # Dataset:       https://huggingface.co/datasets/InvokeAI/nga-baroque
 # GPU:           1 x 24GB
