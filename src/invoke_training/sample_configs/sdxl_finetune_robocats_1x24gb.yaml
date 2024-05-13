@@ -9,7 +9,7 @@ base_output_dir: output/robocats/sdxl_finetune
 
 optimizer:
   optimizer_type: AdamW
-  learning_rate: 1e-5
+  learning_rate: 2e-5
   use_8bit: True
 
 lr_scheduler: constant_with_warmup
@@ -27,7 +27,7 @@ data_loader:
     start_dim: 512
     end_dim: 1536
     divisible_by: 128
-  caption_prefix: "In the style of r0b0c4ts,"
+  caption_prefix: "In the robocat style,"
 
 # General
 model: stabilityai/stable-diffusion-xl-base-1.0
@@ -47,7 +47,7 @@ save_every_n_steps: 2000
 max_checkpoints: 1
 
 validation_prompts:
-  - In the style of r0b0c4ts, a robotic lion in the jungle.
-  - In the style of r0b0c4ts, a hamburger and fries.
+  - In the robocat style, a robotic lion in the jungle.
+  - In the robocat style, a hamburger and fries.
 train_batch_size: 4
 num_validation_images_per_prompt: 3
