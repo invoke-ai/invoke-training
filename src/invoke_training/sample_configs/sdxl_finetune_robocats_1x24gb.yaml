@@ -1,0 +1,53 @@
+# Training mode: Full finetune
+# Base model:    SDXL
+# Dataset:       Robocats
+# GPU:           1 x 24GB
+
+type: SDXL_FINETUNE
+seed: 1
+base_output_dir: output/robocats/sdxl_finetune
+
+optimizer:
+  optimizer_type: AdamW
+  learning_rate: 1e-5
+  use_8bit: True
+
+lr_scheduler: constant_with_warmup
+lr_warmup_steps: 200
+
+data_loader:
+  type: IMAGE_CAPTION_SD_DATA_LOADER
+  dataset:
+    type: IMAGE_CAPTION_JSONL_DATASET
+    # Update the jsonl_path field to point to the metadata.jsonl file of the downloaded dataset.
+    jsonl_path: /home/ryan/data/robocats/data.jsonl
+  resolution: 1024
+  aspect_ratio_buckets:
+    target_resolution: 1024
+    start_dim: 512
+    end_dim: 1536
+    divisible_by: 128
+  caption_prefix: "In the style of r0b0c4ts,"
+
+# General
+model: stabilityai/stable-diffusion-xl-base-1.0
+save_checkpoint_format: trained_only_diffusers
+# vae_model: madebyollin/sdxl-vae-fp16-fix
+save_dtype: float16
+gradient_accumulation_steps: 1
+weight_dtype: bfloat16
+gradient_checkpointing: True
+cache_vae_outputs: True
+cache_text_encoder_outputs: True
+
+max_train_steps: 2000
+validate_every_n_steps: 200
+save_every_n_steps: 2000
+# We save a max of 1 checkpoint for demo purposes, because the checkpoints take up a lot of disk space.
+max_checkpoints: 1
+
+validation_prompts:
+  - In the style of r0b0c4ts, a robotic lion in the jungle.
+  - In the style of r0b0c4ts, a hamburger and fries.
+train_batch_size: 4
+num_validation_images_per_prompt: 3
