@@ -17,6 +17,7 @@ https://invoke-ai.github.io/invoke-training/
   - DreamBooth LoRA
   - Textual Inversion
 - Stable Diffusion XL
+  - Full finetuning
   - LoRA
   - DreamBooth LoRA
   - Textual Inversion
