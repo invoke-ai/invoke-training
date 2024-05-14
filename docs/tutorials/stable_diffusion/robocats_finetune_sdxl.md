@@ -124,7 +124,7 @@ python src/invoke_training/scripts/_experimental/lora_extraction/extract_lora_fr
   --lora-rank 32
 ```
 
-## 5 - Import into InvokeAI
+## 6 - Import into InvokeAI
 
 If you haven't already, setup [InvokeAI](https://github.com/invoke-ai/InvokeAI) by following its documentation.
 
@@ -132,7 +132,7 @@ Import your finetuned diffusers model or your extracted LoRA from the 'Models' t
 
 Congratulations, you can now use your new robocat model! 🎉
 
-## 6 - Comparison: Finetune vs. LoRA Extraction
+## 7 - Comparison: Finetune vs. LoRA Extraction
 
 As noted earlier, the LoRA extraction process is lossy for a number of reasons. (There are some significant improvements coming to the LoRA extraction process soon to improve the fidelity of the extracted LoRA model.)
 
