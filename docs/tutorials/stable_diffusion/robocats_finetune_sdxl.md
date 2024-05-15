@@ -134,7 +134,7 @@ Congratulations, you can now use your new robocat model! 🎉
 
 ## 7 - Comparison: Finetune vs. LoRA Extraction
 
-As noted earlier, the LoRA extraction process is lossy for a number of reasons. (There are some significant improvements coming to the LoRA extraction process soon to improve the fidelity of the extracted LoRA model.)
+As noted earlier, the LoRA extraction process is lossy for a number of reasons.
 
 Below, we compare images generated with the same seed and prompt for 3 different model configurations.
 
