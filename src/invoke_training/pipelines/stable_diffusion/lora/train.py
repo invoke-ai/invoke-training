@@ -30,8 +30,6 @@ from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler imp
 from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training._shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
-    TEXT_ENCODER_TARGET_MODULES,
-    UNET_TARGET_MODULES,
     save_sd_kohya_checkpoint,
     save_sd_peft_checkpoint,
 )
@@ -389,7 +387,7 @@ def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None
             r=config.lora_rank_dim,
             # TODO(ryand): Diffusers uses lora_alpha=config.lora_rank_dim. Is that preferred?
             lora_alpha=1.0,
-            target_modules=UNET_TARGET_MODULES,
+            target_modules=config.unet_lora_target_modules,
         )
         unet = inject_lora_layers(unet, unet_lora_config, lr=config.unet_learning_rate)
 
@@ -398,7 +396,7 @@ def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None
             r=config.lora_rank_dim,
             lora_alpha=1.0,
             # init_lora_weights="gaussian",
-            target_modules=TEXT_ENCODER_TARGET_MODULES,
+            target_modules=config.text_encoder_lora_target_modules,
         )
         text_encoder = inject_lora_layers(text_encoder, text_encoder_lora_config, lr=config.text_encoder_learning_rate)
 

@@ -84,12 +84,16 @@ def extract_lora_from_diffs(
         # Use full precision for the intermediate calculations.
         mat = mat.to(torch.float32)
 
-        is_conv2d = len(mat.size()) == 4
-        if is_conv2d:
-            # TODO(ryand)
-            raise NotImplementedError("Conv2D support is not yet implemented.")
-
-        out_dim, in_dim = mat.size()[0:2]
+        is_conv2d = False
+        if len(mat.shape) == 4:  # Conv2D
+            is_conv2d = True
+            out_dim, in_dim, kernel_h, kernel_w = mat.shape
+            # Reshape to (out_dim, in_dim * kernel_h * kernel_w).
+            mat = mat.flatten(start_dim=1)
+        elif len(mat.shape) == 2:  # Linear
+            out_dim, in_dim = mat.shape
+        else:
+            raise ValueError(f"Unexpected weight shape: {mat.shape}")
 
         # LoRA rank cannot exceed the original dimensions.
         assert rank < in_dim
@@ -119,6 +123,10 @@ def extract_lora_from_diffs(
 
         u = u.clamp(low_val, hi_val)
         v_h = v_h.clamp(low_val, hi_val)
+
+        if is_conv2d:
+            u = u.reshape(out_dim, rank, 1, 1)
+            v_h = v_h.reshape(rank, in_dim, kernel_h, kernel_w)
 
         u = u.to(dtype=out_dtype).contiguous()
         v_h = v_h.to(dtype=out_dtype).contiguous()
@@ -164,6 +172,8 @@ def extract_lora(
     # the LoRA weights initialized here.
     unet_lora_config = peft.LoraConfig(
         r=lora_rank,
+        # We set the alpha to the rank, because we don't want any scaling to be applied to the LoRA weights that we
+        # extract.
         lora_alpha=lora_rank,
         target_modules=UNET_TARGET_MODULES,
     )

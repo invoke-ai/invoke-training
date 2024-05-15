@@ -2,6 +2,10 @@ from typing import Annotated, Literal, Union
 
 from pydantic import Field, model_validator
 
+from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
+    TEXT_ENCODER_TARGET_MODULES,
+    UNET_TARGET_MODULES,
+)
 from invoke_training.config.base_pipeline_config import BasePipelineConfig
 from invoke_training.config.data.data_loader_config import DreamboothSDDataLoaderConfig, ImageCaptionSDDataLoaderConfig
 from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
@@ -83,6 +87,36 @@ class SdxlLoraConfig(BasePipelineConfig):
     lora_rank_dim: int = 4
     """The rank dimension to use for the LoRA layers. Increasing the rank dimension increases the model's expressivity,
     but also increases the size of the generated LoRA model.
+    """
+
+    # The default list of target modules is based on
+    # https://github.com/huggingface/peft/blob/8665e2b5719faa4e4b91749ddec09442927b53e0/examples/stable_diffusion/train_dreambooth.py#L49C1-L65C87
+    unet_lora_target_modules: list[str] = UNET_TARGET_MODULES
+    """The list of target modules to apply LoRA layers to in the UNet model. The default list will produce a highly
+    expressive LoRA model.
+
+    For a smaller and less expressive LoRA model, the following list is recommended:
+    ```python
+    unet_lora_target_modules = ["to_k", "to_q", "to_v", "to_out.0"]
+    ```
+
+    The list of target modules is passed to Hugging Face's PEFT library. See
+    [the docs](https://huggingface.co/docs/peft/main/en/package_reference/lora#peft.LoraConfig.target_modules) for
+    details.
+    """
+
+    text_encoder_lora_target_modules: list[str] = TEXT_ENCODER_TARGET_MODULES
+    """The list of target modules to apply LoRA layers to in the text encoder models. The default list will produce a
+    highly expressive LoRA model.
+
+    For a smaller and less expressive LoRA model, the following list is recommended:
+    ```python
+    text_encoder_lora_target_modules = ["fc1", "fc2", "q_proj", "k_proj", "v_proj", "out_proj"]
+    ```
+
+    The list of target modules is passed to Hugging Face's PEFT library. See
+    [the docs](https://huggingface.co/docs/peft/main/en/package_reference/lora#peft.LoraConfig.target_modules) for
+    details.
     """
 
     cache_text_encoder_outputs: bool = False
