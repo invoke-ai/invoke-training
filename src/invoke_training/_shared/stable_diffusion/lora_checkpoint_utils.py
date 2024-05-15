@@ -26,9 +26,10 @@ UNET_TARGET_MODULES = [
 ]
 TEXT_ENCODER_TARGET_MODULES = ["fc1", "fc2", "q_proj", "k_proj", "v_proj", "out_proj"]
 
-# Module lists copied from diffusers training script:
-# UNET_TARGET_MODULES = ["to_k", "to_q", "to_v", "to_out.0"]
-# TEXT_ENCODER_TARGET_MODULES = ["q_proj", "k_proj", "v_proj", "out_proj"]
+# Module lists copied from diffusers training script.
+# These module lists will produce lighter, less expressive, LoRA models than the non-light versions.
+UNET_TARGET_MODULES_LIGHT = ["to_k", "to_q", "to_v", "to_out.0"]
+TEXT_ENCODER_TARGET_MODULES_LIGHT = ["q_proj", "k_proj", "v_proj", "out_proj"]
 
 SD_PEFT_UNET_KEY = "unet"
 SD_PEFT_TEXT_ENCODER_KEY = "text_encoder"
