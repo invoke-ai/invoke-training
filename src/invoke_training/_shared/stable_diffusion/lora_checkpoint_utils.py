@@ -9,26 +9,26 @@ from transformers import CLIPTextModel
 from invoke_training._shared.checkpoints.serialization import save_state_dict
 
 # Copied from https://github.com/huggingface/peft/blob/8665e2b5719faa4e4b91749ddec09442927b53e0/examples/stable_diffusion/train_dreambooth.py#L49C1-L65C87
-# TODO(ryand): Is this the set of modules that we want to use?
-# UNET_TARGET_MODULES = [
-#     "to_q",
-#     "to_k",
-#     "to_v",
-#     "proj",
-#     "proj_in",
-#     "proj_out",
-#     "conv",
-#     "conv1",
-#     "conv2",
-#     "conv_shortcut",
-#     "to_out.0",
-#     "time_emb_proj",
-#     "ff.net.2",
-# ]
-# TEXT_ENCODER_TARGET_MODULES = ["fc1", "fc2", "q_proj", "k_proj", "v_proj", "out_proj"]
+UNET_TARGET_MODULES = [
+    "to_q",
+    "to_k",
+    "to_v",
+    "proj",
+    "proj_in",
+    "proj_out",
+    "conv",
+    "conv1",
+    "conv2",
+    "conv_shortcut",
+    "to_out.0",
+    "time_emb_proj",
+    "ff.net.2",
+]
+TEXT_ENCODER_TARGET_MODULES = ["fc1", "fc2", "q_proj", "k_proj", "v_proj", "out_proj"]
+
 # Module lists copied from diffusers training script:
-UNET_TARGET_MODULES = ["to_k", "to_q", "to_v", "to_out.0"]
-TEXT_ENCODER_TARGET_MODULES = ["q_proj", "k_proj", "v_proj", "out_proj"]
+# UNET_TARGET_MODULES = ["to_k", "to_q", "to_v", "to_out.0"]
+# TEXT_ENCODER_TARGET_MODULES = ["q_proj", "k_proj", "v_proj", "out_proj"]
 
 SD_PEFT_UNET_KEY = "unet"
 SD_PEFT_TEXT_ENCODER_KEY = "text_encoder"
