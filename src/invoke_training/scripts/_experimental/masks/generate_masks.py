@@ -56,13 +56,15 @@ def run_clipseg(
 
 
 @torch.no_grad()
-def generate_masks(image_dir: str, prompt: str, clipseg_temp: float):
+def generate_masks(image_dir: str, prompt: str, clipseg_temp: float, batch_size: int):
     """Generate masks for a directory of images.
 
     Args:
         image_dir (str): The directory containing images.
         prompt (str): A short description of the thing you want to mask. E.g. 'a cat'.
-        clipseg_temp (float):
+        clipseg_temp (float): Temperature applied to the CLIPSeg logits. Higher values cause the mask to be 'smoother'.
+            and include more of the background. Recommended range: 0.5 to 1.0.
+        batch_size (int): Batch size to use when processing images. Larger batch sizes may be faster but require more.
     """
     device, dtype = select_device_and_dtype()
 
@@ -73,26 +75,27 @@ def generate_masks(image_dir: str, prompt: str, clipseg_temp: float):
     # Prepare the dataloader.
     dataset = ImageDirDataset(image_dir)
     print(f"Found {len(dataset)} images in '{image_dir}'.")
-    # TODO(ryand): Can we run with a larger batch_size?
-    data_loader = torch.utils.data.DataLoader(dataset, collate_fn=list_collate_fn, batch_size=1, drop_last=False)
+    data_loader = torch.utils.data.DataLoader(
+        dataset, collate_fn=list_collate_fn, batch_size=batch_size, drop_last=False
+    )
 
     # Process each image.
     for batch in data_loader:
-        image = batch["image"][0]
-        image_path = batch["image_path"][0]
-        print(f"Processing image: {image_path}")
+        image_path = [0]
         masks = run_clipseg(
-            images=[image],
+            images=batch["image"],
             prompt=prompt,
             clipseg_processor=clipseg_processor,
             clipseg_model=clipseg_model,
             clipseg_temp=clipseg_temp,
         )
 
-        image_path = Path(image_path)
-        out_path = image_path.parent / (image_path.stem + "_mask.png")
-        masks[0].save(out_path)
-        print(f"Saved mask to: {out_path}")
+        for image_path, mask in zip(batch["image_path"], masks, strict=True):
+            image_path = Path(image_path)
+            out_path = image_path.parent / "masks" / (image_path.stem + ".png")
+            out_path.parent.mkdir(exist_ok=True, parents=True)
+            mask.save(out_path)
+            print(f"Saved mask to: {out_path}")
 
 
 def main():
@@ -111,9 +114,15 @@ def main():
         help="Temperature applied to the CLIPSeg logits. Higher values cause the mask to be 'smoother' and include "
         "more of the background. Recommended range: 0.5 to 1.0.",
     )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=4,
+        help="Batch size to use when processing images. Larger batch sizes may be faster but require more memory.",
+    )
     args = parser.parse_args()
 
-    generate_masks(image_dir=args.dir, prompt=args.prompt, clipseg_temp=args.clipseg_temp)
+    generate_masks(image_dir=args.dir, prompt=args.prompt, clipseg_temp=args.clipseg_temp, batch_size=args.batch_size)
 
 
 if __name__ == "__main__":
