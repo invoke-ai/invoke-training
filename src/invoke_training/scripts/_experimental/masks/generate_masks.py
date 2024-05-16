@@ -10,11 +10,11 @@ from transformers import AutoProcessor, CLIPSegForImageSegmentation
 from invoke_training.scripts.utils.image_dir_dataset import ImageDirDataset, list_collate_fn
 
 
-def select_device_and_dtype() -> tuple[torch.device, torch.dtype]:
+def select_device() -> torch.device:
     if torch.cuda.is_available():
-        return torch.device("cuda"), torch.float16
+        return torch.device("cuda")
 
-    return torch.device("cpu"), torch.float32
+    return torch.device("cpu")
 
 
 def run_clipseg(
@@ -23,6 +23,7 @@ def run_clipseg(
     clipseg_processor,
     clipseg_model,
     clipseg_temp: float,
+    device: torch.device,
 ) -> list[Image.Image]:
     """Run ClipSeg on a list of images.
 
@@ -36,6 +37,11 @@ def run_clipseg(
     prompts = [prompt] * len(images)
     # TODO(ryand): Should we run the same image with and without the prompt to normalize for any bias in the model?
     inputs = clipseg_processor(text=prompts, images=images, padding=True, return_tensors="pt")
+
+    # Move inputs and clipseg_model to the correct device and dtype.
+    inputs = {k: v.to(device=device) for k, v in inputs.items()}
+    clipseg_model = clipseg_model.to(device=device)
+
     outputs = clipseg_model(**inputs)
 
     logits = outputs.logits
@@ -67,7 +73,7 @@ def generate_masks(image_dir: str, prompt: str, clipseg_temp: float, batch_size:
             and include more of the background. Recommended range: 0.5 to 1.0.
         batch_size (int): Batch size to use when processing images. Larger batch sizes may be faster but require more.
     """
-    device, dtype = select_device_and_dtype()
+    device = select_device()
 
     # Load the model.
     clipseg_processor = AutoProcessor.from_pretrained("CIDAS/clipseg-rd64-refined")
@@ -89,6 +95,7 @@ def generate_masks(image_dir: str, prompt: str, clipseg_temp: float, batch_size:
             clipseg_processor=clipseg_processor,
             clipseg_model=clipseg_model,
             clipseg_temp=clipseg_temp,
+            device=device,
         )
 
         for image_path, mask in zip(batch["image_path"], masks, strict=True):
