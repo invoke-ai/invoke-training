@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path
 
 import torch
 import torch.utils.data
@@ -15,8 +16,54 @@ def select_device_and_dtype() -> tuple[torch.device, torch.dtype]:
     return torch.device("cpu"), torch.float32
 
 
+def run_clipseg(
+    images: list[Image.Image],
+    prompt: str,
+    clipseg_processor,
+    clipseg_model,
+    clipseg_temp: float,
+) -> list[Image.Image]:
+    """Run ClipSeg on a list of images.
+
+    Args:
+        clipseg_temp (float): Temperature applied to the CLIPSeg logits. Higher values cause the mask to be 'smoother'
+            and include more of the background. Recommended range: 0.5 to 1.0.
+    """
+
+    orig_image_sizes = [img.size for img in images]
+
+    prompts = [prompt] * len(images)
+    # TODO(ryand): Should we run the same image with and without the prompt to normalize for any bias in the model?
+    inputs = clipseg_processor(text=prompts, images=images, padding=True, return_tensors="pt")
+    outputs = clipseg_model(**inputs)
+
+    logits = outputs.logits
+    if logits.ndim == 2:
+        # The model squeezes the batch dimension if it's 1, so we need to unsqueeze it.
+        logits = logits.unsqueeze(0)
+    probs = torch.nn.functional.sigmoid(logits / clipseg_temp)
+    # Normalize each mask to 0-255. Note that each mask is normalized independently.
+    probs = 255 * probs / probs.amax(dim=(1, 2), keepdim=True)
+
+    # Make mask greyscale.
+    masks: list[Image.Image] = []
+    for prob, orig_size in zip(probs, orig_image_sizes, strict=True):
+        mask = Image.fromarray(prob.cpu().numpy()).convert("L")
+        mask = mask.resize(orig_size)
+        masks.append(mask)
+
+    return masks
+
+
 @torch.no_grad()
-def generate_masks(image_dir: str, prompt: str, clipseg_temp: float, clipseg_bias: float = 0.01):
+def generate_masks(image_dir: str, prompt: str, clipseg_temp: float):
+    """Generate masks for a directory of images.
+
+    Args:
+        image_dir (str): The directory containing images.
+        prompt (str): A short description of the thing you want to mask. E.g. 'a cat'.
+        clipseg_temp (float):
+    """
     device, dtype = select_device_and_dtype()
 
     # Load the model.
@@ -32,26 +79,20 @@ def generate_masks(image_dir: str, prompt: str, clipseg_temp: float, clipseg_bia
     # Process each image.
     for batch in data_loader:
         image = batch["image"][0]
-        original_size = image.size
         image_path = batch["image_path"][0]
         print(f"Processing image: {image_path}")
-        # We run the same image with and without the prompt to normalize for any bias in the model.
-        inputs = clipseg_processor(text=[prompt, ""], images=[image] * 2, padding=True, return_tensors="pt")
-        outputs = clipseg_model(**inputs)
+        masks = run_clipseg(
+            images=[image],
+            prompt=prompt,
+            clipseg_processor=clipseg_processor,
+            clipseg_model=clipseg_model,
+            clipseg_temp=clipseg_temp,
+        )
 
-        logits = outputs.logits
-        probs = torch.nn.functional.softmax(logits / clipseg_temp, dim=0)[0]
-        probs = (probs + clipseg_bias).clamp_(0, 1)
-        probs = 255 * probs / probs.max()
-
-        # Make mask greyscale.
-        mask = Image.fromarray(probs.cpu().numpy()).convert("L")
-
-        # Resize mask to original size.
-        mask = mask.resize(original_size)
-
-        # TODO(ryand): Save mask to file.
-        return
+        image_path = Path(image_path)
+        out_path = image_path.parent / (image_path.stem + "_mask.png")
+        masks[0].save(out_path)
+        print(f"Saved mask to: {out_path}")
 
 
 def main():
@@ -67,8 +108,8 @@ def main():
         "--clipseg-temp",
         type=float,
         default=1.0,
-        help="Temperature for sampling from the CLIPSeg model. Higher values cause the mask to include more of the "
-        "background. Recommended range: 0.5 to 1.0.",
+        help="Temperature applied to the CLIPSeg logits. Higher values cause the mask to be 'smoother' and include "
+        "more of the background. Recommended range: 0.5 to 1.0.",
     )
     args = parser.parse_args()
 
