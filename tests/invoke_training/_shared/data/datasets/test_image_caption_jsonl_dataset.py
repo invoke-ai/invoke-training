@@ -16,11 +16,13 @@ def test_image_caption_jsonl_dataset_getitem(image_caption_jsonl):  # noqa: F811
 
     example = dataset[0]
 
-    assert set(example.keys()) == {"image", "id", "caption"}
+    assert set(example.keys()) == {"image", "id", "caption", "mask"}
     assert isinstance(example["image"], PIL.Image.Image)
     assert example["image"].mode == "RGB"
     assert example["id"] == "0"
     assert example["caption"] == "caption 0"
+    assert isinstance(example["mask"], PIL.Image.Image)
+    assert example["mask"].mode == "L"
 
 
 def test_image_caption_jsonl_dataset_keep_in_memory(image_caption_jsonl):  # noqa: F811
@@ -28,11 +30,13 @@ def test_image_caption_jsonl_dataset_keep_in_memory(image_caption_jsonl):  # noq
 
     example = dataset[0]
 
-    assert set(example.keys()) == {"image", "id", "caption"}
+    assert set(example.keys()) == {"image", "id", "caption", "mask"}
     assert isinstance(example["image"], PIL.Image.Image)
     assert example["image"].mode == "RGB"
     assert example["id"] == "0"
     assert example["caption"] == "caption 0"
+    assert isinstance(example["mask"], PIL.Image.Image)
+    assert example["mask"].mode == "L"
 
 
 def test_image_caption_jsonl_dataset_get_image_dimensions(image_caption_jsonl):  # noqa: F811

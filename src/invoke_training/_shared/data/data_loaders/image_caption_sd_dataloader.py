@@ -9,19 +9,14 @@ from invoke_training._shared.data.datasets.build_dataset import (
     build_image_caption_jsonl_dataset,
 )
 from invoke_training._shared.data.datasets.transform_dataset import TransformDataset
-from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
-    AspectRatioBucketBatchSampler,
-)
+from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import AspectRatioBucketBatchSampler
 from invoke_training._shared.data.transforms.caption_prefix_transform import CaptionPrefixTransform
 from invoke_training._shared.data.transforms.drop_field_transform import DropFieldTransform
 from invoke_training._shared.data.transforms.load_cache_transform import LoadCacheTransform
 from invoke_training._shared.data.transforms.sd_image_transform import SDImageTransform
 from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training._shared.data.utils.aspect_ratio_bucket_manager import AspectRatioBucketManager
-from invoke_training.config.data.data_loader_config import (
-    AspectRatioBucketConfig,
-    ImageCaptionSDDataLoaderConfig,
-)
+from invoke_training.config.data.data_loader_config import AspectRatioBucketConfig, ImageCaptionSDDataLoaderConfig
 from invoke_training.config.data.dataset_config import (
     HFHubImageCaptionDatasetConfig,
     ImageCaptionDirDatasetConfig,
@@ -59,6 +54,9 @@ def sd_image_caption_collate_fn(examples):
 
     if "vae_output" in examples[0]:
         out_examples["vae_output"] = torch.stack([example["vae_output"] for example in examples])
+
+    if "mask" in examples[0]:
+        out_examples["mask"] = torch.stack([example["mask"] for example in examples])
 
     return out_examples
 

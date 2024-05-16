@@ -2,12 +2,8 @@ import math
 
 import torch
 
-from invoke_training._shared.data.data_loaders.image_caption_sd_dataloader import (
-    build_image_caption_sd_dataloader,
-)
-from invoke_training.config.data.data_loader_config import (
-    ImageCaptionSDDataLoaderConfig,
-)
+from invoke_training._shared.data.data_loaders.image_caption_sd_dataloader import build_image_caption_sd_dataloader
+from invoke_training.config.data.data_loader_config import ImageCaptionSDDataLoaderConfig
 from invoke_training.config.data.dataset_config import ImageCaptionJsonlDatasetConfig
 
 from ..dataset_fixtures import image_caption_jsonl  # noqa: F401
@@ -25,7 +21,7 @@ def test_build_image_caption_sd_dataloader(image_caption_jsonl):  # noqa: F811
     assert len(data_loader) == math.ceil(5 / 4)
 
     example = next(iter(data_loader))
-    assert set(example.keys()) == {"image", "id", "caption", "original_size_hw", "crop_top_left_yx"}
+    assert set(example.keys()) == {"image", "mask", "id", "caption", "original_size_hw", "crop_top_left_yx"}
 
     image = example["image"]
     assert image.shape == (4, 3, 512, 512)

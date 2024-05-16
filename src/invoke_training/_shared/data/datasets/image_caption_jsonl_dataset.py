@@ -15,6 +15,7 @@ MASK_COLUMN_DEFAULT = "mask"
 
 class ImageCaptionExample(BaseModel):
     image_path: str
+    mask_path: str | None
     caption: str
 
 
@@ -41,14 +42,15 @@ class ImageCaptionJsonlDataset(torch.utils.data.Dataset):
                 raise ValueError(f"Column '{image_column}' not found in jsonl file '{jsonl_path}'.")
             if caption_column not in d:
                 raise ValueError(f"Column '{caption_column}' not found in jsonl file '{jsonl_path}'.")
-            examples.append(ImageCaptionExample(image_path=d[image_column], caption=d[caption_column]))
+            examples.append(
+                ImageCaptionExample(
+                    image_path=d[image_column], mask_path=d.get(MASK_COLUMN_DEFAULT, None), caption=d[caption_column]
+                )
+            )
         self.examples = examples
 
-        self._images = None
-        if keep_in_memory:
-            self._images = []
-            for i in range(len(self.examples)):
-                self._images.append(self._load_image(self._get_image_path(idx=i)))
+        self._keep_in_memory = keep_in_memory
+        self._example_cache = {}
 
     def save_jsonl(self):
         data = []
@@ -58,17 +60,41 @@ class ImageCaptionJsonlDataset(torch.utils.data.Dataset):
 
     def _get_image_path(self, idx: int) -> str:
         image_path = self.examples[idx].image_path
+        image_path = Path(image_path)
 
         # image_path could be either absolute, or relative to the jsonl file.
-        if not image_path.startswith("/"):
+        if not image_path.is_absolute():
             image_path = self._jsonl_path.parent / image_path
 
         return image_path
+
+    def _get_mask_path(self, idx: int) -> str:
+        mask_path = self.examples[idx].mask_path
+        mask_path = Path(mask_path)
+
+        # mask_path could be either absolute, or relative to the jsonl file.
+        if not mask_path.is_absolute():
+            mask_path = self._jsonl_path.parent / mask_path
+
+        return mask_path
 
     def _load_image(self, image_path: str) -> Image.Image:
         # We call `convert("RGB")` to drop the alpha channel from RGBA images, or to repeat channels for greyscale
         # images.
         return Image.open(image_path).convert("RGB")
+
+    def _load_mask(self, mask_path: str) -> Image.Image:
+        return Image.open(mask_path).convert("L")
+
+    def _load_example(self, idx: int) -> dict[str, typing.Any]:
+        example = {
+            "id": str(idx),
+            "image": self._load_image(self._get_image_path(idx)),
+            "caption": self.examples[idx].caption,
+        }
+        if self.examples[idx].mask_path:
+            example["mask"] = self._load_mask(self._get_mask_path(idx))
+        return example
 
     def get_image_dimensions(self) -> list[Resolution]:
         """Get the dimensions of all images in the dataset.
@@ -87,5 +113,8 @@ class ImageCaptionJsonlDataset(torch.utils.data.Dataset):
         return len(self.examples)
 
     def __getitem__(self, idx: int) -> typing.Dict[str, typing.Any]:
-        image = self._images[idx] if self._images is not None else self._load_image(self._get_image_path(idx))
-        return {"id": str(idx), "image": image, "caption": self.examples[idx].caption}
+        if self._keep_in_memory:
+            if idx not in self._example_cache:
+                self._example_cache[idx] = self._load_example(idx)
+            return self._example_cache[idx]
+        return self._load_example(idx)

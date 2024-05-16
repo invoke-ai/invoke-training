@@ -19,6 +19,7 @@ class SDImageTransform:
         center_crop: bool = True,
         random_flip: bool = False,
         image_field_name: str = "image",
+        mask_field_name: str = "mask",
         orig_size_field_name: str = "original_size_hw",
         crop_field_name: str = "crop_top_left_yx",
     ):
@@ -45,16 +46,13 @@ class SDImageTransform:
         self._center_crop_enabled = center_crop
         self._random_flip_enabled = random_flip
         self._flip_transform = transforms.RandomHorizontalFlip(p=1.0)
-        self._other_transforms = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                # Convert pixel values from range [0, 1.0] to range [-1.0, 1.0]. Normalize applies the following
-                # transform: out = (in - 0.5) / 0.5
-                transforms.Normalize([0.5], [0.5]),
-            ]
-        )
+        self._to_tensor_transform = transforms.ToTensor()
+        # Convert pixel values from range [0, 1.0] to range [-1.0, 1.0].
+        # Normalize applies the following transform: out = (in - 0.5) / 0.5
+        self._normalize_image_transform = transforms.Normalize([0.5], [0.5])
 
         self._image_field_name = image_field_name
+        self._mask_field_name = mask_field_name
         self._orig_size_field_name = orig_size_field_name
         self._crop_field_name = crop_field_name
 
@@ -63,6 +61,9 @@ class SDImageTransform:
         # https://github.com/huggingface/diffusers/blob/7b07f9812a58bfa96c06ed8ffe9e6b584286e2fd/examples/text_to_image/train_text_to_image_lora_sdxl.py#L850-L873
 
         image: Image = data[self._image_field_name]
+        mask: Image | None = data.get(self._mask_field_name, None)
+        if mask is not None:
+            assert mask.size == image.size
 
         original_size_hw = (image.height, image.width)
 
@@ -74,6 +75,8 @@ class SDImageTransform:
 
         # Resize to cover the target resolution while preserving aspect ratio.
         image = resize_to_cover(image, resolution)
+        if mask is not None:
+            mask = resize_to_cover(mask, resolution)
 
         # Apply cropping, and record top left crop position.
         if self._center_crop_enabled:
@@ -83,19 +86,31 @@ class SDImageTransform:
             crop_transform = transforms.RandomCrop(resolution.to_tuple())
             top_left_y, top_left_x, h, w = crop_transform.get_params(image, resolution.to_tuple())
         image = crop(image, top_left_y, top_left_x, resolution.height, resolution.width)
+        if mask is not None:
+            mask = crop(mask, top_left_y, top_left_x, resolution.height, resolution.width)
 
         # Apply random flip and update top left crop position accordingly.
         # TODO(ryand): Use a seed for repeatable results.
         if self._random_flip_enabled and random.random() < 0.5:
             top_left_x = original_size_hw[1] - image.width - top_left_x
             image = self._flip_transform(image)
+            if mask is not None:
+                mask = self._flip_transform(mask)
 
         crop_top_left_yx = (top_left_y, top_left_x)
 
-        # Convert image to Tensor and normalize to range [-1.0, 1.0].
-        image = self._other_transforms(image)
+        # Convert to Tensors.
+        image = self._to_tensor_transform(image)
+        if mask is not None:
+            mask = self._to_tensor_transform(mask)
+
+        # Normalize to range [-1.0, 1.0].
+        image = self._normalize_image_transform(image)
+        # We leave the mask as is, since it should be in the range [0.0, 1.0].
 
         data[self._image_field_name] = image
         data[self._orig_size_field_name] = original_size_hw
         data[self._crop_field_name] = crop_top_left_yx
+        if mask is not None:
+            data[self._mask_field_name] = mask
         return data
