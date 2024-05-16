@@ -4,6 +4,7 @@ from pathlib import Path
 import torch
 import torch.utils.data
 from PIL import Image
+from tqdm import tqdm
 from transformers import AutoProcessor, CLIPSegForImageSegmentation
 
 from invoke_training.scripts.utils.image_dir_dataset import ImageDirDataset, list_collate_fn
@@ -80,7 +81,7 @@ def generate_masks(image_dir: str, prompt: str, clipseg_temp: float, batch_size:
     )
 
     # Process each image.
-    for batch in data_loader:
+    for batch in tqdm(data_loader):
         image_path = [0]
         masks = run_clipseg(
             images=batch["image"],
