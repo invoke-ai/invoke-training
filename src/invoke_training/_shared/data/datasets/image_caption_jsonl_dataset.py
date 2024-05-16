@@ -10,6 +10,7 @@ from invoke_training._shared.utils.jsonl import load_jsonl, save_jsonl
 
 IMAGE_COLUMN_DEFAULT = "image"
 CAPTION_COLUMN_DEFAULT = "text"
+MASK_COLUMN_DEFAULT = "mask"
 
 
 class ImageCaptionExample(BaseModel):
