@@ -70,9 +70,10 @@ def build_aspect_ratio_bucket_manager(config: AspectRatioBucketConfig):
     )
 
 
-def build_image_caption_sd_dataloader(
+def build_image_caption_sd_dataloader(  # noqa: C901
     config: ImageCaptionSDDataLoaderConfig,
     batch_size: int,
+    use_masks: bool = False,
     text_encoder_output_cache_dir: typing.Optional[str] = None,
     text_encoder_cache_field_to_output_field: typing.Optional[dict[str, str]] = None,
     vae_output_cache_dir: typing.Optional[str] = None,
@@ -123,9 +124,15 @@ def build_image_caption_sd_dataloader(
         all_transforms.append(CaptionPrefixTransform(caption_field_name="caption", prefix=config.caption_prefix + " "))
 
     if vae_output_cache_dir is None:
+        image_field_names = ["image"]
+        if use_masks:
+            image_field_names.append("mask")
+        else:
+            all_transforms.append(DropFieldTransform("mask"))
+
         all_transforms.append(
             SDImageTransform(
-                image_field_names=["image", "mask"],
+                image_field_names=image_field_names,
                 fields_to_normalize_to_range_minus_one_to_one=["image"],
                 resolution=target_resolution,
                 aspect_ratio_bucket_manager=aspect_ratio_bucket_manager,
@@ -133,23 +140,25 @@ def build_image_caption_sd_dataloader(
                 random_flip=config.random_flip,
             )
         )
-        # all_transforms.append(ScaleImageTransform(image_field="mask", scale_factor=1 / 8))
     else:
         # We drop the image to avoid having to either convert from PIL, or handle PIL batch collation.
         all_transforms.append(DropFieldTransform("image"))
         all_transforms.append(DropFieldTransform("mask"))
 
         vae_cache = TensorDiskCache(vae_output_cache_dir)
+
+        cache_field_to_output_field = {
+            "vae_output": "vae_output",
+            "original_size_hw": "original_size_hw",
+            "crop_top_left_yx": "crop_top_left_yx",
+        }
+        if use_masks:
+            cache_field_to_output_field["mask"] = "mask"
         all_transforms.append(
             LoadCacheTransform(
                 cache=vae_cache,
                 cache_key_field="id",
-                cache_field_to_output_field={
-                    "vae_output": "vae_output",
-                    "original_size_hw": "original_size_hw",
-                    "crop_top_left_yx": "crop_top_left_yx",
-                    "mask": "mask",
-                },
+                cache_field_to_output_field=cache_field_to_output_field,
             )
         )
 

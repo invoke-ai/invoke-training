@@ -80,6 +80,7 @@ def _save_sd_lora_checkpoint(
 def _build_data_loader(
     data_loader_config: Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig],
     batch_size: int,
+    use_masks: bool = False,
     text_encoder_output_cache_dir: Optional[str] = None,
     vae_output_cache_dir: Optional[str] = None,
     shuffle: bool = True,
@@ -89,12 +90,15 @@ def _build_data_loader(
         return build_image_caption_sd_dataloader(
             config=data_loader_config,
             batch_size=batch_size,
+            use_masks=use_masks,
             text_encoder_output_cache_dir=text_encoder_output_cache_dir,
             text_encoder_cache_field_to_output_field={"text_encoder_output": "text_encoder_output"},
             vae_output_cache_dir=vae_output_cache_dir,
             shuffle=shuffle,
         )
     elif data_loader_config.type == "DREAMBOOTH_SD_DATA_LOADER":
+        if use_masks:
+            raise NotImplementedError("Masks are not yet supported for DreamBooth data loaders.")
         return build_dreambooth_sd_dataloader(
             config=data_loader_config,
             batch_size=batch_size,
@@ -164,6 +168,7 @@ def train_forward(  # noqa: C901
     text_encoder: CLIPTextModel,
     unet: UNet2DConditionModel,
     weight_dtype: torch.dtype,
+    use_masks: bool = False,
     min_snr_gamma: float | None = None,
 ) -> torch.Tensor:
     """Run the forward training pass for a single data_batch.
@@ -237,6 +242,13 @@ def train_forward(  # noqa: C901
             raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
 
     loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="none")
+
+    if use_masks:
+        # TODO(ryand): As a future performance optimization, we may want to do this resizing in the dataloader.
+        mask = data_batch["mask"].to(dtype=loss.dtype, device=loss.device)
+        _, _, latent_h, latent_w = loss.shape
+        mask = torch.nn.functional.interpolate(mask, size=(latent_h, latent_w), mode="nearest")
+        loss = loss * mask
 
     # Mean-reduce the loss along all dimensions except for the batch dimension.
     loss = loss.mean(dim=list(range(1, len(loss.shape))))
@@ -348,6 +360,7 @@ def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None
             data_loader = _build_data_loader(
                 data_loader_config=config.data_loader,
                 batch_size=config.train_batch_size,
+                use_masks=config.use_masks,
                 shuffle=False,
                 sequential_batching=True,
             )
@@ -434,6 +447,7 @@ def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None
     data_loader = _build_data_loader(
         data_loader_config=config.data_loader,
         batch_size=config.train_batch_size,
+        use_masks=config.use_masks,
         text_encoder_output_cache_dir=text_encoder_output_cache_dir_name,
         vae_output_cache_dir=vae_output_cache_dir_name,
     )
@@ -561,6 +575,7 @@ def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None
                     text_encoder=text_encoder,
                     unet=unet,
                     weight_dtype=weight_dtype,
+                    use_masks=config.use_masks,
                     min_snr_gamma=config.min_snr_gamma,
                 )
 

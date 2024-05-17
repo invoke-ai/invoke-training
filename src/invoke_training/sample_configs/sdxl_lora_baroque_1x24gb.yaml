@@ -25,7 +25,7 @@ data_loader:
   dataset:
     type: IMAGE_CAPTION_JSONL_DATASET
     # Update the jsonl_path field to point to the metadata.jsonl file of the downloaded dataset.
-    jsonl_path: data/nga-baroque/metadata.jsonl
+    jsonl_path: data/nga-baroque/metadata_masks.jsonl
   resolution: 1024
   aspect_ratio_buckets:
     target_resolution: 1024
@@ -45,6 +45,8 @@ cache_vae_outputs: True
 max_train_epochs: 16
 save_every_n_epochs: 2
 validate_every_n_epochs: 2
+
+use_masks: False
 
 max_checkpoints: 5
 validation_prompts:
