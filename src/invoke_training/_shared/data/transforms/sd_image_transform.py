@@ -1,7 +1,6 @@
 import random
 import typing
 
-from PIL.Image import Image
 from torchvision import transforms
 from torchvision.transforms.functional import crop
 
@@ -14,18 +13,19 @@ class SDImageTransform:
 
     def __init__(
         self,
+        image_field_names: list[str],
+        fields_to_normalize_to_range_minus_one_to_one: list[str],
         resolution: int | tuple[int, int] | Resolution | None,
         aspect_ratio_bucket_manager: AspectRatioBucketManager | None = None,
         center_crop: bool = True,
         random_flip: bool = False,
-        image_field_name: str = "image",
-        mask_field_name: str = "mask",
         orig_size_field_name: str = "original_size_hw",
         crop_field_name: str = "crop_top_left_yx",
     ):
         """Initialize SDImageTransform.
 
         Args:
+            image_field_names (list[str]): The field names of the images to be transformed.
             resolution (Resolution): The image resolution that will be produced. One of `resolution` and
                 `aspect_ratio_bucket_manager` should be non-None.
             aspect_ratio_bucket_manager (AspectRatioBucketManager): The AspectRatioBucketManager used to determine the
@@ -35,6 +35,8 @@ class SDImageTransform:
                 False, crop at a random location.
             random_flip (bool, optional): Whether to apply a random horizontal flip to the images.
         """
+        self._image_field_names = image_field_names
+        self._fields_to_normalize_to_range_minus_one_to_one = fields_to_normalize_to_range_minus_one_to_one
         if resolution is not None and aspect_ratio_bucket_manager is not None:
             raise ValueError("Only one of `resolution` or `aspect_ratio_bucket_manager` should be set.")
 
@@ -51,21 +53,20 @@ class SDImageTransform:
         # Normalize applies the following transform: out = (in - 0.5) / 0.5
         self._normalize_image_transform = transforms.Normalize([0.5], [0.5])
 
-        self._image_field_name = image_field_name
-        self._mask_field_name = mask_field_name
         self._orig_size_field_name = orig_size_field_name
         self._crop_field_name = crop_field_name
 
-    def __call__(self, data: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:
+    def __call__(self, data: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:  # noqa: C901
         # This SDXL image pre-processing logic is adapted from:
         # https://github.com/huggingface/diffusers/blob/7b07f9812a58bfa96c06ed8ffe9e6b584286e2fd/examples/text_to_image/train_text_to_image_lora_sdxl.py#L850-L873
 
-        image: Image = data[self._image_field_name]
-        mask: Image | None = data.get(self._mask_field_name, None)
-        if mask is not None:
-            assert mask.size == image.size
-
-        original_size_hw = (image.height, image.width)
+        image_fields: dict = {}
+        for field_name in self._image_field_names:
+            image_fields[field_name] = data[field_name]
+        sizes = [image.size for image in image_fields.values()]
+        original_size_hw = sizes[0]
+        # All images should have the same size.
+        assert all(size == original_size_hw for size in sizes)
 
         # Determine the target image resolution.
         if self._resolution is not None:
@@ -74,43 +75,44 @@ class SDImageTransform:
             resolution = self._aspect_ratio_bucket_manager.get_aspect_ratio_bucket(Resolution.parse(original_size_hw))
 
         # Resize to cover the target resolution while preserving aspect ratio.
-        image = resize_to_cover(image, resolution)
-        if mask is not None:
-            mask = resize_to_cover(mask, resolution)
+        for field_name, image in image_fields.items():
+            image_fields[field_name] = resize_to_cover(image, resolution)
 
         # Apply cropping, and record top left crop position.
+        # We use the first image size to determine cropping behavior, but all images should be the same size.
+        first_image = next(iter(image_fields.values()))
         if self._center_crop_enabled:
-            top_left_y = max(0, (image.height - resolution.height) // 2)
-            top_left_x = max(0, (image.width - resolution.width) // 2)
+            top_left_y = max(0, (first_image.height - resolution.height) // 2)
+            top_left_x = max(0, (first_image.width - resolution.width) // 2)
         else:
             crop_transform = transforms.RandomCrop(resolution.to_tuple())
-            top_left_y, top_left_x, h, w = crop_transform.get_params(image, resolution.to_tuple())
-        image = crop(image, top_left_y, top_left_x, resolution.height, resolution.width)
-        if mask is not None:
-            mask = crop(mask, top_left_y, top_left_x, resolution.height, resolution.width)
+            top_left_y, top_left_x, h, w = crop_transform.get_params(first_image, resolution.to_tuple())
+        for field_name, image in image_fields.items():
+            image_fields[field_name] = crop(image, top_left_y, top_left_x, resolution.height, resolution.width)
 
         # Apply random flip and update top left crop position accordingly.
         # TODO(ryand): Use a seed for repeatable results.
         if self._random_flip_enabled and random.random() < 0.5:
-            top_left_x = original_size_hw[1] - image.width - top_left_x
-            image = self._flip_transform(image)
-            if mask is not None:
-                mask = self._flip_transform(mask)
+            first_image = next(iter(image_fields.values()))
+            top_left_x = original_size_hw[1] - first_image.width - top_left_x
+            for field_name, image in image_fields.items():
+                image_fields[field_name] = self._flip_transform(image)
 
         crop_top_left_yx = (top_left_y, top_left_x)
 
         # Convert to Tensors.
-        image = self._to_tensor_transform(image)
-        if mask is not None:
-            mask = self._to_tensor_transform(mask)
+        for field_name, image in image_fields.items():
+            image_fields[field_name] = self._to_tensor_transform(image)
 
         # Normalize to range [-1.0, 1.0].
-        image = self._normalize_image_transform(image)
-        # We leave the mask as is, since it should be in the range [0.0, 1.0].
+        # HACK(ryand): We should find a better way to determine the normalization range of each image field.
+        for field_name, image in image_fields.items():
+            if field_name in self._fields_to_normalize_to_range_minus_one_to_one:
+                image_fields[field_name] = self._normalize_image_transform(image)
 
-        data[self._image_field_name] = image
         data[self._orig_size_field_name] = original_size_hw
         data[self._crop_field_name] = crop_top_left_yx
-        if mask is not None:
-            data[self._mask_field_name] = mask
+        for field_name, image in image_fields.items():
+            data[field_name] = image
+
         return data

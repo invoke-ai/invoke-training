@@ -125,13 +125,20 @@ def build_image_caption_sd_dataloader(
     if vae_output_cache_dir is None:
         all_transforms.append(
             SDImageTransform(
+                image_field_names=["image", "mask"],
+                fields_to_normalize_to_range_minus_one_to_one=["image"],
                 resolution=target_resolution,
                 aspect_ratio_bucket_manager=aspect_ratio_bucket_manager,
                 center_crop=config.center_crop,
                 random_flip=config.random_flip,
             )
         )
+        # all_transforms.append(ScaleImageTransform(image_field="mask", scale_factor=1 / 8))
     else:
+        # We drop the image to avoid having to either convert from PIL, or handle PIL batch collation.
+        all_transforms.append(DropFieldTransform("image"))
+        all_transforms.append(DropFieldTransform("mask"))
+
         vae_cache = TensorDiskCache(vae_output_cache_dir)
         all_transforms.append(
             LoadCacheTransform(
@@ -141,11 +148,10 @@ def build_image_caption_sd_dataloader(
                     "vae_output": "vae_output",
                     "original_size_hw": "original_size_hw",
                     "crop_top_left_yx": "crop_top_left_yx",
+                    "mask": "mask",
                 },
             )
         )
-        # We drop the image to avoid having to either convert from PIL, or handle PIL batch collation.
-        all_transforms.append(DropFieldTransform("image"))
 
     if text_encoder_output_cache_dir is not None:
         assert text_encoder_cache_field_to_output_field is not None

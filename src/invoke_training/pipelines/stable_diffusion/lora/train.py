@@ -145,14 +145,14 @@ def cache_vae_outputs(cache_dir: str, data_loader: DataLoader, vae: AutoencoderK
         latents = latents * vae.config.scaling_factor
         # Split batch before caching.
         for i in range(len(data_batch["id"])):
-            cache.save(
-                data_batch["id"][i],
-                {
-                    "vae_output": latents[i],
-                    "original_size_hw": data_batch["original_size_hw"][i],
-                    "crop_top_left_yx": data_batch["crop_top_left_yx"][i],
-                },
-            )
+            data = {
+                "vae_output": latents[i],
+                "original_size_hw": data_batch["original_size_hw"][i],
+                "crop_top_left_yx": data_batch["crop_top_left_yx"][i],
+            }
+            if "mask" in data_batch:
+                data["mask"] = data_batch["mask"][i]
+            cache.save(data_batch["id"][i], data)
 
 
 def train_forward(  # noqa: C901

@@ -306,6 +306,12 @@ def train_forward(  # noqa: C901
 
     loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="none")
 
+    if "mask" in data_batch:
+        mask = data_batch["mask"].to(dtype=loss.dtype, device=loss.device)
+        _, _, latent_h, latent_w = loss.shape
+        mask = torch.nn.functional.interpolate(mask, size=(latent_h, latent_w), mode="nearest")
+        loss = loss * mask
+
     # Mean-reduce the loss along all dimensions except for the batch dimension.
     loss = loss.mean(dim=list(range(1, len(loss.shape))))
 
