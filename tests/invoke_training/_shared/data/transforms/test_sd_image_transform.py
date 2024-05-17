@@ -46,7 +46,11 @@ def test_sd_image_transform_resolution():
     in_mask_pil = Image.fromarray(in_mask_np)
 
     resolution = Resolution(768, 512)
-    tf = SDImageTransform(resolution=resolution)
+    tf = SDImageTransform(
+        image_field_names=["image", "mask"],
+        fields_to_normalize_to_range_minus_one_to_one=["image"],
+        resolution=resolution,
+    )
 
     out_example = tf({"image": in_image_pil, "mask": in_mask_pil})
 
@@ -68,7 +72,11 @@ def test_sd_image_transform_without_mask():
     in_image_pil = Image.fromarray(in_image_np)
 
     resolution = Resolution(768, 512)
-    tf = SDImageTransform(resolution=resolution)
+    tf = SDImageTransform(
+        image_field_names=["image"],
+        fields_to_normalize_to_range_minus_one_to_one=["image"],
+        resolution=resolution,
+    )
 
     # No mask is provided.
     out_example = tf({"image": in_image_pil})
@@ -94,7 +102,11 @@ def test_sd_image_transform_range():
     in_mask_np[0, 0] = 255  # Mask contains one pixel with value 255, and the rest are zeros.
     in_mask_pil = Image.fromarray(in_mask_np)
 
-    tf = SDImageTransform(resolution=resolution)
+    tf = SDImageTransform(
+        image_field_names=["image", "mask"],
+        fields_to_normalize_to_range_minus_one_to_one=["image"],
+        resolution=resolution,
+    )
 
     out_example = tf({"image": in_image_pil, "mask": in_mask_pil})
 
@@ -119,7 +131,12 @@ def test_sd_image_transform_center_crop():
     mask_image_pil = Image.fromarray(np.copy(mask_image_np))
 
     # The target resolution is 3x5 (with center cropping).
-    tf = SDImageTransform(resolution=(3, 5), center_crop=True)
+    tf = SDImageTransform(
+        image_field_names=["image", "mask"],
+        fields_to_normalize_to_range_minus_one_to_one=["image"],
+        resolution=(3, 5),
+        center_crop=True,
+    )
 
     out_example = tf({"image": in_image_pil, "mask": mask_image_pil})
 
@@ -146,7 +163,12 @@ def test_sd_image_transform_random_crop():
 
     # The target resolution is 3x5 (with random cropping).
     resolution = Resolution(3, 5)
-    tf = SDImageTransform(resolution=resolution, center_crop=False)
+    tf = SDImageTransform(
+        image_field_names=["image", "mask"],
+        fields_to_normalize_to_range_minus_one_to_one=["image"],
+        resolution=resolution,
+        center_crop=False,
+    )
 
     out_example = tf({"image": in_image_pil, "mask": mask_image_pil})
 
@@ -178,7 +200,13 @@ def test_sd_image_transform_center_crop_flip():
     in_mask_pil = Image.fromarray(np.copy(in_mask_np))
 
     # The target resolution is 5x3 (with center cropping and horizontal flipping).
-    tf = SDImageTransform(resolution=Resolution(5, 3), center_crop=True, random_flip=True)
+    tf = SDImageTransform(
+        image_field_names=["image", "mask"],
+        fields_to_normalize_to_range_minus_one_to_one=["image"],
+        resolution=Resolution(5, 3),
+        center_crop=True,
+        random_flip=True,
+    )
 
     # Note: We patch random.random() to force a horizontal flip to be applied.
     with unittest.mock.patch("random.random", return_value=0.0):
@@ -208,7 +236,13 @@ def test_sd_image_transform_random_crop_flip():
 
     # The target resolution is 5x3 (with random cropping and horizontal flipping).
     resolution = Resolution(5, 3)
-    tf = SDImageTransform(resolution=resolution, center_crop=False, random_flip=True)
+    tf = SDImageTransform(
+        image_field_names=["image", "mask"],
+        fields_to_normalize_to_range_minus_one_to_one=["image"],
+        resolution=resolution,
+        center_crop=False,
+        random_flip=True,
+    )
 
     # Note: We patch random.random() to force a horizontal flip to be applied.
     with unittest.mock.patch("random.random", return_value=0.0):
@@ -243,7 +277,13 @@ def test_sd_image_transform_aspect_ratio_bucket_manager():
 
     # Initialize SDImageTransform with an AspectRatioBucketManager that has a single 3x5 bucket.
     aspect_ratio_bucket_manager = AspectRatioBucketManager(buckets={Resolution(3, 5)})
-    tf = SDImageTransform(resolution=None, aspect_ratio_bucket_manager=aspect_ratio_bucket_manager, center_crop=True)
+    tf = SDImageTransform(
+        image_field_names=["image", "mask"],
+        fields_to_normalize_to_range_minus_one_to_one=["image"],
+        resolution=None,
+        aspect_ratio_bucket_manager=aspect_ratio_bucket_manager,
+        center_crop=True,
+    )
 
     out_example = tf({"image": in_image_pil, "mask": in_mask_pil})
 
@@ -270,4 +310,9 @@ def test_sd_image_transform_resolution_input_validation(
     resolution: Resolution | None, aspect_ratio_bucket_manager: AspectRatioBucketManager | None
 ):
     with pytest.raises(ValueError):
-        _ = SDImageTransform(resolution=resolution, aspect_ratio_bucket_manager=aspect_ratio_bucket_manager)
+        _ = SDImageTransform(
+            image_field_names=["image", "mask"],
+            fields_to_normalize_to_range_minus_one_to_one=["image"],
+            resolution=resolution,
+            aspect_ratio_bucket_manager=aspect_ratio_bucket_manager,
+        )

@@ -64,9 +64,14 @@ class SDImageTransform:
         for field_name in self._image_field_names:
             image_fields[field_name] = data[field_name]
         sizes = [image.size for image in image_fields.values()]
-        original_size_hw = sizes[0]
         # All images should have the same size.
-        assert all(size == original_size_hw for size in sizes)
+        assert all(size == sizes[0] for size in sizes)
+
+        # Helper function to access the first image, which is sometimes used to infer the shape of all images.
+        def get_first_image():
+            return next(iter(image_fields.values()))
+
+        original_size_hw = (get_first_image().height, get_first_image().width)
 
         # Determine the target image resolution.
         if self._resolution is not None:
@@ -79,22 +84,19 @@ class SDImageTransform:
             image_fields[field_name] = resize_to_cover(image, resolution)
 
         # Apply cropping, and record top left crop position.
-        # We use the first image size to determine cropping behavior, but all images should be the same size.
-        first_image = next(iter(image_fields.values()))
         if self._center_crop_enabled:
-            top_left_y = max(0, (first_image.height - resolution.height) // 2)
-            top_left_x = max(0, (first_image.width - resolution.width) // 2)
+            top_left_y = max(0, (get_first_image().height - resolution.height) // 2)
+            top_left_x = max(0, (get_first_image().width - resolution.width) // 2)
         else:
             crop_transform = transforms.RandomCrop(resolution.to_tuple())
-            top_left_y, top_left_x, h, w = crop_transform.get_params(first_image, resolution.to_tuple())
+            top_left_y, top_left_x, h, w = crop_transform.get_params(get_first_image(), resolution.to_tuple())
         for field_name, image in image_fields.items():
             image_fields[field_name] = crop(image, top_left_y, top_left_x, resolution.height, resolution.width)
 
         # Apply random flip and update top left crop position accordingly.
         # TODO(ryand): Use a seed for repeatable results.
         if self._random_flip_enabled and random.random() < 0.5:
-            first_image = next(iter(image_fields.values()))
-            top_left_x = original_size_hw[1] - first_image.width - top_left_x
+            top_left_x = original_size_hw[1] - get_first_image().width - top_left_x
             for field_name, image in image_fields.items():
                 image_fields[field_name] = self._flip_transform(image)
 
