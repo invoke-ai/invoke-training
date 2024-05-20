@@ -4,10 +4,15 @@ import gradio as gr
 
 from invoke_training.pipelines.stable_diffusion_xl.finetune.config import SdxlFinetuneConfig
 from invoke_training.ui.config_groups.base_pipeline_config_group import BasePipelineConfigGroup
-from invoke_training.ui.config_groups.image_caption_sd_data_loader_config_group import ImageCaptionSDDataLoaderConfigGroup
+from invoke_training.ui.config_groups.image_caption_sd_data_loader_config_group import (
+    ImageCaptionSDDataLoaderConfigGroup,
+)
 from invoke_training.ui.config_groups.optimizer_config_group import OptimizerConfigGroup
 from invoke_training.ui.config_groups.ui_config_element import UIConfigElement
-from invoke_training.ui.utils.prompts import convert_pos_neg_prompts_to_ui_prompts, convert_ui_prompts_to_pos_neg_prompts
+from invoke_training.ui.utils.prompts import (
+    convert_pos_neg_prompts_to_ui_prompts,
+    convert_ui_prompts_to_pos_neg_prompts,
+)
 from invoke_training.ui.utils.utils import get_typing_literal_options
 
 
@@ -159,7 +164,9 @@ class SdxlFinetuneConfigGroup(UIConfigElement):
                 label="# of Validation Images to Generate per Prompt", precision=0, interactive=True
             )
 
-    def update_ui_components_with_config_data(self, config: SdxlFinetuneConfig) -> dict[gr.components.Component, typing.Any]:
+    def update_ui_components_with_config_data(
+        self, config: SdxlFinetuneConfig
+    ) -> dict[gr.components.Component, typing.Any]:
         update_dict = {
             self.model: config.model,
             self.hf_variant: config.hf_variant,
@@ -194,7 +201,9 @@ class SdxlFinetuneConfigGroup(UIConfigElement):
 
         return update_dict
 
-    def update_config_with_ui_component_data(self, orig_config: SdxlFinetuneConfig, ui_data: dict[gr.components.Component, typing.Any]) -> SdxlFinetuneConfig:
+    def update_config_with_ui_component_data(
+        self, orig_config: SdxlFinetuneConfig, ui_data: dict[gr.components.Component, typing.Any]
+    ) -> SdxlFinetuneConfig:
         new_config = orig_config.model_copy(deep=True)
 
         new_config.model = ui_data.pop(self.model)
@@ -224,7 +233,9 @@ class SdxlFinetuneConfigGroup(UIConfigElement):
             new_config.data_loader, ui_data
         )
         new_config = self.base_pipeline_config_group.update_config_with_ui_component_data(new_config, ui_data)
-        new_config.optimizer = self.optimizer_config_group.update_config_with_ui_component_data(new_config.optimizer, ui_data)
+        new_config.optimizer = self.optimizer_config_group.update_config_with_ui_component_data(
+            new_config.optimizer, ui_data
+        )
 
         # We pop items from ui_data as we use them so that we can sanity check that all the input data was transferred
         # to the config.
