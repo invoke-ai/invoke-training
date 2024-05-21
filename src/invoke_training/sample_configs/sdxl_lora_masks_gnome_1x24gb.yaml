@@ -1,0 +1,48 @@
+# Training mode: LoRA with masks
+# Base model:    SDXL 1.0
+# Dataset:       Bruce the Gnome
+# GPU:           1 x 24GB
+
+type: SDXL_LORA
+seed: 1
+base_output_dir: output/bruce/sdxl_lora
+
+optimizer:
+  optimizer_type: AdamW
+  learning_rate: 7e-5
+
+lr_scheduler: constant_with_warmup
+lr_warmup_steps: 50
+
+data_loader:
+  type: IMAGE_CAPTION_SD_DATA_LOADER
+  dataset:
+    type: IMAGE_CAPTION_JSONL_DATASET
+    jsonl_path: sample_data/bruce_the_gnome/bruce_mask.jsonl
+  resolution: 1024
+  aspect_ratio_buckets:
+    target_resolution: 1024
+    start_dim: 512
+    end_dim: 1536
+    divisible_by: 128
+
+# General
+model: stabilityai/stable-diffusion-xl-base-1.0
+# vae_model: madebyollin/sdxl-vae-fp16-fix
+gradient_accumulation_steps: 1
+weight_dtype: bfloat16
+gradient_checkpointing: True
+cache_vae_outputs: True
+
+max_train_steps: 500
+save_every_n_steps: 50
+validate_every_n_steps: 50
+
+use_masks: True
+
+max_checkpoints: 5
+validation_prompts:
+  - A stuffed gnome at the beach with a pina colada in its hand.
+  - A stuffed gnome reading a book in a cozy library.
+train_batch_size: 4
+num_validation_images_per_prompt: 3
