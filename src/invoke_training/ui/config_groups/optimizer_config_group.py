@@ -11,12 +11,18 @@ OptimizerConfig = AdamOptimizerConfig | ProdigyOptimizerConfig
 class AdamOptimizerConfigGroup(UIConfigElement):
     def __init__(self):
         with gr.Tab("Core"):
-            self.learning_rate = gr.Number(
-                label="Learning Rate",
-                info="Initial learning rate to use (after the potential warmup period). Note that in some training "
-                "pipelines this can be overriden for a specific group of params.",
-                interactive=True,
-            )
+            with gr.Row():
+                self.learning_rate = gr.Number(
+                    label="Learning Rate",
+                    info="Initial learning rate to use (after the potential warmup period). Note that in some training "
+                    "pipelines this can be overriden for a specific group of params.",
+                    interactive=True,
+                )
+                self.use_8bit = gr.Checkbox(
+                    label="Use 8-bit",
+                    info="Use 8-bit Adam optimizer to reduce VRAM requirements. (Requires bitsandbytes.)",
+                    interactive=True,
+                )
         with gr.Tab("Advanced"):
             with gr.Row():
                 self.beta1 = gr.Number(label="beta1", interactive=True)
@@ -32,6 +38,7 @@ class AdamOptimizerConfigGroup(UIConfigElement):
             self.beta2: config.beta2,
             self.weight_decay: config.weight_decay,
             self.epsilon: config.epsilon,
+            self.use_8bit: config.use_8bit,
         }
 
     def update_config_with_ui_component_data(
@@ -45,6 +52,7 @@ class AdamOptimizerConfigGroup(UIConfigElement):
             beta2=ui_data.pop(self.beta2),
             weight_decay=ui_data.pop(self.weight_decay),
             epsilon=ui_data.pop(self.epsilon),
+            use_8bit=ui_data.pop(self.use_8bit),
         )
 
 
