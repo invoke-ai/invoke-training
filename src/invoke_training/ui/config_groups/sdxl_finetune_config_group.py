@@ -49,11 +49,15 @@ class SdxlFinetuneConfigGroup(UIConfigElement):
                     self.base_pipeline_config_group = BasePipelineConfigGroup()
                     self.save_checkpoint_format = gr.Dropdown(
                         label="Checkpoint Format",
+                        info="The save format for the checkpoints. `full_diffusers` saves the full model in diffusers "
+                        "format. `trained_only_diffusers` saves only the parts of the model that were finetuned "
+                        "(i.e. the UNet).",
                         choices=get_typing_literal_options(SdxlFinetuneConfig, "save_checkpoint_format"),
                         interactive=True,
                     )
                     self.save_dtype = gr.Dropdown(
                         label="Save Dtype",
+                        info="The dtype to use when saving the model.",
                         choices=get_typing_literal_options(SdxlFinetuneConfig, "save_dtype"),
                         interactive=True,
                     )
