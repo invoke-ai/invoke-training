@@ -181,6 +181,11 @@ class SdTextualInversionConfig(BasePipelineConfig):
     """The training batch size.
     """
 
+    use_masks: bool = False
+    """If True, image masks will be applied to weight the loss during training. The dataset must contain masks for this
+    feature to be used.
+    """
+
     data_loader: TextualInversionSDDataLoaderConfig
     """The data configuration.
 

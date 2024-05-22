@@ -287,6 +287,7 @@ def train(config: SdxlLoraAndTextualInversionConfig, callbacks: list[PipelineCal
         config=config.data_loader,
         placeholder_token=config.placeholder_token,
         batch_size=config.train_batch_size,
+        use_masks=config.use_masks,
         vae_output_cache_dir=vae_output_cache_dir_name,
     )
 
@@ -456,6 +457,7 @@ def train(config: SdxlLoraAndTextualInversionConfig, callbacks: list[PipelineCal
                     unet=unet,
                     weight_dtype=weight_dtype,
                     resolution=config.data_loader.resolution,
+                    use_masks=config.use_masks,
                     prediction_type=config.prediction_type,
                     min_snr_gamma=config.min_snr_gamma,
                 )

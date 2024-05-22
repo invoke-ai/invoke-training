@@ -217,6 +217,7 @@ def train(config: SdTextualInversionConfig, callbacks: list[PipelineCallbacks] |
                 config=config.data_loader,
                 placeholder_token=config.placeholder_token,
                 batch_size=config.train_batch_size,
+                use_masks=config.use_masks,
                 shuffle=False,
             )
             cache_vae_outputs(vae_output_cache_dir_name, data_loader, vae)
@@ -236,6 +237,7 @@ def train(config: SdTextualInversionConfig, callbacks: list[PipelineCallbacks] |
         config=config.data_loader,
         placeholder_token=config.placeholder_token,
         batch_size=config.train_batch_size,
+        use_masks=config.use_masks,
         vae_output_cache_dir=vae_output_cache_dir_name,
     )
 
@@ -360,6 +362,7 @@ def train(config: SdTextualInversionConfig, callbacks: list[PipelineCallbacks] |
                     text_encoder=text_encoder,
                     unet=unet,
                     weight_dtype=weight_dtype,
+                    use_masks=config.use_masks,
                     min_snr_gamma=config.min_snr_gamma,
                 )
 
