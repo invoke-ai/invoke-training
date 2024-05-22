@@ -8,7 +8,7 @@ base_output_dir: output/bruce/sdxl_ti_masks
 
 optimizer:
   optimizer_type: AdamW
-  learning_rate: 1e-3
+  learning_rate: 5e-4
 
 lr_scheduler: constant_with_warmup
 lr_warmup_steps: 50
@@ -27,7 +27,7 @@ data_loader:
 
 # General
 model: stabilityai/stable-diffusion-xl-base-1.0
-num_vectors: 4
+num_vectors: 16
 placeholder_token: "bruce_the_gnome"
 initializer_token: "gnome"
 cache_vae_outputs: False
