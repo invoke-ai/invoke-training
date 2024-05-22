@@ -136,6 +136,12 @@ class SdxlFinetuneConfigGroup(UIConfigElement):
                     interactive=True,
                 )
             with gr.Row():
+                self.use_masks = gr.Checkbox(
+                    label="Use Masks", info="This can only be enabled if the dataset contains masks.", interactive=True
+                )
+
+        with gr.Tab("Advanced"):
+            with gr.Row():
                 self.min_snr_gamma = gr.Number(
                     label="Minimum SNR Gamma",
                     info="min_snr_gamma acts like an an upper bound on the weight of samples with low noise "
@@ -180,6 +186,7 @@ class SdxlFinetuneConfigGroup(UIConfigElement):
             self.max_checkpoints: config.max_checkpoints,
             self.lr_scheduler: config.lr_scheduler,
             self.lr_warmup_steps: config.lr_warmup_steps,
+            self.use_masks: config.use_masks,
             self.min_snr_gamma: config.min_snr_gamma,
             self.max_grad_norm: config.max_grad_norm,
             self.train_batch_size: config.train_batch_size,
@@ -218,6 +225,7 @@ class SdxlFinetuneConfigGroup(UIConfigElement):
         new_config.max_checkpoints = ui_data.pop(self.max_checkpoints)
         new_config.lr_scheduler = ui_data.pop(self.lr_scheduler)
         new_config.lr_warmup_steps = ui_data.pop(self.lr_warmup_steps)
+        new_config.use_masks = ui_data.pop(self.use_masks)
         new_config.min_snr_gamma = ui_data.pop(self.min_snr_gamma)
         new_config.max_grad_norm = ui_data.pop(self.max_grad_norm)
         new_config.train_batch_size = ui_data.pop(self.train_batch_size)
