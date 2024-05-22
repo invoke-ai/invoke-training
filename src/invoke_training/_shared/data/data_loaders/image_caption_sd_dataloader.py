@@ -9,19 +9,14 @@ from invoke_training._shared.data.datasets.build_dataset import (
     build_image_caption_jsonl_dataset,
 )
 from invoke_training._shared.data.datasets.transform_dataset import TransformDataset
-from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
-    AspectRatioBucketBatchSampler,
-)
+from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import AspectRatioBucketBatchSampler
 from invoke_training._shared.data.transforms.caption_prefix_transform import CaptionPrefixTransform
 from invoke_training._shared.data.transforms.drop_field_transform import DropFieldTransform
 from invoke_training._shared.data.transforms.load_cache_transform import LoadCacheTransform
 from invoke_training._shared.data.transforms.sd_image_transform import SDImageTransform
 from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training._shared.data.utils.aspect_ratio_bucket_manager import AspectRatioBucketManager
-from invoke_training.config.data.data_loader_config import (
-    AspectRatioBucketConfig,
-    ImageCaptionSDDataLoaderConfig,
-)
+from invoke_training.config.data.data_loader_config import AspectRatioBucketConfig, ImageCaptionSDDataLoaderConfig
 from invoke_training.config.data.dataset_config import (
     HFHubImageCaptionDatasetConfig,
     ImageCaptionDirDatasetConfig,
@@ -60,6 +55,9 @@ def sd_image_caption_collate_fn(examples):
     if "vae_output" in examples[0]:
         out_examples["vae_output"] = torch.stack([example["vae_output"] for example in examples])
 
+    if "mask" in examples[0]:
+        out_examples["mask"] = torch.stack([example["mask"] for example in examples])
+
     return out_examples
 
 
@@ -72,9 +70,10 @@ def build_aspect_ratio_bucket_manager(config: AspectRatioBucketConfig):
     )
 
 
-def build_image_caption_sd_dataloader(
+def build_image_caption_sd_dataloader(  # noqa: C901
     config: ImageCaptionSDDataLoaderConfig,
     batch_size: int,
+    use_masks: bool = False,
     text_encoder_output_cache_dir: typing.Optional[str] = None,
     text_encoder_cache_field_to_output_field: typing.Optional[dict[str, str]] = None,
     vae_output_cache_dir: typing.Optional[str] = None,
@@ -125,8 +124,16 @@ def build_image_caption_sd_dataloader(
         all_transforms.append(CaptionPrefixTransform(caption_field_name="caption", prefix=config.caption_prefix + " "))
 
     if vae_output_cache_dir is None:
+        image_field_names = ["image"]
+        if use_masks:
+            image_field_names.append("mask")
+        else:
+            all_transforms.append(DropFieldTransform("mask"))
+
         all_transforms.append(
             SDImageTransform(
+                image_field_names=image_field_names,
+                fields_to_normalize_to_range_minus_one_to_one=["image"],
                 resolution=target_resolution,
                 aspect_ratio_bucket_manager=aspect_ratio_bucket_manager,
                 center_crop=config.center_crop,
@@ -134,20 +141,26 @@ def build_image_caption_sd_dataloader(
             )
         )
     else:
+        # We drop the image to avoid having to either convert from PIL, or handle PIL batch collation.
+        all_transforms.append(DropFieldTransform("image"))
+        all_transforms.append(DropFieldTransform("mask"))
+
         vae_cache = TensorDiskCache(vae_output_cache_dir)
+
+        cache_field_to_output_field = {
+            "vae_output": "vae_output",
+            "original_size_hw": "original_size_hw",
+            "crop_top_left_yx": "crop_top_left_yx",
+        }
+        if use_masks:
+            cache_field_to_output_field["mask"] = "mask"
         all_transforms.append(
             LoadCacheTransform(
                 cache=vae_cache,
                 cache_key_field="id",
-                cache_field_to_output_field={
-                    "vae_output": "vae_output",
-                    "original_size_hw": "original_size_hw",
-                    "crop_top_left_yx": "crop_top_left_yx",
-                },
+                cache_field_to_output_field=cache_field_to_output_field,
             )
         )
-        # We drop the image to avoid having to either convert from PIL, or handle PIL batch collation.
-        all_transforms.append(DropFieldTransform("image"))
 
     if text_encoder_output_cache_dir is not None:
         assert text_encoder_cache_field_to_output_field is not None

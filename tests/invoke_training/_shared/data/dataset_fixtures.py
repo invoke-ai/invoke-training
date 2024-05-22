@@ -61,6 +61,9 @@ def image_caption_jsonl(tmp_path_factory: pytest.TempPathFactory):
     """
     tmp_dir = tmp_path_factory.mktemp("dataset")
 
+    masks_dir = tmp_dir / "masks"
+    masks_dir.mkdir()
+
     data = []
 
     for i in range(5):
@@ -69,7 +72,12 @@ def image_caption_jsonl(tmp_path_factory: pytest.TempPathFactory):
         rgb_rel_path = f"{i}.jpg"
         rgb_pil.save(tmp_dir / rgb_rel_path)
 
-        data.append({"image": str(rgb_rel_path), "text": f"caption {i}"})
+        mask_np = np.ones((128, 128), dtype=np.uint8)
+        mask_pil = PIL.Image.fromarray(mask_np).convert("L")
+        mask_rel_path = f"masks/{i}.png"
+        mask_pil.save(tmp_dir / mask_rel_path)
+
+        data.append({"image": str(rgb_rel_path), "mask": str(mask_rel_path), "text": f"caption {i}"})
 
     data_jsonl_path = tmp_dir / "data.jsonl"
     save_jsonl(data, data_jsonl_path)

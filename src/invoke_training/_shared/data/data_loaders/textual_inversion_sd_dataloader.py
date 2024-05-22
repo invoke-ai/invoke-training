@@ -13,17 +13,13 @@ from invoke_training._shared.data.datasets.build_dataset import (
 )
 from invoke_training._shared.data.datasets.image_dir_dataset import ImageDirDataset
 from invoke_training._shared.data.datasets.transform_dataset import TransformDataset
-from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
-    AspectRatioBucketBatchSampler,
-)
+from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import AspectRatioBucketBatchSampler
 from invoke_training._shared.data.transforms.concat_fields_transform import ConcatFieldsTransform
 from invoke_training._shared.data.transforms.drop_field_transform import DropFieldTransform
 from invoke_training._shared.data.transforms.load_cache_transform import LoadCacheTransform
 from invoke_training._shared.data.transforms.sd_image_transform import SDImageTransform
 from invoke_training._shared.data.transforms.shuffle_caption_transform import ShuffleCaptionTransform
-from invoke_training._shared.data.transforms.template_caption_transform import (
-    TemplateCaptionTransform,
-)
+from invoke_training._shared.data.transforms.template_caption_transform import TemplateCaptionTransform
 from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training.config.data.data_loader_config import TextualInversionSDDataLoaderConfig
 from invoke_training.config.data.dataset_config import (
@@ -102,6 +98,7 @@ def build_textual_inversion_sd_dataloader(  # noqa: C901
     config: TextualInversionSDDataLoaderConfig,
     placeholder_token: str,
     batch_size: int,
+    use_masks: bool = False,
     vae_output_cache_dir: Optional[str] = None,
     shuffle: bool = True,
 ) -> DataLoader:
@@ -181,8 +178,16 @@ def build_textual_inversion_sd_dataloader(  # noqa: C901
         all_transforms.append(ShuffleCaptionTransform(field_name="caption", delimiter=config.shuffle_caption_delimiter))
 
     if vae_output_cache_dir is None:
+        image_field_names = ["image"]
+        if use_masks:
+            image_field_names.append("mask")
+        else:
+            all_transforms.append(DropFieldTransform("mask"))
+
         all_transforms.append(
             SDImageTransform(
+                image_field_names=image_field_names,
+                fields_to_normalize_to_range_minus_one_to_one=["image"],
                 resolution=target_resolution,
                 aspect_ratio_bucket_manager=aspect_ratio_bucket_manager,
                 center_crop=config.center_crop,
@@ -190,20 +195,27 @@ def build_textual_inversion_sd_dataloader(  # noqa: C901
             )
         )
     else:
+        # We drop the image to avoid having to either convert from PIL, or handle PIL batch collation.
+        all_transforms.append(DropFieldTransform("image"))
+        all_transforms.append(DropFieldTransform("mask"))
+
         vae_cache = TensorDiskCache(vae_output_cache_dir)
+
+        cache_field_to_output_field = {
+            "vae_output": "vae_output",
+            "original_size_hw": "original_size_hw",
+            "crop_top_left_yx": "crop_top_left_yx",
+        }
+        if use_masks:
+            cache_field_to_output_field["mask"] = "mask"
+
         all_transforms.append(
             LoadCacheTransform(
                 cache=vae_cache,
                 cache_key_field="id",
-                cache_field_to_output_field={
-                    "vae_output": "vae_output",
-                    "original_size_hw": "original_size_hw",
-                    "crop_top_left_yx": "crop_top_left_yx",
-                },
+                cache_field_to_output_field=cache_field_to_output_field,
             )
         )
-        # We drop the image to avoid having to either convert from PIL, or handle PIL batch collation.
-        all_transforms.append(DropFieldTransform("image"))
 
     dataset = TransformDataset(base_dataset, all_transforms)
 

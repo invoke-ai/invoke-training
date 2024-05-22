@@ -197,6 +197,7 @@ def train(config: SdxlFinetuneConfig, callbacks: list[PipelineCallbacks] | None 
             data_loader = _build_data_loader(
                 data_loader_config=config.data_loader,
                 batch_size=config.train_batch_size,
+                use_masks=config.use_masks,
                 shuffle=False,
                 sequential_batching=True,
             )
@@ -234,6 +235,7 @@ def train(config: SdxlFinetuneConfig, callbacks: list[PipelineCallbacks] | None 
     data_loader = _build_data_loader(
         data_loader_config=config.data_loader,
         batch_size=config.train_batch_size,
+        use_masks=config.use_masks,
         text_encoder_output_cache_dir=text_encoder_output_cache_dir_name,
         vae_output_cache_dir=vae_output_cache_dir_name,
     )
@@ -378,6 +380,7 @@ def train(config: SdxlFinetuneConfig, callbacks: list[PipelineCallbacks] | None 
                     unet=unet,
                     weight_dtype=weight_dtype,
                     resolution=config.data_loader.resolution,
+                    use_masks=config.use_masks,
                     prediction_type=config.prediction_type,
                     min_snr_gamma=config.min_snr_gamma,
                 )

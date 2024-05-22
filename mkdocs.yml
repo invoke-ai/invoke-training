@@ -32,6 +32,7 @@ nav:
       - tutorials/index.md
       - Stable Diffusion:
           - tutorials/stable_diffusion/robocats_finetune_sdxl.md
+          - tutorials/stable_diffusion/gnome_lora_masks_sdxl.md
           - tutorials/stable_diffusion/textual_inversion_sdxl.md
           - tutorials/stable_diffusion/dpo_lora_sd.md
   - Concepts:

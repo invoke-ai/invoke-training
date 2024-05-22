@@ -8,5 +8,6 @@ class DropFieldTransform:
         self._field_to_drop = field_to_drop
 
     def __call__(self, data: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:
-        del data[self._field_to_drop]
+        if self._field_to_drop in data:
+            del data[self._field_to_drop]
         return data
