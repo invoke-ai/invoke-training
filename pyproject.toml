@@ -17,7 +17,7 @@ classifiers = [
 dependencies = [
     "accelerate~=0.25.0",
     "datasets~=2.14.3",
-    "diffusers~=0.25.0",
+    "diffusers~=0.27.2",
     "einops",
     "fastapi",
     "gradio",
@@ -33,7 +33,7 @@ dependencies = [
     "torch>=2.1.2",
     "torchvision",
     "tqdm",
-    "transformers~=4.36.0",
+    "transformers~=4.41.0",
     "uvicorn[standard]",
 ]
 

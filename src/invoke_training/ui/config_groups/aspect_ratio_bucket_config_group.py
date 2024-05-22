@@ -17,7 +17,7 @@ class AspectRatioBucketConfigGroup(UIConfigElement):
         self.enabled = gr.Checkbox(label="Use Aspect Ratio Bucketing", interactive=True)
         self.target_resolution = gr.Number(label="target_resolution", interactive=True, precision=0)
         self.start_dim = gr.Number(label="start_dimension", interactive=True, precision=0)
-        self.end_dim = gr.Number(label="end_imension", interactive=True, precision=0)
+        self.end_dim = gr.Number(label="end_dimension", interactive=True, precision=0)
         self.divisible_by = gr.Number(label="divisible_by", interactive=True, precision=0)
 
     def update_ui_components_with_config_data(
