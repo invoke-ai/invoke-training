@@ -98,6 +98,7 @@ def build_textual_inversion_sd_dataloader(  # noqa: C901
     config: TextualInversionSDDataLoaderConfig,
     placeholder_token: str,
     batch_size: int,
+    use_masks: bool = False,
     vae_output_cache_dir: Optional[str] = None,
     shuffle: bool = True,
 ) -> DataLoader:
@@ -177,9 +178,15 @@ def build_textual_inversion_sd_dataloader(  # noqa: C901
         all_transforms.append(ShuffleCaptionTransform(field_name="caption", delimiter=config.shuffle_caption_delimiter))
 
     if vae_output_cache_dir is None:
+        image_field_names = ["image"]
+        if use_masks:
+            image_field_names.append("mask")
+        else:
+            all_transforms.append(DropFieldTransform("mask"))
+
         all_transforms.append(
             SDImageTransform(
-                image_field_names=["image"],
+                image_field_names=image_field_names,
                 fields_to_normalize_to_range_minus_one_to_one=["image"],
                 resolution=target_resolution,
                 aspect_ratio_bucket_manager=aspect_ratio_bucket_manager,
@@ -188,20 +195,27 @@ def build_textual_inversion_sd_dataloader(  # noqa: C901
             )
         )
     else:
+        # We drop the image to avoid having to either convert from PIL, or handle PIL batch collation.
+        all_transforms.append(DropFieldTransform("image"))
+        all_transforms.append(DropFieldTransform("mask"))
+
         vae_cache = TensorDiskCache(vae_output_cache_dir)
+
+        cache_field_to_output_field = {
+            "vae_output": "vae_output",
+            "original_size_hw": "original_size_hw",
+            "crop_top_left_yx": "crop_top_left_yx",
+        }
+        if use_masks:
+            cache_field_to_output_field["mask"] = "mask"
+
         all_transforms.append(
             LoadCacheTransform(
                 cache=vae_cache,
                 cache_key_field="id",
-                cache_field_to_output_field={
-                    "vae_output": "vae_output",
-                    "original_size_hw": "original_size_hw",
-                    "crop_top_left_yx": "crop_top_left_yx",
-                },
+                cache_field_to_output_field=cache_field_to_output_field,
             )
         )
-        # We drop the image to avoid having to either convert from PIL, or handle PIL batch collation.
-        all_transforms.append(DropFieldTransform("image"))
 
     dataset = TransformDataset(base_dataset, all_transforms)
 

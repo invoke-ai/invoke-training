@@ -62,8 +62,46 @@ def test_build_textual_inversion_sd_dataloader_keep_original_captions(image_capt
     )
 
     example = next(iter(data_loader))
-    assert set(example.keys()) == {"image", "mask", "id", "caption", "original_size_hw", "crop_top_left_yx"}
+    assert set(example.keys()) == {"image", "id", "caption", "original_size_hw", "crop_top_left_yx"}
 
     assert len(example["caption"]) == 2
     for caption in example["caption"]:
         assert caption.startswith("placeholder ")
+
+
+def test_build_textual_inversion_sd_dataloader_with_masks(image_caption_jsonl):  # noqa: F811
+    """Test the use_masks=True option."""
+    config = TextualInversionSDDataLoaderConfig(
+        dataset=ImageCaptionJsonlDatasetConfig(jsonl_path=str(image_caption_jsonl)),
+        caption_templates=["{}"],
+    )
+
+    data_loader = build_textual_inversion_sd_dataloader(
+        config=config,
+        placeholder_token="placeholder",
+        batch_size=2,
+        use_masks=True,
+    )
+
+    example = next(iter(data_loader))
+    assert set(example.keys()) == {"image", "mask", "id", "caption", "original_size_hw", "crop_top_left_yx"}
+
+    image = example["image"]
+    assert image.shape == (2, 3, 512, 512)
+    assert image.dtype == torch.float32
+
+    mask = example["mask"]
+    assert mask.shape == (2, 1, 512, 512)
+    assert mask.dtype == torch.float32
+
+    assert len(example["caption"]) == 2
+    for caption in example["caption"]:
+        assert "placeholder" in caption
+
+    original_size_hw = example["original_size_hw"]
+    assert len(original_size_hw) == 2
+    assert len(original_size_hw[0]) == 2
+
+    crop_top_left_yx = example["crop_top_left_yx"]
+    assert len(crop_top_left_yx) == 2
+    assert len(crop_top_left_yx[0]) == 2
