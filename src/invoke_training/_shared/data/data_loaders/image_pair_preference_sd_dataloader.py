@@ -3,9 +3,7 @@ import typing
 import torch
 from torch.utils.data import DataLoader
 
-from invoke_training._shared.data.datasets.build_dataset import (
-    build_hf_image_pair_preference_dataset,
-)
+from invoke_training._shared.data.datasets.build_dataset import build_hf_image_pair_preference_dataset
 from invoke_training._shared.data.datasets.image_pair_preference_dataset import ImagePairPreferenceDataset
 from invoke_training._shared.data.datasets.transform_dataset import TransformDataset
 from invoke_training._shared.data.transforms.load_cache_transform import LoadCacheTransform
@@ -80,24 +78,28 @@ def build_image_pair_preference_sd_dataloader(
 
     all_transforms = []
     if vae_output_cache_dir is None:
+        # TODO(ryand): Should I process both images in a single SDImageTransform so that they undergo the same
+        # transformations?
         all_transforms.append(
             SDImageTransform(
+                image_field_names=["image_0"],
+                fields_to_normalize_to_range_minus_one_to_one=["image_0"],
                 resolution=target_resolution,
                 aspect_ratio_bucket_manager=None,
                 center_crop=config.center_crop,
                 random_flip=config.random_flip,
-                image_field_name="image_0",
                 orig_size_field_name="original_size_hw_0",
                 crop_field_name="crop_top_left_yx_0",
             )
         )
         all_transforms.append(
             SDImageTransform(
+                image_field_names=["image_1"],
+                fields_to_normalize_to_range_minus_one_to_one=["image_1"],
                 resolution=target_resolution,
                 aspect_ratio_bucket_manager=None,
                 center_crop=config.center_crop,
                 random_flip=config.random_flip,
-                image_field_name="image_1",
                 orig_size_field_name="original_size_hw_1",
                 crop_field_name="crop_top_left_yx_1",
             )
