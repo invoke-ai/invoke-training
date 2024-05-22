@@ -50,7 +50,7 @@ class ImageCaptionJsonlDataset(torch.utils.data.Dataset):
         self.examples = examples
 
         self._keep_in_memory = keep_in_memory
-        self._example_cache = {}
+        self._example_cache: dict[int, dict[str, typing.Any]] = {}
 
     def save_jsonl(self):
         data = []
@@ -116,5 +116,7 @@ class ImageCaptionJsonlDataset(torch.utils.data.Dataset):
         if self._keep_in_memory:
             if idx not in self._example_cache:
                 self._example_cache[idx] = self._load_example(idx)
-            return self._example_cache[idx]
+            # Return a shallow copy of the example to prevent the caller from modifying the cached example.
+            # Shallow rather than deep, because we don't want to copy the image data.
+            return self._example_cache[idx].copy()
         return self._load_example(idx)
