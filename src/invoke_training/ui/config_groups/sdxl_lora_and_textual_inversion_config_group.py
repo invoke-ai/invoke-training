@@ -163,6 +163,11 @@ class SdxlLoraAndTextualInversionConfigGroup(UIConfigElement):
                     "learning rate schedule, if applicable to the selected scheduler.",
                     interactive=True,
                 )
+            with gr.Row():
+                self.use_masks = gr.Checkbox(
+                    label="Use Masks", info="This can only be enabled if the dataset contains masks.", interactive=True
+                )
+
         with gr.Tab("Advanced"):
             with gr.Column():
                 self.lora_rank_dim = gr.Number(
@@ -225,6 +230,7 @@ class SdxlLoraAndTextualInversionConfigGroup(UIConfigElement):
             self.ti_train_steps_ratio: config.ti_train_steps_ratio,
             self.lr_scheduler: config.lr_scheduler,
             self.lr_warmup_steps: config.lr_warmup_steps,
+            self.use_masks: config.use_masks,
             self.max_grad_norm: config.max_grad_norm,
             self.train_batch_size: config.train_batch_size,
             self.cache_text_encoder_outputs: config.cache_text_encoder_outputs,
@@ -273,6 +279,7 @@ class SdxlLoraAndTextualInversionConfigGroup(UIConfigElement):
         new_config.ti_train_steps_ratio = ui_data.pop(self.ti_train_steps_ratio)
         new_config.lr_scheduler = ui_data.pop(self.lr_scheduler)
         new_config.lr_warmup_steps = ui_data.pop(self.lr_warmup_steps)
+        new_config.use_masks = ui_data.pop(self.use_masks)
         new_config.max_grad_norm = ui_data.pop(self.max_grad_norm)
         new_config.train_batch_size = ui_data.pop(self.train_batch_size)
         new_config.cache_text_encoder_outputs = ui_data.pop(self.cache_text_encoder_outputs)
