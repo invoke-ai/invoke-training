@@ -5,7 +5,7 @@
 
 type: SDXL_LORA
 seed: 1
-base_output_dir: output/bruce/sdxl_lora
+base_output_dir: output/bruce/sdxl_lora_masks
 
 optimizer:
   optimizer_type: AdamW

@@ -1,34 +1,32 @@
-# Training mode: Textual Inversion
+# Training mode: Textual Inversion with Masks
 # Base model:    SDXL
 # GPU:           1 x 24GB
 
 type: SDXL_TEXTUAL_INVERSION
 seed: 1
-base_output_dir: output/bruce/sdxl_ti
+base_output_dir: output/bruce/sdxl_ti_masks
 
 optimizer:
   optimizer_type: AdamW
-  learning_rate: 2e-3
+  learning_rate: 1e-3
 
-lr_warmup_steps: 200
-lr_scheduler: cosine
+lr_scheduler: constant_with_warmup
+lr_warmup_steps: 50
 
 data_loader:
   type: TEXTUAL_INVERSION_SD_DATA_LOADER
   dataset:
-    type: IMAGE_DIR_DATASET
-    dataset_dir: "sample_data/bruce_the_gnome"
+    type: IMAGE_CAPTION_JSONL_DATASET
+    jsonl_path: sample_data/bruce_the_gnome/data_masks.jsonl
     keep_in_memory: True
   caption_preset: object
   resolution: 1024
   center_crop: True
   random_flip: False
   shuffle_caption_delimiter: null
-  dataloader_num_workers: 4
 
 # General
 model: stabilityai/stable-diffusion-xl-base-1.0
-vae_model: madebyollin/sdxl-vae-fp16-fix
 num_vectors: 4
 placeholder_token: "bruce_the_gnome"
 initializer_token: "gnome"
@@ -37,13 +35,15 @@ gradient_accumulation_steps: 1
 weight_dtype: bfloat16
 gradient_checkpointing: True
 
-max_train_steps: 2000
-save_every_n_steps: 200
-validate_every_n_steps: 200
+max_train_steps: 500
+save_every_n_steps: 50
+validate_every_n_steps: 50
 
-max_checkpoints: 20
+use_masks: True
+
+max_checkpoints: 10
 validation_prompts:
-  - A photo of bruce_the_gnome at the beach
-  - A photo of bruce_the_gnome reading a book
-train_batch_size: 1
+  - A photo of bruce_the_gnome at the beach with a pina colada in its hand.
+  - A photo of bruce_the_gnome reading a book in a cozy library.
+train_batch_size: 4
 num_validation_images_per_prompt: 3
