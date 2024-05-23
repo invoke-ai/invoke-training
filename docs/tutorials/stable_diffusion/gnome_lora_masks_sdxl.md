@@ -26,6 +26,7 @@ python src/invoke_training/scripts/_experimental/masks/generate_masks_for_jsonl_
 ```
 
 The mask generation script will produce the following outputs:
+
 - A directory of generated masks: `sample_data/bruce_the_gnome/masks/`
 - A new `.jsonl` file that references the mask images: `sample_data/bruce_the_gnome/data_masks.jsonl`
 
