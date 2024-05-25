@@ -1,0 +1,31 @@
+name: invoke-training
+services:
+  server:
+    image: "local/invokeai-training:latest"
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - 8000:8000
+    volumes:
+      - ../sample_data:/app/sample_data
+      - ./output:/app/output
+      - ./data:/home/appuser
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+  
+  tensorboard:
+    image: "local/invokeai-training:latest"
+    build:
+        context: ..
+        dockerfile: docker/Dockerfile
+    ports:
+      - 8001:8001
+    volumes:
+      - ./output:/app/output
+    command: tensorboard --logdir output/ --bind_all --port 8001
