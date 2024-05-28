@@ -32,13 +32,13 @@ def process_images(images: list[Image.Image], prompt: str, moondream, tokenizer)
     return answers
 
 
-def main(image_dir: str, prompt: str, use_cpu: bool, batch_size: int):
+def main(image_dir: str, prompt: str, use_cpu: bool, batch_size: int, output_path: str):
     device, dtype = select_device_and_dtype(use_cpu)
     print(f"Using device: {device}")
     print(f"Using dtype: {dtype}")
 
     # Check that the output file does not already exist before spending time generating captions.
-    out_path = Path("output.jsonl")
+    out_path = Path(output_path)
     if out_path.exists():
         raise FileExistsError(f"Output file already exists: {out_path}")
 
@@ -99,6 +99,14 @@ if __name__ == "__main__":
         help="Batch size for processing images. To maximize speed, set this to the largest value that fits in GPU "
         "memory.",
     )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="output.jsonl",
+        help="(Optional) Path to the output file. Default is 'output.jsonl'.",
+    )
     args = parser.parse_args()
+
+    main(args.dir, args.prompt, args.cpu, args.batch_size, args.output)
 
     main(args.dir, args.prompt, args.cpu, args.batch_size)
