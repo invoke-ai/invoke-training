@@ -108,5 +108,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     main(args.dir, args.prompt, args.cpu, args.batch_size, args.output)
-
-    main(args.dir, args.prompt, args.cpu, args.batch_size)
