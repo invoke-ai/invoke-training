@@ -24,7 +24,11 @@ class PipelineVersionEnum(Enum):
 
 
 def load_pipeline(
-    logger: logging.Logger, model_name_or_path: str, pipeline_version: PipelineVersionEnum, variant: str | None = None
+    logger: logging.Logger,
+    model_name_or_path: str,
+    pipeline_version: PipelineVersionEnum,
+    torch_dtype: torch.dtype = None,
+    variant: str | None = None,
 ) -> typing.Union[StableDiffusionPipeline, StableDiffusionXLPipeline]:
     """Load a Stable Diffusion pipeline from disk.
 
@@ -46,7 +50,7 @@ def load_pipeline(
         raise ValueError(f"Unsupported pipeline_version: '{pipeline_version}'.")
 
     if os.path.isfile(model_name_or_path):
-        return pipeline_class.from_single_file(model_name_or_path, load_safety_checker=False)
+        return pipeline_class.from_single_file(model_name_or_path, torch_dtype=torch_dtype, load_safety_checker=False)
 
     variants_to_try = [variant] + [v for v in HF_VARIANT_FALLBACKS if v != variant]
 
@@ -58,6 +62,7 @@ def load_pipeline(
             pipeline = pipeline_class.from_pretrained(
                 model_name_or_path,
                 safety_checker=None,
+                torch_dtype=torch_dtype,
                 variant=variant_to_try,
                 requires_safety_checker=False,
             )
