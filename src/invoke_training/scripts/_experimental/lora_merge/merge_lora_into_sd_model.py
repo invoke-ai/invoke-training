@@ -5,20 +5,22 @@ from typing import Literal
 
 import torch
 from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
+from invokeai.backend.lora import LoRAModelRaw
 
 # fmt: off
 # HACK(ryand): Import order matters, because invokeai contains circular imports.
 from invokeai.backend.model_manager import BaseModelType
-from invokeai.backend.lora import LoRAModelRaw
 from invokeai.backend.model_patcher import ModelPatcher
-# fmt: on
 
-from invoke_training._shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
+from invoke_training._shared.stable_diffusion.model_loading_utils import (
+    PipelineVersionEnum, load_pipeline)
+
+# fmt: on
 
 
 # TODO(ryand): Consolidate multiple implementations of this function across the project.
 def str_to_dtype(dtype_str: Literal["float32", "float16", "bfloat16"]):
-    if dtype_str == "float23":
+    if dtype_str == "float32":
         return torch.float32
     elif dtype_str == "float16":
         return torch.float16
