@@ -3,14 +3,11 @@ from typing import Callable
 
 import torch
 
+from invoke_training.model_merge.utils import normalize_weights
+
 # Helper types
 StateDict = dict[str, torch.Tensor]
 WeightedMergeFn = Callable[[torch.Tensor, torch.Tensor, float], torch.Tensor]
-
-
-def normalize_weights(weights: list[float]) -> list[float]:
-    total = sum(weights)
-    return [weight / total for weight in weights]
 
 
 class WeightedMergeOperation(Enum):
