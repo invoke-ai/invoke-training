@@ -5,10 +5,7 @@ import torch
 
 from invoke_training.model_merge.merger import WeightedMergeOperation, WeightedModelMerger
 
-
-def state_dicts_are_close(a: dict[str, torch.Tensor], b: dict[str, torch.Tensor]) -> bool:
-    """Helper function for comparing two state dicts."""
-    return all(torch.allclose(a[key], b[key]) for key in a.keys())
+from .utils import state_dicts_are_close
 
 
 def test_weighted_sum_merger_raises_on_not_enough_state_dicts():
