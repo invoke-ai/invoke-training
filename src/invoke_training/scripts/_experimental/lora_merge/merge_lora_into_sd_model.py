@@ -139,7 +139,7 @@ def merge_lora_into_sd_model(
 
 def parse_lora_model_arg(lora_model_arg: str) -> tuple[str, float]:
     """Parse a --lora-model argument into a tuple of the model path and weight."""
-    parts = lora_model_arg.split(":")
+    parts = lora_model_arg.split("::")
     if len(parts) == 1:
         return parts[0], 1.0
     elif len(parts) == 2:
@@ -174,7 +174,7 @@ def main():
         type=str,
         nargs="+",
         help="The path(s) to one or more LoRA models to merge into the base model. Model weights can be appended to "
-        "the path, separated by a colon (':'). E.g. 'path/to/lora_model:0.5'. The weight is optional and defaults to "
+        "the path, separated by a double colon ('::'). E.g. 'path/to/lora_model|0.5'. The weight is optional and defaults to "
         "1.0.",
         required=True,
     )
@@ -195,6 +195,14 @@ def main():
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
+
+    # Log the parsed arguments
+    logger.info(f"Base model: {args.base_model}")
+    logger.info(f"Base model variant: {args.base_model_variant}")
+    logger.info(f"Base model type: {args.base_model_type}")
+    logger.info(f"LoRA models: {args.lora_model}")
+    logger.info(f"Output directory: {args.output}")
+    logger.info(f"Save dtype: {args.save_dtype}")
 
     merge_lora_into_sd_model(
         logger=logger,
