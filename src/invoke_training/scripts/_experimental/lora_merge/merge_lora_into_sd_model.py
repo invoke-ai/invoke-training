@@ -12,11 +12,8 @@ from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
 from invokeai.backend.model_manager import BaseModelType
 from invokeai.backend.lora import LoRAModelRaw
 from invokeai.backend.model_patcher import ModelPatcher
-
 # fmt: on
-from invoke_training._shared.stable_diffusion.model_loading_utils import (
-    PipelineVersionEnum, load_pipeline)
-
+from invoke_training._shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
 
 
 # TODO(ryand): Consolidate multiple implementations of this function across the project.
@@ -174,8 +171,8 @@ def main():
         type=str,
         nargs="+",
         help="The path(s) to one or more LoRA models to merge into the base model. Model weights can be appended to "
-        "the path, separated by a double colon ('::'). E.g. 'path/to/lora_model|0.5'. The weight is optional and defaults to "
-        "1.0.",
+        "the path, separated by a double colon ('::'). E.g. 'path/to/lora_model::0.5'. The weight is optional and "
+        "defaults to 1.0.",
         required=True,
     )
     parser.add_argument(
