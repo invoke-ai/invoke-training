@@ -5,17 +5,18 @@ from typing import Literal
 
 import torch
 from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
-from invokeai.backend.lora import LoRAModelRaw
+
 
 # fmt: off
 # HACK(ryand): Import order matters, because invokeai contains circular imports.
 from invokeai.backend.model_manager import BaseModelType
+from invokeai.backend.lora import LoRAModelRaw
 from invokeai.backend.model_patcher import ModelPatcher
 
+# fmt: on
 from invoke_training._shared.stable_diffusion.model_loading_utils import (
     PipelineVersionEnum, load_pipeline)
 
-# fmt: on
 
 
 # TODO(ryand): Consolidate multiple implementations of this function across the project.
@@ -194,6 +195,7 @@ def main():
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
+
     merge_lora_into_sd_model(
         logger=logger,
         base_model=args.base_model,
