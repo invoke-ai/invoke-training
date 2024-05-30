@@ -24,7 +24,7 @@ dependencies = [
     "invokeai==4.2.3",
     "numpy",
     "omegaconf",
-    "peft~=0.7.0",
+    "peft~=0.11.1",
     "Pillow",
     "prodigyopt",
     "pydantic",
