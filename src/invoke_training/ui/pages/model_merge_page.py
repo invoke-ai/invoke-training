@@ -1,4 +1,5 @@
 import gradio as gr
+from src.invoke_training._shared.stable_diffusion.model_loading_utils import PipelineVersionEnum
 
 class ModelMergePage:
     def __init__(self):
