@@ -7,8 +7,8 @@ from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
 
 from invoke_training._shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
 from invoke_training.model_merge.merge_tasks_to_base import merge_tasks_to_base_model
+from invoke_training.model_merge.scripts.merge_lora_into_sd_model import str_to_dtype
 from invoke_training.model_merge.scripts.merge_models import MergeModel, parse_model_args
-from invoke_training.scripts._experimental.lora_merge.merge_lora_into_sd_model import str_to_dtype
 
 
 def run_merge_models(

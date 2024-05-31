@@ -116,7 +116,7 @@ An alternative to using the finetuned UNet model directly is to compare it again
 
 To extract a LoRA model, run the following command:
 ```bash
-python src/invoke_training/scripts/_experimental/lora_extraction/extract_lora_from_checkpoint.py \
+python src/invoke_training/model_merge/scripts/extract_lora_from_checkpoint.py \
   --model-type sdxl \
   --model-orig path/to/stable-diffusion-xl-base-1.0/unet \
   --model-tuned output/robocats/sdxl_finetune/1715373799.3558652/checkpoints/checkpoint-epoch_00000500-step_00002000/unet \

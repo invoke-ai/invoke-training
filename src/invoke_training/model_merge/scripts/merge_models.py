@@ -8,7 +8,7 @@ from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
 
 from invoke_training._shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
 from invoke_training.model_merge.merge_models import merge_models
-from invoke_training.scripts._experimental.lora_merge.merge_lora_into_sd_model import str_to_dtype
+from invoke_training.model_merge.scripts.merge_lora_into_sd_model import str_to_dtype
 
 
 @dataclass
