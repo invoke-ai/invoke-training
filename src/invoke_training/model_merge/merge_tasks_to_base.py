@@ -1,6 +1,7 @@
 from typing import Literal
 
 import torch
+import tqdm
 from peft.utils.merge_utils import dare_linear, dare_ties, ties
 
 
@@ -44,8 +45,10 @@ def merge_tasks_to_base_model(
         raise ValueError(f"Unknown merge method: {merge_method}")
 
     out_state_dict: dict[str, torch.Tensor] = {}
-    for key in base_state_dict.keys():
+    for key in tqdm.tqdm(base_state_dict.keys()):
         base_tensor = base_state_dict[key]
+        orig_dtype = base_tensor.dtype
+
         # Calculate the diff between each task tensor and the base tensor.
         task_diff_tensors = [state_dict[key] - base_tensor for state_dict in task_state_dicts]
 
@@ -55,6 +58,8 @@ def merge_tasks_to_base_model(
             density=density,
         )
 
-        out_state_dict[key] = base_tensor + merged_diff_tensor
+        # Some of the merge_fn implementations may return a tensor with a different dtype than the original tensors.
+        # We cast the merged_diff_tensor back to the original dtype here.
+        out_state_dict[key] = (base_tensor + merged_diff_tensor).to(dtype=orig_dtype)
 
     return out_state_dict

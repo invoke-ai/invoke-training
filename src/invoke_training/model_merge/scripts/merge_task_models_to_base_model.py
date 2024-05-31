@@ -63,6 +63,7 @@ def run_merge_models(
         ]
         task_submodel_state_dict = [submodel.state_dict() for submodel in task_submodels]
 
+        logger.info(f"Merging {submodel_name} state_dicts...")
         merged_state_dict = merge_tasks_to_base_model(
             base_state_dict=base_submodel_state_dict,
             task_state_dicts=task_submodel_state_dict,
@@ -73,6 +74,11 @@ def run_merge_models(
         # Merge the merged_state_dict back into the base model pipeline to keep memory utilization low.
         base_submodel.load_state_dict(merged_state_dict, assign=True)
         logger.info(f"Merged {submodel_name} state_dicts.")
+
+    # Delete the task models to free up memory.
+    # At the time of the writing, the save_pretrained(...) function below caused a large spike in memory usage. We free
+    # the task models to increase its likelihood of success.
+    del loaded_task_models
 
     # Save the merged model.
     logger.info("Saving result...")
