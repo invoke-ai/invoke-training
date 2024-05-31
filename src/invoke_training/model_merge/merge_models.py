@@ -1,6 +1,7 @@
 from typing import Literal
 
 import torch
+import tqdm
 
 from invoke_training.model_merge.utils.normalize_weights import normalize_weights
 
@@ -39,7 +40,7 @@ def merge_models(
             raise ValueError("State dicts must have the same keys.")
 
         cur_pair_weights = normalize_weights([out_state_dict_weight, normalized_weight])
-        for key in out_state_dict.keys():
+        for key in tqdm.tqdm(out_state_dict.keys()):
             out_state_dict[key] = merge_fn(out_state_dict[key], state_dict[key], cur_pair_weights[0])
 
         # Update the weight of out_state_dict to be the sum of all state dicts merged so far.

@@ -56,6 +56,7 @@ def run_merge_models(
         submodels: list[torch.nn.Module] = [getattr(loaded_model, submodel_name) for loaded_model in loaded_models]
         submodel_state_dicts: list[dict[str, torch.Tensor]] = [submodel.state_dict() for submodel in submodels]
 
+        logger.info(f"Merging {submodel_name} state_dicts...")
         merged_state_dict = merge_models(state_dicts=submodel_state_dicts, weights=weights, merge_method=method)
 
         # Merge the merged_state_dict back into the first pipeline to keep memory utilization low.
