@@ -6,8 +6,17 @@ from invoke_training.model_merge.utils.normalize_weights import normalize_weight
 
 
 def merge_models(
-    state_dicts: list[dict[str, torch.Tensor]], weights: list[float], merge_method: Literal["LERP", "SLERP"]
+    state_dicts: list[dict[str, torch.Tensor]], weights: list[float], merge_method: Literal["LERP", "SLERP"] = "LERP"
 ):
+    """Merge multiple models into a single model.
+
+    Args:
+        state_dicts (list[dict[str, torch.Tensor]]): The state dicts to merge.
+        weights (list[float]): The weights for each state dict. The weights will be normalized to sum to 1.
+        merge_method (Literal["LERP", "SLERP"]): Merge method to use. Options:
+            - "LERP": Linear interpolation a.k.a. weighted sum.
+            - "SLERP": Spherical linear interpolation.
+    """
     if len(state_dicts) < 2:
         raise ValueError("Must provide >=2 models to merge.")
 
@@ -68,7 +77,7 @@ def slerp(a: torch.Tensor, b: torch.Tensor, weight_a: float, dot_product_thres=0
     if torch.abs(dot_prod) > dot_product_thres:
         return lerp(a, b, weight_a)
 
-    # Calculate initial angle between v0 and v1.
+    # Calculate initial angle between the vectors.
     theta_0 = torch.acos(dot_prod)
 
     # Angle at timestep t.
