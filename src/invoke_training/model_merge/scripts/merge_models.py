@@ -1,5 +1,6 @@
 import argparse
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 import torch
@@ -10,12 +11,17 @@ from invoke_training.model_merge.merge_models import merge_models
 from invoke_training.scripts._experimental.lora_merge.merge_lora_into_sd_model import str_to_dtype
 
 
+@dataclass
+class MergeModel:
+    model_name_or_path: str
+    variant: str | None
+    weight: float
+
+
 def run_merge_models(
     logger: logging.Logger,
     model_type: PipelineVersionEnum,
-    models: list[str],
-    variants: list[str | None],
-    weights: list[float],
+    models: list[MergeModel],
     method: str,
     out_dir: str,
     dtype: torch.dtype,
@@ -26,13 +32,13 @@ def run_merge_models(
 
     # Load the models.
     loaded_models: list[StableDiffusionPipeline] | list[StableDiffusionXLPipeline] = []
-    for model, variant in zip(models, variants, strict=True):
+    for model in models:
         loaded_model = load_pipeline(
             logger=logger,
-            model_name_or_path=model,
+            model_name_or_path=model.model_name_or_path,
             pipeline_version=model_type,
             torch_dtype=dtype,
-            variant=variant,
+            variant=model.variant,
         )
         loaded_models.append(loaded_model)
 
@@ -45,6 +51,7 @@ def run_merge_models(
         raise ValueError(f"Unexpected model type: {model_type}")
 
     # Merge the models.
+    weights = [model.weight for model in models]
     for submodel_name in submodel_names:
         submodels: list[torch.nn.Module] = [getattr(loaded_model, submodel_name) for loaded_model in loaded_models]
         submodel_state_dicts: list[dict[str, torch.Tensor]] = [submodel.state_dict() for submodel in submodels]
@@ -61,21 +68,27 @@ def run_merge_models(
     logger.info(f"Saved merged model to '{out_dir_path}'.")
 
 
-def parse_models_arg(models: list[str]) -> tuple[list[str], list[str | None]]:
-    """Parse a --models argument into models and variants."""
-    out_models: list[str] = []
-    out_variants: list[str | None] = []
-    for model in models:
-        parts = model.split("::")
-        if len(parts) == 1:
-            out_models.append(parts[0])
-            out_variants.append(None)
-        elif len(parts) == 2:
-            out_models.append(parts[0])
-            out_variants.append(parts[1])
-        else:
-            raise ValueError(f"Unexpected format for --models arg: '{model}'.")
-    return out_models, out_variants
+def parse_model_arg(model: str) -> tuple[str, str | None]:
+    """Parse a --models argument into a model and a variant."""
+    parts = model.split("::")
+    if len(parts) == 1:
+        return parts[0], None
+    elif len(parts) == 2:
+        return parts[0], parts[1]
+    else:
+        raise ValueError(f"Unexpected format for --models arg: '{model}'.")
+
+
+def parse_model_args(models: list[str], weights: list[str]) -> list[MergeModel]:
+    """Parse a list of --models arguments and --weights arguments into a list of MergeModels."""
+    merge_model_list: list[MergeModel] = []
+    for model, weight in zip(models, weights, strict=True):
+        parsed_model, parsed_variant = parse_model_arg(model)
+        merge_model_list.append(
+            MergeModel(model_name_or_path=parsed_model, variant=parsed_variant, weight=float(weight))
+        )
+
+    return merge_model_list
 
 
 def main():
@@ -134,13 +147,11 @@ def main():
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    models, variants = parse_models_arg(args.models)
+    merge_model_list = parse_model_args(args.models, args.weights)
     run_merge_models(
         logger=logger,
         model_type=PipelineVersionEnum(args.model_type),
-        models=models,
-        variants=variants,
-        weights=[float(w) for w in args.weights],
+        models=merge_model_list,
         method=args.method,
         out_dir=args.out_dir,
         dtype=str_to_dtype(args.dtype),
