@@ -6,9 +6,9 @@ from pathlib import Path
 import torch
 from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
 
+from invoke_training._shared.accelerator.accelerator_utils import get_dtype_from_str
 from invoke_training._shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
 from invoke_training.model_merge.merge_models import merge_models
-from invoke_training.model_merge.scripts.merge_lora_into_sd_model import str_to_dtype
 
 
 @dataclass
@@ -155,7 +155,7 @@ def main():
         models=merge_model_list,
         method=args.method,
         out_dir=args.out_dir,
-        dtype=str_to_dtype(args.dtype),
+        dtype=get_dtype_from_str(args.dtype),
     )
 
 

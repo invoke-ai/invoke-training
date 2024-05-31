@@ -16,6 +16,7 @@ from diffusers import UNet2DConditionModel
 from safetensors.torch import save_file
 from tqdm import tqdm
 
+from invoke_training._shared.accelerator.accelerator_utils import get_dtype_from_str
 from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
     UNET_TARGET_MODULES,
     save_sdxl_kohya_checkpoint,
@@ -32,17 +33,6 @@ def save_to_file(file_name, model, state_dict, dtype):
         save_file(model, file_name)
     else:
         torch.save(model, file_name)
-
-
-def str_to_dtype(dtype_str: Literal["fp32", "fp16", "bf16"]):
-    if dtype_str == "fp32":
-        return torch.float32
-    elif dtype_str == "fp16":
-        return torch.float16
-    elif dtype_str == "bf16":
-        return torch.bfloat16
-    else:
-        raise ValueError(f"Unexpected dtype: {dtype_str}")
 
 
 def str_to_device(device_str: Literal["cuda", "cpu"]) -> torch.device:
@@ -142,14 +132,14 @@ def extract_lora(
     model_orig_path: str,
     model_tuned_path: str,
     save_to: str,
-    load_precision: Literal["fp32", "fp16", "bf16"],
-    save_precision: Literal["fp32", "fp16", "bf16"],
+    load_precision: Literal["float32", "float16", "bfloat16"],
+    save_precision: Literal["float32", "float16", "bfloat16"],
     device: Literal["cuda", "cpu"],
     lora_rank: int,
     clamp_quantile=0.99,
 ):
-    load_dtype = str_to_dtype(load_precision)
-    save_dtype = str_to_dtype(save_precision)
+    load_dtype = get_dtype_from_str(load_precision)
+    save_dtype = get_dtype_from_str(save_precision)
     device = str_to_device(device)
 
     # Load models.
@@ -254,10 +244,18 @@ def main():
         help="Destination file path (must have a .safetensors extension).",
     )
     parser.add_argument(
-        "--load-precision", type=str, default="bf16", choices=["fp32", "fp16", "bf16"], help="Model load precision."
+        "--load-precision",
+        type=str,
+        default="bfloat16",
+        choices=["float32", "float16", "bfloat16"],
+        help="Model load precision.",
     )
     parser.add_argument(
-        "--save-precision", type=str, default="fp16", choices=["fp32", "fp16", "bf16"], help="Model save precision."
+        "--save-precision",
+        type=str,
+        default="float16",
+        choices=["float32", "float16", "bfloat16"],
+        help="Model save precision.",
     )
 
     parser.add_argument("--lora-rank", type=int, default=4, help="LoRA rank dimension.")

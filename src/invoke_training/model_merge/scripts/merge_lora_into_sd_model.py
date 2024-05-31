@@ -1,7 +1,6 @@
 import argparse  # noqa: I001
 import logging
 from pathlib import Path
-from typing import Literal
 
 import torch
 from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
@@ -13,19 +12,8 @@ from invokeai.backend.model_manager import BaseModelType
 from invokeai.backend.lora import LoRAModelRaw
 from invokeai.backend.model_patcher import ModelPatcher
 # fmt: on
+from invoke_training._shared.accelerator.accelerator_utils import get_dtype_from_str
 from invoke_training._shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
-
-
-# TODO(ryand): Consolidate multiple implementations of this function across the project.
-def str_to_dtype(dtype_str: Literal["float32", "float16", "bfloat16"]):
-    if dtype_str == "float32":
-        return torch.float32
-    elif dtype_str == "float16":
-        return torch.float16
-    elif dtype_str == "bfloat16":
-        return torch.bfloat16
-    else:
-        raise ValueError(f"Unexpected dtype: {dtype_str}")
 
 
 def to_invokeai_base_model_type(base_model_type: PipelineVersionEnum):
@@ -96,7 +84,7 @@ def merge_lora_into_sd_model(
     pipeline: StableDiffusionXLPipeline | StableDiffusionPipeline = load_pipeline(
         logger=logger, model_name_or_path=base_model, pipeline_version=base_model_type, variant=base_model_variant
     )
-    save_dtype = str_to_dtype(save_dtype)
+    save_dtype = get_dtype_from_str(save_dtype)
 
     logger.info(f"Loaded base model: '{base_model}'.")
 
