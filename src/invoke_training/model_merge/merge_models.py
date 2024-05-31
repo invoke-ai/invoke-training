@@ -1,62 +1,85 @@
-import logging
-import time
+from typing import Literal
 
 import torch
 
-from invoke_training._shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
-from invoke_training.model_merge.merger import WeightedSumMerger
+from invoke_training.model_merge.utils.normalize_weights import normalize_weights
 
 
-def main():
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
-    base_model_path_1 = "/home/ryan/invokeai/autoimport/main/juggernautXL_version2.safetensors"
-    pipeline_1 = load_pipeline(
-        logger=logger,
-        model_name_or_path=base_model_path_1,
-        pipeline_version=PipelineVersionEnum.SDXL,
-        torch_dtype=torch.float16,
-        # variant=base_model_variant,
-    )
-    # base_model_path_2 = "stabilityai/stable-diffusion-xl-base-1.0"
-    base_model_path_2 = "/home/ryan/src/invoke-training/lora_merge_output"
-    pipeline_2 = load_pipeline(
-        logger=logger,
-        model_name_or_path=base_model_path_2,
-        pipeline_version=PipelineVersionEnum.SDXL,
-        torch_dtype=torch.float16,
-        variant="fp16",
-    )
+def merge_models(
+    state_dicts: list[dict[str, torch.Tensor]], weights: list[float], merge_method: Literal["LERP", "SLERP"]
+):
+    if len(state_dicts) < 2:
+        raise ValueError("Must provide >=2 models to merge.")
 
-    submodel_names = ["unet", "text_encoder", "text_encoder_2"]
+    if len(state_dicts) != len(weights):
+        raise ValueError("Must provide a weight for each model.")
 
-    pipelines = [pipeline_1, pipeline_2]
-    for submodel_name in submodel_names:
-        submodels: list[torch.nn.Module] = [getattr(pipeline, submodel_name) for pipeline in pipelines]
-        submodel_state_dicts = [submodel.state_dict() for submodel in submodels]
+    if merge_method == "LERP":
+        merge_fn = lerp
+    elif merge_method == "SLERP":
+        merge_fn = slerp
+    else:
+        raise ValueError(f"Unknown merge method: {merge_method}")
 
-        merger = WeightedSumMerger()
-        merged_state_dict = merger.merge(submodel_state_dicts, [0.5, 0.5])
+    normalized_weights = normalize_weights(weights)
 
-        # Merge the merged_state_dict back into the first pipeline to keep memory utilization low.
-        submodel_state_dicts[0].update(merged_state_dict)
-        submodels[0].load_state_dict(submodel_state_dicts[0], assign=True)
-        logger.info(f"Merged {submodel_name} state_dicts.")
+    out_state_dict: dict[str, torch.Tensor] = state_dicts[0].copy()
+    out_state_dict_weight = normalized_weights[0]
+    for state_dict, normalized_weight in zip(state_dicts[1:], normalized_weights[1:], strict=True):
+        if state_dict.keys() != out_state_dict.keys():
+            raise ValueError("State dicts must have the same keys.")
 
-    # Run the merged pipeline.
-    pipeline_1.to("cuda")
-    image = pipeline_1(
-        "A photo of a stuffed gnome at the beach with a pina colada.",
-        num_inference_steps=30,
-        generator=torch.Generator().manual_seed(0),
-        height=1024,
-        width=1024,
-        # negative_prompt="",
-    ).images[0]
-    out_image_path = f"out_image_{time.time()}.png"
-    image.save(out_image_path)
-    logger.info(f"Saved image to '{out_image_path}'.")
+        cur_pair_weights = normalize_weights([out_state_dict_weight, normalized_weight])
+        for key in out_state_dict.keys():
+            out_state_dict[key] = merge_fn(out_state_dict[key], state_dict[key], cur_pair_weights[0])
+
+        # Update the weight of out_state_dict to be the sum of all state dicts merged so far.
+        out_state_dict_weight += normalized_weight
+
+    return out_state_dict
 
 
-if __name__ == "__main__":
-    main()
+def lerp(a: torch.Tensor, b: torch.Tensor, weight_a: float) -> torch.Tensor:
+    """Linear interpolation."""
+    return torch.lerp(a, b, (1.0 - weight_a))
+
+
+def slerp(a: torch.Tensor, b: torch.Tensor, weight_a: float, dot_product_thres=0.9995, epsilon=1e-10):
+    """Spherical linear interpolation."""
+    # TODO(ryand): For multi-dimensional matrices, it might be better to apply slerp on a subset of the dimensions
+    # (e.g. per-row), rather than treating the entire matrix as a single flattened vector.
+
+    # Normalize the vectors.
+    a_norm = torch.linalg.norm(a)
+    b_norm = torch.linalg.norm(b)
+    a_normalized = a / a_norm
+    b_normalized = b / b_norm
+
+    if a_norm < epsilon or b_norm < epsilon:
+        # If either vector is very small, fallback to lerp to avoid weird effects.
+        # TODO(ryand): Is fallback here necessary?
+        return lerp(a, b, weight_a)
+
+    # Dot product of the normalized vectors.
+    # We are effectively treating multi-dimensional tensors as flattened vectors.
+    dot_prod = torch.sum(a_normalized * b_normalized)
+
+    # If the absolute value of the dot product is almost 1, the vectors are ~colinear, so use lerp.
+    if torch.abs(dot_prod) > dot_product_thres:
+        return lerp(a, b, weight_a)
+
+    # Calculate initial angle between v0 and v1.
+    theta_0 = torch.acos(dot_prod)
+
+    # Angle at timestep t.
+    t = 1.0 - weight_a
+    theta_t = theta_0 * t
+
+    sin_theta_0 = torch.sin(theta_0)
+    sin_theta_t = torch.sin(theta_t)
+
+    s0 = torch.sin(theta_0 - theta_t) / sin_theta_0
+    s1 = sin_theta_t / sin_theta_0
+    result = s0 * a + s1 * b
+
+    return result

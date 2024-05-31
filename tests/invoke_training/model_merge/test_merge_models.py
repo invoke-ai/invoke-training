@@ -1,25 +1,26 @@
 import math
+from typing import Literal
 
 import pytest
 import torch
 
-from invoke_training.model_merge.merger import WeightedMergeOperation, WeightedModelMerger
+from invoke_training.model_merge.merge_models import merge_models
 
 from .utils import state_dicts_are_close
 
 
-def test_weighted_sum_merger_raises_on_not_enough_state_dicts():
+def test_merge_models_raises_on_not_enough_state_dicts():
     with pytest.raises(ValueError, match="Must provide >=2 models to merge."):
-        _ = WeightedModelMerger().merge([{}], [0.5])
+        _ = merge_models(state_dicts=[{}], weights=[0.5], merge_method="LERP")
 
 
-def test_weighted_sum_merger_raises_on_mismatched_weights():
+def test_merge_models_raises_on_mismatched_weights():
     with pytest.raises(ValueError, match="Must provide a weight for each model."):
-        _ = WeightedModelMerger().merge([{}, {}], [0.5, 0.5, 0.5])
+        _ = merge_models(state_dicts=[{}, {}], weights=[0.5, 0.5, 0.5], merge_method="LERP")
 
 
 @pytest.mark.parametrize(
-    ["state_dicts", "weights", "expected_state_dict", "operation"],
+    ["state_dicts", "weights", "merge_method", "expected_state_dict"],
     [
         # Lerp.
         (
@@ -28,8 +29,8 @@ def test_weighted_sum_merger_raises_on_mismatched_weights():
                 {"a": torch.tensor(3.0), "b": torch.tensor(4.0)},
             ],
             [1.0, 1.0],
+            "LERP",
             {"a": torch.tensor(2.0), "b": torch.tensor(3.0)},
-            WeightedMergeOperation.Lerp,
         ),
         # Lerp with unbalanced weights.
         (
@@ -38,8 +39,8 @@ def test_weighted_sum_merger_raises_on_mismatched_weights():
                 {"a": torch.tensor(3.0), "b": torch.tensor(4.0)},
             ],
             [1.0, 3.0],
+            "LERP",
             {"a": torch.tensor(1.0 * 0.25 + 3.0 * 0.75), "b": torch.tensor(2.0 * 0.25 + 4.0 * 0.75)},
-            WeightedMergeOperation.Lerp,
         ),
         # Lerp with more than 2 state dicts.
         (
@@ -49,8 +50,8 @@ def test_weighted_sum_merger_raises_on_mismatched_weights():
                 {"a": torch.tensor(3.0), "b": torch.tensor(4.0)},
             ],
             [1.0, 1.0, 1.0],
+            "LERP",
             {"a": torch.tensor(2.0), "b": torch.tensor(3.0)},
-            WeightedMergeOperation.Lerp,
         ),
         # Slerp with scalar tensors falls back to lerp.
         (
@@ -59,8 +60,8 @@ def test_weighted_sum_merger_raises_on_mismatched_weights():
                 {"a": torch.tensor(3.0), "b": torch.tensor(4.0)},
             ],
             [1.0, 1.0],
+            "SLERP",
             {"a": torch.tensor(2.0), "b": torch.tensor(3.0)},
-            WeightedMergeOperation.Slerp,
         ),
         # Slerp with colinear vector tensors falls back to lerp.
         (
@@ -69,8 +70,8 @@ def test_weighted_sum_merger_raises_on_mismatched_weights():
                 {"a": torch.tensor([2.0, 4.0])},
             ],
             [1.0, 1.0],
+            "SLERP",
             {"a": torch.tensor([1.5, 3.0])},
-            WeightedMergeOperation.Slerp,
         ),
         # Slerp with orthogonal vector tensors.
         (
@@ -79,16 +80,16 @@ def test_weighted_sum_merger_raises_on_mismatched_weights():
                 {"a": torch.tensor([0.0, 1.0])},
             ],
             [1.0, 1.0],
+            "SLERP",
             {"a": torch.tensor([math.sin(math.pi / 4), math.sin(math.pi / 4)])},
-            WeightedMergeOperation.Slerp,
         ),
     ],
 )
-def test_weighted_merger(
+def test_merge_models(
     state_dicts: list[dict[str, torch.Tensor]],
     weights: list[float],
+    merge_method: Literal["LERP", "SLERP"],
     expected_state_dict: dict[str, torch.Tensor],
-    operation: WeightedMergeOperation,
 ):
-    merged_state_dict = WeightedModelMerger().merge(state_dicts, weights, operation=operation)
+    merged_state_dict = merge_models(state_dicts=state_dicts, weights=weights, merge_method=merge_method)
     assert state_dicts_are_close(merged_state_dict, expected_state_dict)
