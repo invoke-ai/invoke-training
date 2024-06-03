@@ -17,6 +17,7 @@ def run_merge_models(
     base_model: MergeModel,
     task_models: list[MergeModel],
     method: str,
+    density: float,
     out_dir: str,
     dtype: torch.dtype,
 ):
@@ -68,6 +69,7 @@ def run_merge_models(
             base_state_dict=base_submodel_state_dict,
             task_state_dicts=task_submodel_state_dict,
             task_weights=task_model_weights,
+            density=density,
             merge_method=method,
         )
 
@@ -130,6 +132,13 @@ def main():
         help="The merge method to use. Options: ['TIES', 'DARE_LINEAR', 'DARE_TIES'].",
     )
     parser.add_argument(
+        "--density",
+        type=float,
+        default=0.2,
+        help="The fraction of values to preserve in the prune/trim step of DARE/TIES methods. Should be in the range "
+        "[0, 1].",
+    )
+    parser.add_argument(
         "--out-dir",
         type=str,
         required=True,
@@ -146,7 +155,7 @@ def main():
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger()
 
     base_model = parse_model_args([args.base_model], [1.0])[0]
     task_models = parse_model_args(args.task_models, args.task_weights)
@@ -156,6 +165,7 @@ def main():
         base_model=base_model,
         task_models=task_models,
         method=args.method,
+        density=args.density,
         out_dir=args.out_dir,
         dtype=get_dtype_from_str(args.dtype),
     )
