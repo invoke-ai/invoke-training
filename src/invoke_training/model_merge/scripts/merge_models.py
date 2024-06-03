@@ -85,7 +85,7 @@ def parse_model_args(models: list[str], weights: list[str]) -> list[MergeModel]:
 def main():
     parser = argparse.ArgumentParser()
 
-    # TODO(ryand): Auto-detect the base-model-type.
+    # TODO(ryand): Auto-detect the model-type.
     parser.add_argument(
         "--model-type",
         type=str,
