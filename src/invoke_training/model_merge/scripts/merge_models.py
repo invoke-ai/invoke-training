@@ -9,7 +9,7 @@ from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
 from invoke_training._shared.accelerator.accelerator_utils import get_dtype_from_str
 from invoke_training._shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
 from invoke_training.model_merge.merge_models import merge_models
-from invoke_training.model_merge.utils import parse_model_arg
+from invoke_training.model_merge.utils.parse_model_arg import parse_model_arg
 
 
 @dataclass
