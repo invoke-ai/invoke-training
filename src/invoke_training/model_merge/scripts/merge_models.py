@@ -9,6 +9,7 @@ from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
 from invoke_training._shared.accelerator.accelerator_utils import get_dtype_from_str
 from invoke_training._shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
 from invoke_training.model_merge.merge_models import merge_models
+from invoke_training.model_merge.utils import parse_model_arg
 
 
 @dataclass
@@ -67,17 +68,6 @@ def run_merge_models(
     logger.info("Saving result...")
     loaded_models[0].save_pretrained(out_dir_path)
     logger.info(f"Saved merged model to '{out_dir_path}'.")
-
-
-def parse_model_arg(model: str) -> tuple[str, str | None]:
-    """Parse a --models argument into a model and a variant."""
-    parts = model.split("::")
-    if len(parts) == 1:
-        return parts[0], None
-    elif len(parts) == 2:
-        return parts[0], parts[1]
-    else:
-        raise ValueError(f"Unexpected format for --models arg: '{model}'.")
 
 
 def parse_model_args(models: list[str], weights: list[str]) -> list[MergeModel]:
