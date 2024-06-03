@@ -52,35 +52,56 @@ def load_pipeline(
     if os.path.isfile(model_name_or_path):
         return pipeline_class.from_single_file(model_name_or_path, torch_dtype=torch_dtype, load_safety_checker=False)
 
+    return from_pretrained_with_variant_fallback(
+        logger=logger,
+        model_class=pipeline_class,
+        model_name_or_path=model_name_or_path,
+        torch_dtype=torch_dtype,
+        variant=variant,
+        # kwargs
+        safety_checker=None,
+        requires_safety_checker=False,
+    )
+
+
+ModelT = typing.TypeVar("ModelT")
+
+
+def from_pretrained_with_variant_fallback(
+    logger: logging.Logger,
+    model_class: typing.Type[ModelT],
+    model_name_or_path: str,
+    torch_dtype: torch.dtype | None = None,
+    variant: str | None = None,
+    **kwargs,
+) -> ModelT:
+    """A wrapper for .from_pretrained() that tries multiple variants if the initial one fails."""
     variants_to_try = [variant] + [v for v in HF_VARIANT_FALLBACKS if v != variant]
 
-    pipeline = None
+    model: ModelT | None = None
     for variant_to_try in variants_to_try:
         if variant_to_try != variant:
             logger.warning(f"Trying fallback variant '{variant_to_try}'.")
         try:
-            pipeline = pipeline_class.from_pretrained(
+            model = model_class.from_pretrained(
                 model_name_or_path,
-                safety_checker=None,
                 torch_dtype=torch_dtype,
                 variant=variant_to_try,
-                requires_safety_checker=False,
+                **kwargs,
             )
         except OSError as e:
             if "no file named" in str(e):
                 # Ok; we'll try the variant fallbacks.
-                logger.warning(
-                    f"Failed to load pipeline '{model_name_or_path}' with variant '{variant_to_try}'. Error: {e}."
-                )
+                logger.warning(f"Failed to load '{model_name_or_path}' with variant '{variant_to_try}'. Error: {e}.")
             else:
                 raise
 
-        if pipeline is not None:
+        if model is not None:
             break
 
-    if pipeline is None:
-        raise RuntimeError(f"Failed to load pipeline '{model_name_or_path}'.")
-    return pipeline
+    if model is None:
+        raise RuntimeError(f"Failed to load model '{model_name_or_path}'.")
+    return model
 
 
 def load_models_sd(

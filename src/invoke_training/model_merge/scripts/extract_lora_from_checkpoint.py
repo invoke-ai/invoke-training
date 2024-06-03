@@ -20,7 +20,11 @@ from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
     UNET_TARGET_MODULES,
     save_sdxl_kohya_checkpoint,
 )
-from invoke_training._shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
+from invoke_training._shared.stable_diffusion.model_loading_utils import (
+    PipelineVersionEnum,
+    from_pretrained_with_variant_fallback,
+    load_pipeline,
+)
 from invoke_training.model_merge.extract_lora import (
     PEFT_BASE_LAYER_PREFIX,
     extract_lora_from_diffs,
@@ -64,9 +68,13 @@ def load_model(
             submodel_path: Path = model_path / submodel_name
             if submodel_path.exists():
                 logger.info(f"Loading '{submodel_name}' from '{submodel_path}'.")
-                # TODO(ryand): Add variant fallbacks?
-                submodel = submodel_class.from_pretrained(
-                    submodel_path, variant=variant, torch_dtype=dtype, local_files_only=True
+                submodel = from_pretrained_with_variant_fallback(
+                    logger=logger,
+                    model_class=submodel_class,
+                    model_name_or_path=submodel_path,
+                    torch_dtype=dtype,
+                    variant=variant,
+                    local_files_only=True,
                 )
                 setattr(sd_model, submodel_name, submodel)
             else:
@@ -108,24 +116,6 @@ def str_to_device(device_str: Literal["cuda", "cpu"]) -> torch.device:
         return torch.device("cpu")
     else:
         raise ValueError(f"Unexpected device: {device_str}")
-
-
-# TODO(ryand): Delete this after integrating the variant fallback logic.
-# def load_sdxl_unet(model_path: str) -> UNet2DConditionModel:
-#     variants_to_try = [None, "fp16"]
-#     unet = None
-#     for variant in variants_to_try:
-#         try:
-#             unet = UNet2DConditionModel.from_pretrained(model_path, variant=variant, local_files_only=True)
-#         except OSError as e:
-#             if "no file named" in str(e):
-#                 # Ok. We'll try a different variant.
-#                 pass
-#             else:
-#                 raise
-#     if unet is None:
-#         raise RuntimeError(f"Failed to load UNet from '{model_path}'.")
-#     return unet
 
 
 def state_dict_to_device(state_dict: dict[str, torch.Tensor], device: torch.device) -> dict[str, torch.Tensor]:
@@ -172,6 +162,8 @@ def extract_lora_from_submodel(
     # We just use the device for this calculation, since it's slow, then we move the results back to the CPU.
     logger.info("Calculating LoRA weights with SVD.")
     diffs = state_dict_to_device(diffs, device)
+    # TODO(ryand): Should we skip if the diffs are all zeros? This would happen if two models are identical. This could
+    # happen if some submodels differ while others don't.
     lora_weights = extract_lora_from_diffs(
         diffs=diffs, rank=lora_rank, clamp_quantile=clamp_quantile, out_dtype=out_dtype
     )
@@ -322,9 +314,8 @@ def main():
 
     args = parser.parse_args()
 
-    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
 
     orig_model_name_or_path, orig_model_variant = parse_model_arg(args.model_orig)
     tuned_model_name_or_path, tuned_model_variant = parse_model_arg(args.model_tuned)
