@@ -16,6 +16,7 @@ from transformers import CLIPTextModel, CLIPTextModelWithProjection
 
 from invoke_training._shared.accelerator.accelerator_utils import get_dtype_from_str
 from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
+    TEXT_ENCODER_TARGET_MODULES,
     UNET_TARGET_MODULES,
     save_sdxl_kohya_checkpoint,
 )
@@ -137,6 +138,7 @@ def extract_lora_from_submodel(
     model_tuned: torch.nn.Module,
     device: torch.device,
     out_dtype: torch.dtype,
+    lora_target_modules: list[str],
     lora_rank: int,
     clamp_quantile: float = 0.99,
 ) -> peft.PeftModel:
@@ -151,7 +153,7 @@ def extract_lora_from_submodel(
         # We set the alpha to the rank, because we don't want any scaling to be applied to the LoRA weights that we
         # extract.
         lora_alpha=lora_rank,
-        target_modules=UNET_TARGET_MODULES,
+        target_modules=lora_target_modules,
     )
     model_tuned = peft.get_peft_model(model_tuned, unet_lora_config)
     model_orig = peft.get_peft_model(model_orig, unet_lora_config)
@@ -209,21 +211,6 @@ def extract_lora(
     save_dtype = get_dtype_from_str(save_precision)
     device = str_to_device(device)
 
-    # Load models.
-    # if model_type == "sd1":
-    #     raise NotImplementedError("SD1 support is not yet implemented.")
-    # elif model_type == "sdxl":
-    #     logger.info(f"Loading original SDXL model: '{model_orig_path}'.")
-    #     unet_orig = load_sdxl_unet(model_orig_path)
-    #     logger.info(f"Loading tuned SDXL model: '{model_tuned_path}'.")
-    #     unet_tuned = load_sdxl_unet(model_tuned_path)
-
-    #     if load_dtype is not None:
-    #         unet_orig = unet_orig.to(load_dtype)
-    #         unet_tuned = unet_tuned.to(load_dtype)
-    # else:
-    #     raise ValueError(f"Unexpected model type: '{model_type}'.")
-
     orig_model = load_model(
         logger=logger,
         model_name_or_path=orig_model_name_or_path,
@@ -239,45 +226,26 @@ def extract_lora(
         variant=tuned_model_variant,
     )
 
-    # TODO(ryand): Consolidate these calls to extract_lora_from_submodel.
-    unet_orig_with_lora = None
-    if orig_model.unet is not None and tuned_model.unet is not None:
-        logger.info("Extracting LoRA from UNet.")
-        unet_orig_with_lora = extract_lora_from_submodel(
-            logger=logger,
-            model_orig=orig_model.unet,
-            model_tuned=tuned_model.unet,
-            device=device,
-            out_dtype=save_dtype,
-            lora_rank=lora_rank,
-            clamp_quantile=clamp_quantile,
-        )
-
-    text_encoder_orig_with_lora = None
-    if orig_model.text_encoder is not None and tuned_model.text_encoder is not None:
-        logger.info("Extracting LoRA from text encoder.")
-        text_encoder_orig_with_lora = extract_lora_from_submodel(
-            logger=logger,
-            model_orig=orig_model.text_encoder,
-            model_tuned=tuned_model.text_encoder,
-            device=device,
-            out_dtype=save_dtype,
-            lora_rank=lora_rank,
-            clamp_quantile=clamp_quantile,
-        )
-
-    text_encoder_2_orig_with_lora = None
-    if orig_model.text_encoder_2 is not None and tuned_model.text_encoder_2 is not None:
-        logger.info("Extracting LoRA from text encoder 2.")
-        text_encoder_2_orig_with_lora = extract_lora_from_submodel(
-            logger=logger,
-            model_orig=orig_model.text_encoder_2,
-            model_tuned=tuned_model.text_encoder_2,
-            device=device,
-            out_dtype=save_dtype,
-            lora_rank=lora_rank,
-            clamp_quantile=clamp_quantile,
-        )
+    lora_models: dict[str, peft.PeftModel] = {}
+    for submodel_name, submodel_orig, submodel_tuned, lora_target_modules in [
+        ("unet", orig_model.unet, tuned_model.unet, UNET_TARGET_MODULES),
+        ("text_encoder", orig_model.text_encoder, tuned_model.text_encoder, TEXT_ENCODER_TARGET_MODULES),
+        ("text_encoder_2", orig_model.text_encoder_2, tuned_model.text_encoder_2, TEXT_ENCODER_TARGET_MODULES),
+    ]:
+        if submodel_orig is not None and submodel_tuned is not None:
+            logger.info(f"Extracting LoRA weights for '{submodel_name}'.")
+            lora_models[submodel_name] = extract_lora_from_submodel(
+                logger=logger,
+                model_orig=submodel_orig,
+                model_tuned=submodel_tuned,
+                device=device,
+                out_dtype=save_dtype,
+                lora_target_modules=lora_target_modules,
+                lora_rank=lora_rank,
+                clamp_quantile=clamp_quantile,
+            )
+        else:
+            logger.info(f"Skipping '{submodel_name}'.")
 
     # Save the LoRA weights.
     save_to_path = Path(save_to)
@@ -287,9 +255,9 @@ def extract_lora(
     save_to_path.parent.mkdir(parents=True, exist_ok=True)
     save_sdxl_kohya_checkpoint(
         save_to_path,
-        unet=unet_orig_with_lora,
-        text_encoder_1=text_encoder_orig_with_lora,
-        text_encoder_2=text_encoder_2_orig_with_lora,
+        unet=lora_models.get("unet", None),
+        text_encoder_1=lora_models.get("text_encoder", None),
+        text_encoder_2=lora_models.get("text_encoder_2", None),
     )
 
     logger.info(f"Saved LoRA weights to: {save_to_path}")
