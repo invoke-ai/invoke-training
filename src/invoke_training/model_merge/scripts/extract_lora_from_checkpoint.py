@@ -49,8 +49,34 @@ def load_model(
     variant: str | None,
     dtype: torch.dtype,
 ) -> StableDiffusionModel:
-    pipeline: StableDiffusionPipeline | StableDiffusionXLPipeline | None = None
-    try:
+    sd_model = StableDiffusionModel()
+
+    model_path = Path(model_name_or_path)
+    if model_path.is_dir():
+        # model_path is a directory, so we'll try to load the submodels of interest from its subdirectories.
+        logger.info(f"'{model_name_or_path}' is a directory. Attempting to load submodels.")
+        for submodel_name, submodel_class in [
+            ("unet", UNet2DConditionModel),
+            ("text_encoder", CLIPTextModel),
+            ("text_encoder_2", CLIPTextModelWithProjection),
+        ]:
+            submodel_path: Path = model_path / submodel_name
+            if submodel_path.exists():
+                logger.info(f"Loading '{submodel_name}' from '{submodel_path}'.")
+                # TODO(ryand): Add variant fallbacks?
+                submodel = submodel_class.from_pretrained(
+                    submodel_path, variant=variant, torch_dtype=dtype, local_files_only=True
+                )
+                setattr(sd_model, submodel_name, submodel)
+            else:
+                logger.info(f"'{submodel_name}' not found in '{model_name_or_path}'. Skipping.")
+                continue
+    else:
+        # model_name_or_path is not a directory, so it is either:
+        # 1) a single checkpoint file
+        # 2) a HF model name
+        # Both can be loaded by calling load_pipeline.
+        logger.info(f"'{model_name_or_path}' is a single checkpoint file. Attempting to load.")
         pipeline = load_pipeline(
             logger=logger,
             model_name_or_path=model_name_or_path,
@@ -58,31 +84,15 @@ def load_model(
             torch_dtype=dtype,
             variant=variant,
         )
-    except Exception as e:
-        logger.info(f"Failed to load full SD/SDXL model '{model_name_or_path}': {e}.")
-
-    if pipeline is not None:
-        return StableDiffusionModel(
-            unet=pipeline.unet, text_encoder=pipeline.text_encoder, text_encoder_2=pipeline.text_encoder_2
-        )
-
-    # Failed to load a full pipeline. Try to load the submodels.
-    logger.info("Attempting to load the available submodels.")
-    sd_model = StableDiffusionModel()
-    base_model_path = Path(model_name_or_path)
-    for submodel_name, submodel_class in [
-        ("unet", UNet2DConditionModel),
-        ("text_encoder", CLIPTextModel),
-        ("text_encoder_2", CLIPTextModelWithProjection),
-    ]:
-        try:
-            # TODO(ryand): Add variant fallbacks?
-            submodel = submodel_class.from_pretrained(
-                base_model_path / submodel_name, variant=variant, torch_dtype=dtype, local_files_only=True
-            )
-            setattr(sd_model, submodel_name, submodel)
-        except Exception:
-            logger.info(f"Failed to load '{submodel_name}' from '{model_name_or_path}'.")
+        if isinstance(pipeline, StableDiffusionPipeline):
+            sd_model.unet = pipeline.unet
+            sd_model.text_encoder = pipeline.text_encoder
+        elif isinstance(pipeline, StableDiffusionXLPipeline):
+            sd_model.unet = pipeline.unet
+            sd_model.text_encoder = pipeline.text_encoder
+            sd_model.text_encoder_2 = pipeline.text_encoder_2
+        else:
+            raise RuntimeError(f"Unexpected pipeline type: {type(pipeline)}.")
 
     if sd_model.all_none():
         raise RuntimeError(f"Failed to load any submodels from '{model_name_or_path}'.")
