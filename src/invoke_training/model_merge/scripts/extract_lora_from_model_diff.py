@@ -39,7 +39,6 @@ class StableDiffusionModel:
     """A helper class to store the submodels of a SD model that we are interested in for LoRA extraction."""
 
     unet: UNet2DConditionModel | None = None
-    # TODO(ryand): Figure out the actual type of these text encoders.
     text_encoder: CLIPTextModel | None = None
     text_encoder_2: CLIPTextModelWithProjection | None = None
 
