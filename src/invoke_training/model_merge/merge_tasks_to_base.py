@@ -5,6 +5,7 @@ import tqdm
 from peft.utils.merge_utils import dare_linear, dare_ties, ties
 
 
+@torch.no_grad()
 def merge_tasks_to_base_model(
     base_state_dict: dict[str, torch.Tensor],
     task_state_dicts: list[dict[str, torch.Tensor]],

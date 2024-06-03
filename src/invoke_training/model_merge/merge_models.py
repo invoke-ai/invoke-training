@@ -6,6 +6,7 @@ import tqdm
 from invoke_training.model_merge.utils.normalize_weights import normalize_weights
 
 
+@torch.no_grad()
 def merge_models(
     state_dicts: list[dict[str, torch.Tensor]], weights: list[float], merge_method: Literal["LERP", "SLERP"] = "LERP"
 ):
