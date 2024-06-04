@@ -32,7 +32,14 @@ def process_images(images: list[Image.Image], prompt: str, moondream, tokenizer)
     return answers
 
 
-def main(image_dir: str, prompt: str, use_cpu: bool, batch_size: int, output_path: str):
+def main(
+    prompt: str,
+    use_cpu: bool,
+    batch_size: int,
+    output_path: str,
+    image_dir: str = None,
+    dataset: torch.utils.data.Dataset = None,
+):
     device, dtype = select_device_and_dtype(use_cpu)
     print(f"Using device: {device}")
     print(f"Using dtype: {dtype}")
@@ -53,8 +60,11 @@ def main(image_dir: str, prompt: str, use_cpu: bool, batch_size: int, output_pat
     moondream_model.eval()
 
     # Prepare the dataloader.
-    dataset = ImageDirDataset(image_dir)
-    print(f"Found {len(dataset)} images in '{image_dir}'.")
+    if image_dir is not None:
+        dataset = ImageDirDataset(image_dir)
+        print(f"Found {len(dataset)} images in '{image_dir}'.")
+    if not dataset:
+        raise ValueError("Either 'image_dir' or 'dataset' must be provided to this function.")
     data_loader = torch.utils.data.DataLoader(
         dataset, collate_fn=list_collate_fn, batch_size=batch_size, drop_last=False
     )
@@ -107,4 +117,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    main(args.dir, args.prompt, args.cpu, args.batch_size, args.output)
+    main(args.prompt, args.cpu, args.batch_size, args.output, image_dir=args.dir)
