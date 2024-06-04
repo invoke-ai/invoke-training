@@ -1,6 +1,7 @@
 import argparse
 import json
 from pathlib import Path
+from typing import Optional
 
 import torch
 import torch.utils.data
@@ -37,8 +38,8 @@ def main(
     use_cpu: bool,
     batch_size: int,
     output_path: str,
-    image_dir: str = None,
-    dataset: torch.utils.data.Dataset = None,
+    image_dir: Optional[str] = None,
+    dataset: Optional[torch.utils.data.Dataset] = None,
 ):
     device, dtype = select_device_and_dtype(use_cpu)
     print(f"Using device: {device}")
