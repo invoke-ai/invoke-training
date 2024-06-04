@@ -1,7 +1,6 @@
 import argparse
 import json
 from pathlib import Path
-from typing import Optional
 
 import torch
 import torch.utils.data
@@ -38,8 +37,7 @@ def main(
     use_cpu: bool,
     batch_size: int,
     output_path: str,
-    image_dir: Optional[str] = None,
-    dataset: Optional[torch.utils.data.Dataset] = None,
+    dataset: torch.utils.data.Dataset,
 ):
     device, dtype = select_device_and_dtype(use_cpu)
     print(f"Using device: {device}")
@@ -60,12 +58,6 @@ def main(
     ).to(device=device, dtype=dtype)
     moondream_model.eval()
 
-    # Prepare the dataloader.
-    if image_dir is not None:
-        dataset = ImageDirDataset(image_dir)
-        print(f"Found {len(dataset)} images in '{image_dir}'.")
-    if not dataset:
-        raise ValueError("Either 'image_dir' or 'dataset' must be provided to this function.")
     data_loader = torch.utils.data.DataLoader(
         dataset, collate_fn=list_collate_fn, batch_size=batch_size, drop_last=False
     )
@@ -118,4 +110,8 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    main(args.prompt, args.cpu, args.batch_size, args.output, image_dir=args.dir)
+    # Prepare the dataset.
+    dataset = ImageDirDataset(args.dir)
+    print(f"Found {len(dataset)} images in '{args.dir}'.")
+
+    main(args.prompt, args.cpu, args.batch_size, args.output, dataset)
