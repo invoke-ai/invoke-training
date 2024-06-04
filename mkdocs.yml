@@ -28,16 +28,14 @@ nav:
   - Get Started:
       - get-started/installation.md
       - get-started/quick-start.md
-  - Tutorials:
-      - tutorials/index.md
-      - Stable Diffusion:
-          - tutorials/stable_diffusion/robocats_finetune_sdxl.md
-          - tutorials/stable_diffusion/gnome_lora_masks_sdxl.md
-          - tutorials/stable_diffusion/textual_inversion_sdxl.md
-          - tutorials/stable_diffusion/dpo_lora_sd.md
-  - Concepts:
-      - concepts/index.md
-      - concepts/dataset_formats.md
+  - Guides:
+      - Dataset Formats: guides/dataset_formats.md
+      - Model Merging: guides/model_merge.md
+      - Stable Diffusion Training:
+          - guides/stable_diffusion/robocats_finetune_sdxl.md
+          - guides/stable_diffusion/gnome_lora_masks_sdxl.md
+          - guides/stable_diffusion/textual_inversion_sdxl.md
+          - guides/stable_diffusion/dpo_lora_sd.md
   - YAML Config Reference:
       - reference/config/index.md
       - pipelines:

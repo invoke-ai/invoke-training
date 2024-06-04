@@ -71,4 +71,4 @@ Follow the [`invoke-training` installation instructions](./installation.md).
 
 ### 2. Training
 
-See the [Textual Inversion - SDXL](../tutorials/stable_diffusion/textual_inversion_sdxl.md) tutorial for instructions on how to train a model via the CLI.
+See the [Textual Inversion - SDXL](../guides/stable_diffusion/textual_inversion_sdxl.md) tutorial for instructions on how to train a model via the CLI.
