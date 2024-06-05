@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import gradio as gr
+from PIL import Image
 
 from invoke_training._shared.data.datasets.image_caption_jsonl_dataset import (
     CAPTION_COLUMN_DEFAULT,
@@ -174,8 +175,15 @@ class DataPage:
         if 0 <= idx and idx < len(self._dataset):
             beyond_limits = False
             example = self._dataset[idx]
-            image = example["image"]
+            image: Image.Image = example["image"]
             caption = example["caption"]
+
+            # Resize the image to have a max dimension of 1024. On slow connections, sending the full-size image can be
+            # very slow.
+            max_dim = 1024
+            if image.width > max_dim or image.height > max_dim:
+                scale = max_dim / max(image.width, image.height)
+                image = image.resize((int(image.width * scale), int(image.height * scale)))
 
         jsonl_str = "\n".join([example.model_dump_json() for example in self._dataset.examples])
         return {
