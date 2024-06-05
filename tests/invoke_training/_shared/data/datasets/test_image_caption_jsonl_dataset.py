@@ -1,6 +1,10 @@
+import shutil
+from pathlib import Path
+
 import PIL.Image
 
 from invoke_training._shared.data.datasets.image_caption_jsonl_dataset import ImageCaptionJsonlDataset
+from invoke_training._shared.utils.jsonl import load_jsonl
 
 from ..dataset_fixtures import image_caption_jsonl  # noqa: F401
 
@@ -52,3 +56,21 @@ def test_image_caption_jsonl_dataset_get_image_dimensions(image_caption_jsonl): 
     image_dims = dataset.get_image_dimensions()
 
     assert len(image_dims) == len(dataset)
+
+
+def test_image_caption_jsonl_dataset_save_jsonl(image_caption_jsonl, tmp_path: Path):  # noqa: F811
+    # Create a copy of the image_caption_jsonl file to avoid modifying the original file.
+    image_caption_jsonl_copy = tmp_path / "test.jsonl"
+    shutil.copy(image_caption_jsonl, image_caption_jsonl_copy)
+
+    # Load the dataset from the copied jsonl file.
+    dataset = ImageCaptionJsonlDataset(str(image_caption_jsonl))
+
+    # Save the dataset to a new jsonl file.
+    dataset.save_jsonl()
+
+    # Verify that the roundtrip was successful.
+    assert image_caption_jsonl != image_caption_jsonl_copy
+    original_jsonl = load_jsonl(image_caption_jsonl)
+    roundtrip_jsonl = load_jsonl(image_caption_jsonl_copy)
+    assert original_jsonl == roundtrip_jsonl
