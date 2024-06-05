@@ -15,7 +15,7 @@ MASK_COLUMN_DEFAULT = "mask"
 
 class ImageCaptionExample(BaseModel):
     image_path: str
-    mask_path: str | None
+    mask_path: str | None = None
     caption: str
 
 
