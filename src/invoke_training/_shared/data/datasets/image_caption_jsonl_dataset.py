@@ -55,7 +55,13 @@ class ImageCaptionJsonlDataset(torch.utils.data.Dataset):
     def save_jsonl(self):
         data = []
         for example in self.examples:
-            data.append({self._image_column: example.image_path, self._caption_column: example.caption})
+            data.append(
+                {
+                    self._image_column: example.image_path,
+                    self._caption_column: example.caption,
+                    MASK_COLUMN_DEFAULT: example.mask_path,
+                }
+            )
         save_jsonl(data, self._jsonl_path)
 
     def _get_image_path(self, idx: int) -> str:
