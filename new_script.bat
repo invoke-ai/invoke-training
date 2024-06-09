@@ -131,7 +131,7 @@ goto menu
 :update_python_cmd
 set /p new_python_cmd="Enter new Python command: "
 if not "%new_python_cmd%"=="" (
-    echo PYTHON_CMD=%new_python_cmd:~0,-1% >> config.txt
+    echo PYTHON_CMD=%new_python_cmd% >> config.txt
     set "PYTHON_CMD=%new_python_cmd%"
     echo Python command updated to %PYTHON_CMD%
 )
