@@ -131,8 +131,17 @@ goto menu
 :update_python_cmd
 set /p new_python_cmd="Enter new Python command: "
 if not "%new_python_cmd%"=="" (
-    echo PYTHON_CMD=%new_python_cmd% >> config.txt
+    setlocal enabledelayedexpansion
     set "PYTHON_CMD=%new_python_cmd%"
+    (for /f "tokens=1,2 delims==" %%i in (config.txt) do (
+        if "%%i"=="PYTHON_CMD" (
+            echo PYTHON_CMD=!PYTHON_CMD!
+        ) else (
+            echo %%i=%%j
+        )
+    )) > config.tmp
+    move /y config.tmp config.txt > nul
+    endlocal
     echo Python command updated to %PYTHON_CMD%
 )
 
