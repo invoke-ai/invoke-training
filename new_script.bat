@@ -30,7 +30,8 @@ echo 3. Merge Task Models to Base Model
 echo 4. Extract LoRA from Model Diff
 echo 5. Open Terminal with venv
 echo 6. Update venv Path
-echo 7. Exit
+echo 7. Update Python Command
+echo 8. Exit
 set /p choice="Enter your choice: "
 
 if "%choice%"=="1" goto merge_models
@@ -39,7 +40,8 @@ if "%choice%"=="3" goto merge_task_models_to_base_model
 if "%choice%"=="4" goto extract_lora_from_model_diff
 if "%choice%"=="5" goto open_terminal_with_venv
 if "%choice%"=="6" goto update_venv_path
-if "%choice%"=="7" goto end
+if "%choice%"=="7" goto update_python_cmd
+if "%choice%"=="8" goto end
 
 :merge_models
 set /p model_type="Enter model type (SD/SDXL): "
@@ -127,6 +129,14 @@ if not "%new_venv_path%"=="" (
     )
 )
 goto menu
+
+:update_python_cmd
+set /p new_python_cmd="Enter new Python command: "
+if not "%new_python_cmd%"=="" (
+    echo PYTHON_CMD=%new_python_cmd:~0,-1% >> config.txt
+    set "PYTHON_CMD=%new_python_cmd%"
+    echo Python command updated to %PYTHON_CMD%
+)
 
 :end
 echo Exiting...

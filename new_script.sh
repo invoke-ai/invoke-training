@@ -17,7 +17,8 @@ while true; do
     echo "4. Extract LoRA from Model Diff"
     echo "5. Open Terminal with venv"
     echo "6. Update venv Path"
-    echo "7. Exit"
+    echo "7. Update Python Command"
+    echo "8. Exit"
     read -p "Enter your choice: " choice
 
     case $choice in
@@ -92,6 +93,12 @@ while true; do
             echo "Virtual environment path updated to $VENV_PATH"
             ;;
         7)
+            read -p "Enter new Python command: " new_python_cmd
+            PYTHON_CMD=$(echo ${new_python_cmd:-$PYTHON_CMD} | xargs)
+            echo "PYTHON_CMD=$PYTHON_CMD" > config.txt
+            echo "Python command updated to $PYTHON_CMD"
+            ;;
+        8)
             echo "Exiting..."
             break
             ;;
