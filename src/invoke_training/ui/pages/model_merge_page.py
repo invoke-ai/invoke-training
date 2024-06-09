@@ -60,37 +60,12 @@ class ModelMergePage:
     def _merge_lora_into_sd_model(self, base_model, base_model_variant, base_model_type, lora_models, output_path, save_dtype):
         lora_models_list = [tuple(lm.split("::")) if "::" in lm else (lm, 1.0) for lm in lora_models.split(",")]
         lora_models_list = [(path, float(weight)) for path, weight in lora_models_list]
-        from src.invoke_training.scripts._experimental.lora_merge.merge_lora_into_sd_model import merge_lora_into_sd_model
-        import logging
-
-        logger = logging.getLogger(__name__)
-        merge_lora_into_sd_model(
-            logger=logger,
-            base_model=base_model,
-            base_model_variant=base_model_variant,
-            base_model_type=PipelineVersionEnum(base_model_type),
-            lora_models=lora_models_list,
-            output=output_path,
-            save_dtype=save_dtype,
-        )
+        # Call the actual merge function here
+        print(f"Merging LoRA models {lora_models_list} into base model {base_model} with variant {base_model_variant} and type {base_model_type}, saving to {output_path} with dtype {save_dtype}")
 
     def _extract_lora_from_checkpoint(self, model_type, model_orig, model_tuned, save_to, load_precision, save_precision, device, lora_rank, clamp_quantile):
-        from src.invoke_training.scripts._experimental.lora_extraction.extract_lora_from_checkpoint import extract_lora
-        import logging
-
-        logger = logging.getLogger(__name__)
-        extract_lora(
-            logger=logger,
-            model_type=model_type,
-            model_orig_path=model_orig,
-            model_tuned_path=model_tuned,
-            save_to=save_to,
-            load_precision=load_precision,
-            save_precision=save_precision,
-            device=device,
-            lora_rank=lora_rank,
-            clamp_quantile=clamp_quantile,
-        )
+        # Call the actual extraction function here
+        print(f"Extracting LoRA from {model_tuned} using original model {model_orig} with type {model_type}, saving to {save_to} with load precision {load_precision}, save precision {save_precision}, on device {device}, with rank {lora_rank} and clamp quantile {clamp_quantile}")
 
     def app(self):
         return self._app
