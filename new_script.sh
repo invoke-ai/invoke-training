@@ -1,5 +1,12 @@
 #!/bin/bash
 
+VENV_PATH="../venv"
+if [ ! -z "$1" ]; then
+    VENV_PATH="$1"
+fi
+
+source "$VENV_PATH/bin/activate"
+
 while true; do
     echo
     echo "Select a merge method:"

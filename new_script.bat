@@ -1,6 +1,12 @@
 @echo off
 setlocal enabledelayedexpansion
 
+set "VENV_PATH=..\venv"
+if not "%1"=="" set "VENV_PATH=%1"
+
+call "%VENV_PATH%\Scripts\activate"
+setlocal enabledelayedexpansion
+
 :menu
 echo.
 echo Select a merge method:
