@@ -4,12 +4,11 @@ setlocal enabledelayedexpansion
 :: Read the virtual environment path from config.txt
 for /f "tokens=2 delims==" %%i in (config.txt) do set "VENV_PATH=%%i"
 
-if not exist "%VENV_PATH%\Scripts\activate" (
+if exist "%VENV_PATH%\Scripts\activate" (
+    call "%VENV_PATH%\Scripts\activate"
+) else (
     echo Virtual environment path "%VENV_PATH%" is invalid.
-    goto end
 )
-
-call "%VENV_PATH%\Scripts\activate"
 setlocal enabledelayedexpansion
 
 :menu
@@ -98,7 +97,11 @@ goto end
 
 :open_terminal_with_venv
 echo Opening a new terminal with the virtual environment activated...
-start cmd /k "call %VENV_PATH%\Scripts\activate"
+if exist "%VENV_PATH%\Scripts\activate" (
+    start cmd /k "call %VENV_PATH%\Scripts\activate"
+) else (
+    echo Virtual environment path "%VENV_PATH%" is invalid. Please update the path.
+)
 goto end
 
 :update_venv_path
@@ -106,8 +109,12 @@ set /p new_venv_path="Enter new virtual environment path: "
 if not "%new_venv_path%"=="" (
     echo VENV_PATH=%new_venv_path% > config.txt
     set "VENV_PATH=%new_venv_path%"
-    call "%VENV_PATH%\Scripts\activate"
-    echo Virtual environment path updated to %VENV_PATH%
+    if exist "%VENV_PATH%\Scripts\activate" (
+        call "%VENV_PATH%\Scripts\activate"
+        echo Virtual environment path updated to %VENV_PATH%
+    ) else (
+        echo Virtual environment path "%VENV_PATH%" is invalid. Please update the path.
+    )
 )
 goto menu
 
