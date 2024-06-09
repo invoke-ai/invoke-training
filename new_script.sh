@@ -5,6 +5,7 @@ if [ ! -z "$1" ]; then
     VENV_PATH=$(echo "$1" | xargs)
 fi
 
+PYTHON_CMD=$(grep 'PYTHON_CMD' config.txt | cut -d '=' -f2 | xargs)
 source "$VENV_PATH/bin/activate"
 
 while true; do
@@ -30,9 +31,7 @@ while true; do
             out_dir=${out_dir:-./output}
             read -p "Enter dtype (float32/float16/bfloat16) [float16]: " dtype
             dtype=${dtype:-float16}
-            read -p "Enter Python command (python/py/python3) [python]: " python_cmd
-            python_cmd=${python_cmd:-python}
-            cmd="$python_cmd src/invoke_training/model_merge/scripts/merge_models.py --model-type $model_type --models $models --weights $weights --method $method --out-dir $out_dir --dtype $dtype"
+            cmd="$PYTHON_CMD src/invoke_training/model_merge/scripts/merge_models.py --model-type $model_type --models $models --weights $weights --method $method --out-dir $out_dir --dtype $dtype"
             echo $cmd
             $cmd
             ;;
@@ -43,9 +42,7 @@ while true; do
             read -p "Enter output directory: " output
             read -p "Enter save dtype (float32/float16/bfloat16) [float16]: " save_dtype
             save_dtype=${save_dtype:-float16}
-            read -p "Enter Python command (python/py/python3) [python]: " python_cmd
-            python_cmd=${python_cmd:-python}
-            cmd="$python_cmd src/invoke_training/model_merge/scripts/merge_lora_into_model.py --model-type $model_type --base-model $base_model --lora-models $lora_models --output $output --save-dtype $save_dtype"
+            cmd="$PYTHON_CMD src/invoke_training/model_merge/scripts/merge_lora_into_model.py --model-type $model_type --base-model $base_model --lora-models $lora_models --output $output --save-dtype $save_dtype"
             echo $cmd
             $cmd
             ;;
@@ -61,9 +58,7 @@ while true; do
             read -p "Enter output directory: " out_dir
             read -p "Enter dtype (float32/float16/bfloat16) [float16]: " dtype
             dtype=${dtype:-float16}
-            read -p "Enter Python command (python/py/python3) [python]: " python_cmd
-            python_cmd=${python_cmd:-python}
-            cmd="$python_cmd src/invoke_training/model_merge/scripts/merge_task_models_to_base_model.py --model-type $model_type --base-model $base_model --task-models $task_models --task-weights $task_weights --method $method --density $density --out-dir $out_dir --dtype $dtype"
+            cmd="$PYTHON_CMD src/invoke_training/model_merge/scripts/merge_task_models_to_base_model.py --model-type $model_type --base-model $base_model --task-models $task_models --task-weights $task_weights --method $method --density $density --out-dir $out_dir --dtype $dtype"
             echo $cmd
             $cmd
             ;;
@@ -82,9 +77,7 @@ while true; do
             clamp_quantile=${clamp_quantile:-0.99}
             read -p "Enter device (cuda/cpu) [cuda]: " device
             device=${device:-cuda}
-            read -p "Enter Python command (python/py/python3) [python]: " python_cmd
-            python_cmd=${python_cmd:-python}
-            cmd="$python_cmd src/invoke_training/model_merge/scripts/extract_lora_from_model_diff.py --model-type $model_type --model-orig $model_orig --model-tuned $model_tuned --save-to $save_to --load-precision $load_precision --save-precision $save_precision --lora-rank $lora_rank --clamp-quantile $clamp_quantile --device $device"
+            cmd="$PYTHON_CMD src/invoke_training/model_merge/scripts/extract_lora_from_model_diff.py --model-type $model_type --model-orig $model_orig --model-tuned $model_tuned --save-to $save_to --load-precision $load_precision --save-precision $save_precision --lora-rank $lora_rank --clamp-quantile $clamp_quantile --device $device"
             echo $cmd
             $cmd
             ;;
