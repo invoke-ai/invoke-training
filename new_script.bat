@@ -45,10 +45,13 @@ set /p model_type="Enter model type (SD/SDXL): "
 set /p base_model="Enter base model: "
 set /p task_models="Enter task models (space-separated): "
 set /p task_weights="Enter task weights (space-separated): "
-set /p method="Enter method (TIES/DARE_LINEAR/DARE_TIES): "
-set /p density="Enter density (0-1): "
+set /p method="Enter method (TIES/DARE_LINEAR/DARE_TIES) [TIES]: "
+if "%method%"=="" set method=TIES
+set /p density="Enter density (0-1) [0.2]: "
+if "%density%"=="" set density=0.2
 set /p out_dir="Enter output directory: "
-set /p dtype="Enter dtype (float32/float16/bfloat16): "
+set /p dtype="Enter dtype (float32/float16/bfloat16) [float16]: "
+if "%dtype%"=="" set dtype=float16
 python src\invoke_training\model_merge\scripts\merge_task_models_to_base_model.py --model-type %model_type% --base-model %base_model% --task-models %task_models% --task-weights %task_weights% --method %method% --density %density% --out-dir %out_dir% --dtype %dtype%
 goto end
 
