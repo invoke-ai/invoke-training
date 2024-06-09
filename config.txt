@@ -1,1 +1,1 @@
-VENV_PATH=..\venv
+VENV_PATH=C:\Users\OMNI\invoke-train\trainven\ 
