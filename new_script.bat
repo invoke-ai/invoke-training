@@ -1,8 +1,13 @@
 @echo off
 setlocal enabledelayedexpansion
 
-set "VENV_PATH=..\venv"
-if not "%1"=="" set "VENV_PATH=%1"
+:: Read the virtual environment path from config.txt
+for /f "tokens=2 delims==" %%i in (config.txt) do set "VENV_PATH=%%i"
+
+if not exist "%VENV_PATH%\Scripts\activate" (
+    echo Virtual environment path "%VENV_PATH%" is invalid.
+    goto end
+)
 
 call "%VENV_PATH%\Scripts\activate"
 setlocal enabledelayedexpansion
@@ -98,9 +103,12 @@ goto end
 
 :update_venv_path
 set /p new_venv_path="Enter new virtual environment path: "
-if not "%new_venv_path%"=="" set "VENV_PATH=%new_venv_path%"
-call "%VENV_PATH%\Scripts\activate"
-echo Virtual environment path updated to %VENV_PATH%
+if not "%new_venv_path%"=="" (
+    echo VENV_PATH=%new_venv_path% > config.txt
+    set "VENV_PATH=%new_venv_path%"
+    call "%VENV_PATH%\Scripts\activate"
+    echo Virtual environment path updated to %VENV_PATH%
+)
 goto menu
 
 :end
