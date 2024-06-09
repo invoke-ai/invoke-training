@@ -1,8 +1,8 @@
 #!/bin/bash
 
-VENV_PATH="../venv"
+VENV_PATH=$(echo "../venv" | xargs)
 if [ ! -z "$1" ]; then
-    VENV_PATH="$1"
+    VENV_PATH=$(echo "$1" | xargs)
 fi
 
 source "$VENV_PATH/bin/activate"
@@ -86,7 +86,7 @@ while true; do
             ;;
         6)
             read -p "Enter new virtual environment path: " new_venv_path
-            VENV_PATH=${new_venv_path:-$VENV_PATH}
+            VENV_PATH=$(echo ${new_venv_path:-$VENV_PATH} | xargs)
             source "$VENV_PATH/bin/activate"
             echo "Virtual environment path updated to $VENV_PATH"
             ;;

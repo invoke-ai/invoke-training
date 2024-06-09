@@ -2,7 +2,10 @@
 setlocal enabledelayedexpansion
 
 :: Read the virtual environment path from config.txt
-for /f "tokens=2 delims==" %%i in (config.txt) do set "VENV_PATH=%%i"
+for /f "tokens=2 delims==" %%i in (config.txt) do (
+    set "VENV_PATH=%%i"
+    set "VENV_PATH=!VENV_PATH:~0,-1!"
+)
 
 if exist "%VENV_PATH%\Scripts\activate" (
     call "%VENV_PATH%\Scripts\activate"
@@ -107,7 +110,7 @@ goto end
 :update_venv_path
 set /p new_venv_path="Enter new virtual environment path: "
 if not "%new_venv_path%"=="" (
-    echo VENV_PATH=%new_venv_path% > config.txt
+    echo VENV_PATH=%new_venv_path:~0,-1% > config.txt
     set "VENV_PATH=%new_venv_path%"
     if exist "%VENV_PATH%\Scripts\activate" (
         call "%VENV_PATH%\Scripts\activate"
