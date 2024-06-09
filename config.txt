@@ -1,2 +1,2 @@
-VENV_PATH=C:\Users\OMNI\invoke-train\trainven 
+VENV_PATH=your\venv\here
 PYTHON_CMD=python
