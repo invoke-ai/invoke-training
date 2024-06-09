@@ -14,7 +14,9 @@ while true; do
     echo "2. Merge LoRA into Model"
     echo "3. Merge Task Models to Base Model"
     echo "4. Extract LoRA from Model Diff"
-    echo "5. Exit"
+    echo "5. Open Terminal with venv"
+    echo "6. Update venv Path"
+    echo "7. Exit"
     read -p "Enter your choice: " choice
 
     case $choice in
@@ -71,6 +73,16 @@ while true; do
             python src/invoke_training/model_merge/scripts/extract_lora_from_model_diff.py --model-type $model_type --model-orig $model_orig --model-tuned $model_tuned --save-to $save_to --load-precision $load_precision --save-precision $save_precision --lora-rank $lora_rank --clamp-quantile $clamp_quantile --device $device
             ;;
         5)
+            echo "Opening a new terminal with the virtual environment activated..."
+            gnome-terminal -- bash -c "source $VENV_PATH/bin/activate; exec bash"
+            ;;
+        6)
+            read -p "Enter new virtual environment path: " new_venv_path
+            VENV_PATH=${new_venv_path:-$VENV_PATH}
+            source "$VENV_PATH/bin/activate"
+            echo "Virtual environment path updated to $VENV_PATH"
+            ;;
+        7)
             echo "Exiting..."
             break
             ;;

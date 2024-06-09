@@ -14,14 +14,18 @@ echo 1. Merge Models
 echo 2. Merge LoRA into Model
 echo 3. Merge Task Models to Base Model
 echo 4. Extract LoRA from Model Diff
-echo 5. Exit
+echo 5. Open Terminal with venv
+echo 6. Update venv Path
+echo 7. Exit
 set /p choice="Enter your choice: "
 
 if "%choice%"=="1" goto merge_models
 if "%choice%"=="2" goto merge_lora_into_model
 if "%choice%"=="3" goto merge_task_models_to_base_model
 if "%choice%"=="4" goto extract_lora_from_model_diff
-if "%choice%"=="5" goto end
+if "%choice%"=="5" goto open_terminal_with_venv
+if "%choice%"=="6" goto update_venv_path
+if "%choice%"=="7" goto end
 
 :merge_models
 set /p model_type="Enter model type (SD/SDXL): "
@@ -78,6 +82,18 @@ set /p device="Enter device (cuda/cpu) [cuda]: "
 if "%device%"=="" set device=cuda
 python src\invoke_training\model_merge\scripts\extract_lora_from_model_diff.py --model-type %model_type% --model-orig %model_orig% --model-tuned %model_tuned% --save-to %save_to% --load-precision %load_precision% --save-precision %save_precision% --lora-rank %lora_rank% --clamp-quantile %clamp_quantile% --device %device%
 goto end
+
+:open_terminal_with_venv
+echo Opening a new terminal with the virtual environment activated...
+start cmd /k "call %VENV_PATH%\Scripts\activate"
+goto end
+
+:update_venv_path
+set /p new_venv_path="Enter new virtual environment path: "
+if not "%new_venv_path%"=="" set "VENV_PATH=%new_venv_path%"
+call "%VENV_PATH%\Scripts\activate"
+echo Virtual environment path updated to %VENV_PATH%
+goto menu
 
 :end
 echo Exiting...
