@@ -84,18 +84,26 @@ while true; do
             ;;
         5)
             echo "Opening a new terminal with the virtual environment activated..."
-            gnome-terminal -- bash -c "source $VENV_PATH/bin/activate; exec bash"
+            if [ -x "$(command -v gnome-terminal)" ]; then
+                gnome-terminal -- bash -c "source $VENV_PATH/bin/activate; exec bash"
+            elif [ -x "$(command -v x-terminal-emulator)" ]; then
+                x-terminal-emulator -e "bash -c 'source $VENV_PATH/bin/activate; exec bash'"
+            else
+                echo "No supported terminal emulator found."
+            fi
             ;;
         6)
             read -p "Enter new virtual environment path: " new_venv_path
             VENV_PATH=$(echo ${new_venv_path:-$VENV_PATH} | xargs)
             source "$VENV_PATH/bin/activate"
+            sed -i "s|^VENV_PATH=.*|VENV_PATH=$VENV_PATH|" config.txt
             echo "Virtual environment path updated to $VENV_PATH"
             ;;
         7)
             read -p "Enter new Python command: " new_python_cmd
             PYTHON_CMD=$(echo ${new_python_cmd:-$PYTHON_CMD} | xargs)
-            echo "PYTHON_CMD=$PYTHON_CMD" > config.txt
+            sed -i "s|^PYTHON_CMD=.*|PYTHON_CMD=$PYTHON_CMD|" config.txt
+            echo "Python command updated to $PYTHON_CMD"
             echo "Python command updated to $PYTHON_CMD"
             ;;
         8)
