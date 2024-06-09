@@ -2,16 +2,14 @@
 setlocal enabledelayedexpansion
 
 :: Read the virtual environment path from config.txt
-for /f "tokens=2 delims==" %%i in (config.txt) do (
+for /f "tokens=1,2 delims==" %%i in (config.txt) do (
     if "%%i"=="VENV_PATH" (
-        set "VENV_PATH=%%i"
+        set "VENV_PATH=%%j"
         set "VENV_PATH=!VENV_PATH:~0,-1!"
     )
     if "%%i"=="PYTHON_CMD" (
-        set "PYTHON_CMD=%%i"
+        set "PYTHON_CMD=%%j"
     )
-    set "VENV_PATH=%%i"
-    set "VENV_PATH=!VENV_PATH:~0,-1!"
 )
 
 if exist "%VENV_PATH%\Scripts\activate" (

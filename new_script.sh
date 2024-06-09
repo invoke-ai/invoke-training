@@ -5,7 +5,7 @@ if [ ! -z "$1" ]; then
     VENV_PATH=$(echo "$1" | xargs)
 fi
 
-PYTHON_CMD=$(grep 'PYTHON_CMD' config.txt | cut -d '=' -f2 | xargs)
+PYTHON_CMD=$(grep 'PYTHON_CMD' config.txt | cut -d '=' -f2 | tail -n 1 | xargs)
 source "$VENV_PATH/bin/activate"
 
 while true; do
