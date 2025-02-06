@@ -1,0 +1,9 @@
+accelerate
+transformers
+bitsandbytes
+diffusers
+datasets
+torchvision
+wandb
+Pillow
+torchvision

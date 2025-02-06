@@ -1,0 +1,12 @@
+{
+    "VALIDATION_PROMPTS": [
+        "portrait photo of a girl, photograph, highly detailed face, depth of field, moody light, golden hour, style by Dan Winters, Russell James, Steve McCurry, centered, extremely detailed, Nikon D850, award winning photography",
+        "Self-portrait oil painting, a beautiful cyborg with golden hair, 8k",
+        "Astronaut in a jungle, cold color palette, muted colors, detailed, 8k",
+        "A photo of beautiful mountain with realistic sunset and blue lake, highly detailed, masterpiece"
+    ],
+    "EVAL_PROMPTS": [
+        "A steampunk-inspired airship soaring through a sky, digital matte painting, 8k",
+        "An ancient temple hidden deep within a jungle, overgrown with vines and surrounded by mystical atmosphere, concept art."
+    ]
+}
