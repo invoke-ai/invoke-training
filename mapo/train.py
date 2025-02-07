@@ -262,10 +262,12 @@ def main(args):
     )
 
     # Dataset and DataLoaders creation:
+    accelerator.log("Loading dataset into memory...")
     train_dataset = load_dataset(
         args.dataset_name,
         cache_dir=args.cache_dir,
         split=args.dataset_split_name,
+        keep_in_memory=True,
     )
 
     # Preprocessing the datasets.
