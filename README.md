@@ -29,12 +29,32 @@ More training modes coming soon!
 
 For more installation details, see the [Installation](https://invoke-ai.github.io/invoke-training/get-started/installation/) section of the documentation.
 
-```bash
-# A recent version of pip is required, so first upgrade pip:
-python -m pip install --upgrade pip
+**Note:** You can run inside of a Docker container if you're using CUDA by running the `./start-docker.bash` script in the root.
 
-# Editable install:
-pip install -e ".[test]" --extra-index-url https://download.pytorch.org/whl/cu121
+```bash
+sudo apt install libgl1 libglib2.0-0 git git-lfs python3-venv
+
+git clone https://github.com/invoke-ai/invoke-training.git
+cd invoke-training
+
+python3 -m venv invoke-training-env
+. invoke-training-env/bin/activate # activate the virtual environment
+pip3 install . --extra-index-url https://download.pytorch.org/whl/cu126
+pip3 install torch torchvision --upgrade --index-url https://download.pytorch.org/whl/cu126 # torch with cuda support
+```
+
+## Clone the example dataset
+
+```bash
+cd invoke-training
+mkdir -p data
+pushd data
+    git clone https://huggingface.co/datasets/InvokeAI/nga-baroque
+    pushd nga-baroque
+        git lfs install
+        git lfs pull
+    popd
+popd
 ```
 
 ## Quick Start
@@ -46,7 +66,7 @@ pip install -e ".[test]" --extra-index-url https://download.pytorch.org/whl/cu12
 Run training via the CLI with type-checked YAML configuration files for maximum control:
 
 ```bash
-invoke-train --cfg-file src/invoke_training/sample_configs/sdxl_textual_inversion_gnome_1x24gb.yaml
+invoke-train --cfg-file src/invoke_training/sample_configs/sd_lora_baroque_1x8gb.yaml
 ```
 
 ### GUI
