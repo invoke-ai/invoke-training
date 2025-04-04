@@ -33,7 +33,40 @@ class TrainingPage:
         self._config_temp_directory = tempfile.TemporaryDirectory()
         self._training_process = None
 
+        # Define the theme with dark mode as default
+        theme = gr.themes.Default(
+            # Optional: Customize colors, fonts, etc.
+            # primary_hue=gr.themes.colors.blue,
+            # ...
+        )
+        theme._dark_mode = True
+
+        # Custom CSS
+        custom_css = """
+        .dark {
+            /* Override the default accent color for dark mode */
+            --color-accent: #e6fd13 !important;
+            --color-accent-soft: #e6fd1333 !important; /* Optional: Adjust soft accent too */
+        }
+
+        .dark .tabs button[aria-selected="true"] {
+            /* Keep selected tab text color override */
+            color: #e6fd13 !important;
+            /* Optional: Remove background if --color-accent handles it */
+            /* background-color: transparent !important; */
+        }
+
+        /* Style checkbox checkmark in dark mode when checked */
+        .dark input[type="checkbox"]:checked + span svg path {
+             /* Target the SVG path inside the checked checkbox */
+            stroke: black !important; /* Set the checkmark color to black */
+        }
+        """
+
+        # Pass the theme and css to gr.Blocks
         with gr.Blocks(
+            theme=theme,
+            css=custom_css,  # Use updated CSS
             title="invoke-training",
             analytics_enabled=False,
             head='<link rel="icon" type="image/x-icon" href="/assets/favicon.png">',
