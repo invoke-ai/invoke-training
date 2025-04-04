@@ -27,15 +27,96 @@ More training modes coming soon!
 
 ## Installation
 
-For more installation details, see the [Installation](https://invoke-ai.github.io/invoke-training/get-started/installation/) section of the documentation.
+This project supports **Python 3.10, 3.11, and 3.12**.
+
+**Important:** This project requires PyTorch. For optimal performance, especially when training on GPUs, installing the correct PyTorch version compatible with your hardware (CUDA or ROCm) is crucial.
+
+---
+
+### Method 1: Manual Installation (Recommended)
+
+This method gives you the most control over ensuring the correct PyTorch version is installed for your system.
+
+**1. Set up a Python Virtual Environment:**
+
+Using a virtual environment is strongly recommended to avoid dependency conflicts.
 
 ```bash
-# A recent version of pip is required, so first upgrade pip:
-python -m pip install --upgrade pip
+# Create a virtual environment (e.g., named .venv)
+python -m venv .venv
 
-# Editable install:
-pip install -e ".[test]" --extra-index-url https://download.pytorch.org/whl/cu121
+# Activate the environment
+# Windows (Command Prompt/PowerShell):
+.venv\Scripts\activate
+# Linux/macOS (bash/zsh):
+source .venv/bin/activate
 ```
+
+**2. Install PyTorch:**
+
+Visit the [official PyTorch installation page](https://pytorch.org/get-started/locally/) and follow the instructions to install the version appropriate for your operating system, package manager (pip), and compute platform (CUDA version, ROCm version, or CPU).
+
+*   **Example (CUDA 12.4):** If you have CUDA 12.4 compatible drivers, the command might be:
+    ```bash
+    # Ensure pip is up-to-date
+    pip install --upgrade pip
+    # Install PyTorch with CUDA 12.4 support
+    pip install torch --extra-index-url https://download.pytorch.org/whl/cu124
+    ```
+*   **Example (CPU Only):**
+    ```bash
+    # Ensure pip is up-to-date
+    pip install --upgrade pip
+    # Install PyTorch for CPU
+    pip install torch    ```
+
+*Make sure you run this command while your virtual environment is active.*
+
+**3. Install `invoke-training`:**
+
+Once PyTorch is installed correctly, install this package from the project's root directory:
+
+```bash
+# Ensure your virtual environment is active
+pip install .
+
+# Optional: For development (editable install with test dependencies)
+# pip install -e ".[test]"
+```
+
+---
+
+### Method 2: Using Setup Scripts (Beta)
+
+We provide experimental menu-driven scripts (`setup_and_run.sh` for Linux/macOS, `setup_and_run.bat` for Windows) to simplify the setup and running process. These scripts attempt to automate virtual environment creation, PyTorch installation (defaulting to CUDA 12.4), dependency installation, and running the application.
+
+**Note:** These scripts are currently in **beta**. The automatic PyTorch installation might not work for all systems (especially if you need a different CUDA version or CPU-only). If you encounter issues, please use the Manual Installation method above.
+
+**How to Use:**
+
+1.  Navigate to the root directory of this project in your terminal.
+2.  Run the appropriate script for your operating system:
+    *   **Linux/macOS:**
+        ```bash
+        # Make the script executable (only needed once)
+        chmod +x setup_and_run.sh
+        # Run the script
+        ./setup_and_run.sh
+        ```
+    *   **Windows:**
+        ```batch
+        # Run the script (double-clicking might also work)
+        setup_and_run.bat
+        ```
+3.  Follow the on-screen menu prompts:
+    *   **Install:** Creates a `.venv` virtual environment, attempts to install PyTorch (confirming the default CUDA 12.4 version first), and installs `invoke-training`. If you decline the default PyTorch install, you will need to install it manually (see Method 1, Step 2) and then potentially re-run the install option.
+    *   **Run:** Activates the existing `.venv` environment and starts the `invoke-train-ui`.
+    *   **Reinstall:** Deletes the existing `.venv` directory and runs the installation process again.
+    *   **Exit:** Closes the script.
+
+Even when using the scripts, you will still need to activate the virtual environment manually (`source .venv/bin/activate` or `.venv\Scripts\activate.bat`) if you want to run commands like `invoke-train` directly from your terminal outside the script's Run option.
+
+---
 
 ## Quick Start
 
