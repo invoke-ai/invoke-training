@@ -186,7 +186,7 @@ def _convert_peft_state_dict_to_kohya_state_dict(
 
         # Set alpha parameter
         if "lora_down" in kohya_key:
-            alpha_key = f'{kohya_key.split(".")[0]}.alpha'
+            alpha_key = f"{kohya_key.split('.')[0]}.alpha"
             kohya_ss_state_dict[alpha_key] = torch.tensor(lora_config.lora_alpha).to(dtype)
 
     return kohya_ss_state_dict
