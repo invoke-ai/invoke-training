@@ -21,7 +21,7 @@ dependencies = [
     "einops",
     "fastapi",
     "gradio",
-    "invokeai==5.10.0dev4",
+    "invokeai>=5.10.0a1",
     "numpy<2.0.0",
     "omegaconf",
     "peft~=0.11.1",
