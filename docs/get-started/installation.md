@@ -46,6 +46,8 @@
    pip install ".[test]"
    ```
 
+In the future, before you run `invoke-training`, you must activate the virtual environment you created during installation, using the same command you used during installation.
+
 ## Developer Installation
 
 Consider forking the repo if you plan to contribute code changes.
