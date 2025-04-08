@@ -31,7 +31,7 @@ dependencies = [
     "pyyaml",
     "safetensors",
     "tensorboard",
-    "torch~=2.6.0",
+    "torch",
     "torchvision",
     "tqdm",
     "transformers",
