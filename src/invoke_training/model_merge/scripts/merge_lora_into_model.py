@@ -5,12 +5,12 @@ from pathlib import Path
 import torch
 from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
 
-
 # fmt: off
 # HACK(ryand): Import order matters, because invokeai contains circular imports.
 from invokeai.backend.model_manager import BaseModelType
-from invokeai.backend.lora import LoRAModelRaw
 from invokeai.backend.model_patcher import ModelPatcher
+from invokeai.backend.patches.model_patch_raw import ModelPatchRaw
+
 # fmt: on
 from invoke_training._shared.accelerator.accelerator_utils import get_dtype_from_str
 from invoke_training._shared.stable_diffusion.model_loading_utils import PipelineVersionEnum, load_pipeline
@@ -29,7 +29,7 @@ def to_invokeai_base_model_type(model_type: PipelineVersionEnum):
 @torch.no_grad()
 def apply_lora_model_to_base_model(
     base_model: torch.nn.Module,
-    lora: LoRAModelRaw,
+    lora: ModelPatchRaw,
     lora_weight: float,
     prefix: str,
 ):
@@ -103,7 +103,7 @@ def merge_lora_into_sd_model(
         raise ValueError(f"Unexpected pipeline type: {type(pipeline)}")
 
     for lora_model_path, lora_model_weight in lora_models:
-        lora_model = LoRAModelRaw.from_checkpoint(
+        lora_model = ModelPatchRaw.from_checkpoint(
             file_path=lora_model_path,
             device=pipeline.device,
             dtype=save_dtype,
