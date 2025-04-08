@@ -7,7 +7,7 @@ from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
 
 # fmt: off
 # HACK(ryand): Import order matters, because invokeai contains circular imports.
-from invokeai.backend.model_manager import BaseModelType
+from invokeai.backend.model_manager.taxonomy import BaseModelType
 from invokeai.backend.patches.layer_patcher import LayerPatcher
 from invokeai.backend.patches.lora_conversions.sd_lora_conversion_utils import \
     lora_model_from_sd_state_dict
