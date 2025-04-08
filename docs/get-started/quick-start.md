@@ -14,6 +14,10 @@ Follow the [`invoke-training` installation instructions](./installation.md).
 
 ### 2. Launch the GUI
 
+Activate the virtual environment you created during installation, using the same command you used during installation.
+
+You'll need to do this every time you run `invoke-training`.
+
 ```bash
 # From the invoke-training directory:
 invoke-train-ui
@@ -70,5 +74,9 @@ _Example image generated with the prompt "A cute yoda pokemon creature." and Pok
 Follow the [`invoke-training` installation instructions](./installation.md).
 
 ### 2. Training
+
+Activate the virtual environment you created during installation, using the same command you used during installation.
+
+You'll need to do this every time you run `invoke-training`.
 
 See the [Textual Inversion - SDXL](../guides/stable_diffusion/textual_inversion_sdxl.md) tutorial for instructions on how to train a model via the CLI.
