@@ -8,8 +8,11 @@ from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
 # fmt: off
 # HACK(ryand): Import order matters, because invokeai contains circular imports.
 from invokeai.backend.model_manager import BaseModelType
-from invokeai.backend.model_patcher import ModelPatcher
 from invokeai.backend.patches.model_patch_raw import ModelPatchRaw
+from invokeai.backend.patches.layer_patcher import LayerPatcher
+from invokeai.backend.util.original_weights_storage import OriginalWeightsStorage
+from invokeai.backend.patches.lora_conversions.sd_lora_conversion_utils import lora_model_from_sd_state_dict
+from safetensors.torch import load_file
 
 # fmt: on
 from invoke_training._shared.accelerator.accelerator_utils import get_dtype_from_str
@@ -24,52 +27,6 @@ def to_invokeai_base_model_type(model_type: PipelineVersionEnum):
         return BaseModelType.StableDiffusionXL
     else:
         raise ValueError(f"Unexpected model_type: {model_type}")
-
-
-@torch.no_grad()
-def apply_lora_model_to_base_model(
-    base_model: torch.nn.Module,
-    lora: ModelPatchRaw,
-    lora_weight: float,
-    prefix: str,
-):
-    """Apply a LoRAModelRaw model to a base model.
-
-    This implementation is based on:
-    https://github.com/invoke-ai/InvokeAI/blob/df91d1b8497e95c9520fb2f46522384220429011/invokeai/backend/model_patcher.py#L105
-
-    This function is simplified relative to the original implementation, because it does not need to support unpatching.
-
-    Args:
-        base_model (torch.nn.Module): The base model to patch.
-        loras (list[tuple[LoRAModelRaw, float]]): The LoRA models to apply, with their associated weights.
-        prefix (str): The prefix of the LoRA layers to apply to this base_model.
-    """
-    for layer_key, layer in lora.layers.items():
-        if not layer_key.startswith(prefix):
-            continue
-
-        module_key, module = ModelPatcher._resolve_lora_key(base_model, layer_key, prefix)
-
-        # All of the LoRA weight calculations will be done on the same device as the module weight.
-        device = module.weight.device
-        dtype = module.weight.dtype
-
-        layer_scale = layer.alpha / layer.rank if (layer.alpha and layer.rank) else 1.0
-
-        # We intentionally move to the target device first, then cast. Experimentally, this was found to
-        # be significantly faster for 16-bit CPU tensors being moved to a CUDA device than doing the
-        # same thing in a single call to '.to(...)'.
-        layer.to(device=device)
-        layer.to(dtype=torch.float32)
-        layer_weight = layer.get_weight(module.weight) * (lora_weight * layer_scale)
-        layer.to(device=torch.device("cpu"))
-
-        if module.weight.shape != layer_weight.shape:
-            assert hasattr(layer_weight, "reshape")
-            layer_weight = layer_weight.reshape(module.weight.shape)
-
-        module.weight += layer_weight.to(dtype=dtype)
 
 
 @torch.no_grad()
@@ -102,16 +59,34 @@ def merge_lora_into_sd_model(
     else:
         raise ValueError(f"Unexpected pipeline type: {type(pipeline)}")
 
+    # Although we are not unpatching, the patcher might require this. Initialize empty.
+    original_weights = OriginalWeightsStorage()
+
     for lora_model_path, lora_model_weight in lora_models:
-        lora_model = ModelPatchRaw.from_checkpoint(
-            file_path=lora_model_path,
-            device=pipeline.device,
-            dtype=save_dtype,
-            base_model=to_invokeai_base_model_type(model_type),
-        )
+        # Load state dict from file
+        lora_path = Path(lora_model_path)
+        if lora_path.suffix == ".safetensors":
+            state_dict = load_file(lora_path.absolute().as_posix(), device="cpu")
+        else:
+            # Assuming .ckpt, .pt, .bin etc. are torch checkpoints
+            state_dict = torch.load(lora_path, map_location="cpu")
+
+        # Convert state dict to ModelPatchRaw
+        lora_model = lora_model_from_sd_state_dict(state_dict=state_dict)
+
+        # Apply the patch using LayerPatcher
         for model, lora_prefix in zip(models, lora_prefixes, strict=True):
-            apply_lora_model_to_base_model(
-                base_model=model, lora=lora_model, lora_weight=lora_model_weight, prefix=lora_prefix
+            LayerPatcher.apply_smart_model_patch(
+                model=model,
+                prefix=lora_prefix,
+                patch=lora_model,
+                patch_weight=lora_model_weight,
+                original_weights=original_weights, # Pass storage, even if unused for merging
+                original_modules={}, # Pass empty dict, not needed for direct patching/merging
+                dtype=model.dtype, # Use the model's dtype
+                # Force direct patching since we are merging into the main weights
+                force_direct_patching=True,
+                force_sidecar_patching=False,
             )
         logger.info(f"Applied LoRA model '{lora_model_path}' with weight {lora_model_weight}.")
 
