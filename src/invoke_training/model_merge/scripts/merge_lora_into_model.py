@@ -8,10 +8,11 @@ from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
 # fmt: off
 # HACK(ryand): Import order matters, because invokeai contains circular imports.
 from invokeai.backend.model_manager import BaseModelType
-from invokeai.backend.patches.model_patch_raw import ModelPatchRaw
 from invokeai.backend.patches.layer_patcher import LayerPatcher
-from invokeai.backend.util.original_weights_storage import OriginalWeightsStorage
-from invokeai.backend.patches.lora_conversions.sd_lora_conversion_utils import lora_model_from_sd_state_dict
+from invokeai.backend.patches.lora_conversions.sd_lora_conversion_utils import \
+    lora_model_from_sd_state_dict
+from invokeai.backend.util.original_weights_storage import \
+    OriginalWeightsStorage
 from safetensors.torch import load_file
 
 # fmt: on
@@ -81,9 +82,9 @@ def merge_lora_into_sd_model(
                 prefix=lora_prefix,
                 patch=lora_model,
                 patch_weight=lora_model_weight,
-                original_weights=original_weights, # Pass storage, even if unused for merging
-                original_modules={}, # Pass empty dict, not needed for direct patching/merging
-                dtype=model.dtype, # Use the model's dtype
+                original_weights=original_weights,  # Pass storage, even if unused for merging
+                original_modules={},  # Pass empty dict, not needed for direct patching/merging
+                dtype=model.dtype,  # Use the model's dtype
                 # Force direct patching since we are merging into the main weights
                 force_direct_patching=True,
                 force_sidecar_patching=False,
