@@ -47,7 +47,7 @@ def get_base_model_version(
     else:
         raise Exception(
             "Failed to determine base model version. UNet cross_attention_dim has unexpected value: "
-            f"'{ unet_config.cross_attention_dim}'."
+            f"'{unet_config.cross_attention_dim}'."
         )
 
 

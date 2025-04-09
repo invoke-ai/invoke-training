@@ -2,13 +2,12 @@
 
 A library for training custom Stable Diffusion models (fine-tuning, LoRA training, textual inversion, etc.) that can be used in [InvokeAI](https://github.com/invoke-ai/InvokeAI).
 
-> [!WARNING]
-> `invoke-training` is still under active development, and breaking changes are likely. Full backwards compatibility will not be guaranteed until v1.0.0.
+> [!WARNING] > `invoke-training` is still under active development, and breaking changes are likely. Full backwards compatibility will not be guaranteed until v1.0.0.
 > In the meantime, I recommend pinning to a specific commit hash.
 
 ## Documentation
 
-https://invoke-ai.github.io/invoke-training/
+<https://invoke-ai.github.io/invoke-training/>
 
 ## Training Modes
 
@@ -27,15 +26,7 @@ More training modes coming soon!
 
 ## Installation
 
-For more installation details, see the [Installation](https://invoke-ai.github.io/invoke-training/get-started/installation/) section of the documentation.
-
-```bash
-# A recent version of pip is required, so first upgrade pip:
-python -m pip install --upgrade pip
-
-# Editable install:
-pip install -e ".[test]" --extra-index-url https://download.pytorch.org/whl/cu121
-```
+See the [Installation](https://invoke-ai.github.io/invoke-training/get-started/installation/) section of the documentation.
 
 ## Quick Start
 

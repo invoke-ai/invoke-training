@@ -15,32 +15,32 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "accelerate~=0.29.2",
+    "accelerate",
     "datasets~=2.14.3",
-    "diffusers~=0.27.2",
+    "diffusers[torch]",
     "einops",
     "fastapi",
     "gradio",
-    "invokeai==4.2.3",
-    "numpy",
+    "invokeai>=5.10.0a1",
+    "numpy<2.0.0",
     "omegaconf",
     "peft~=0.11.1",
-    "Pillow",
+    "pillow",
     "prodigyopt",
     "pydantic",
     "pyyaml",
     "safetensors",
     "tensorboard",
-    "torch>=2.1.2",
+    "torch",
     "torchvision",
     "tqdm",
-    "transformers~=4.39.0",
+    "transformers",
     "uvicorn[standard]",
 ]
 
 [project.optional-dependencies]
-"xformers" = ["xformers>=0.0.23; sys_platform!='darwin'"]
-"bitsandbytes" = ["bitsandbytes>=0.43.1"]
+"xformers" = ["xformers>=0.0.28.post1; sys_platform!='darwin'"]
+"bitsandbytes" = ["bitsandbytes>=0.43.1; sys_platform!='darwin'"]
 
 "test" = [
     "mkdocs",
@@ -48,8 +48,7 @@ dependencies = [
     "mkdocstrings[python]",
     "pre-commit~=3.3.3",
     "pytest~=7.4.0",
-    # When bumping ruff, consider also bumping the ruff-pre-commit version in .pre-commit-config.yaml.
-    "ruff~=0.1.7",
+    "ruff~=0.11.2",
     "ruff-lsp",
 ]
 

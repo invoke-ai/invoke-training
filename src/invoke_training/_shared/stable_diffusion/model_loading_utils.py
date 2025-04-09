@@ -50,7 +50,12 @@ def load_pipeline(
         raise ValueError(f"Unsupported pipeline_version: '{pipeline_version}'.")
 
     if os.path.isfile(model_name_or_path):
-        return pipeline_class.from_single_file(model_name_or_path, torch_dtype=torch_dtype, load_safety_checker=False)
+        return pipeline_class.from_single_file(
+            model_name_or_path,
+            torch_dtype=torch_dtype,
+            safety_checker=None,
+            feature_extractor=None,
+        )
 
     return from_pretrained_with_variant_fallback(
         logger=logger,
