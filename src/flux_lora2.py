@@ -16,8 +16,9 @@ from peft import (
     get_peft_model,
     LoraConfig,
     TaskType,
-    prepare_model_for_kbit_training
+    prepare_model_for_kbit_training,
 )
+from diffusers.optimization import get_constant_schedule_with_warmup
 # import wandb
 
 
@@ -104,15 +105,31 @@ def parse_args(default=True):
     parser.add_argument("--output_dir", type=str, default="flux_lora_output", help="Output directory for saving model")
     parser.add_argument("--resolution", type=int, default=512, help="Training resolution")
     parser.add_argument("--train_batch_size", type=int, default=1, help="Batch size for training")
-    parser.add_argument("--learning_rate", type=float, default=2e-4, help="Learning rate")
+    parser.add_argument("--learning_rate", type=float, default=1e-5, help="Learning rate")
     parser.add_argument("--max_train_steps", type=int, default=1000, help="Maximum number of training steps")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=4, help="Number of gradient accumulation steps")
     parser.add_argument("--use_8bit_adam", action="store_true", help="Use 8-bit Adam optimizer")
+    
     # parser.add_argument("--mixed_precision", type=str, default="fp16", choices=["no", "fp16", "bf16"], help="Mixed precision training")
+    # LR scheduler
+    parser.add_argument("--lr_scheduler", type=str, default="constant_with_warmup", choices=["cosine_with_restarts", "polynomial", "constant_with_warmup"], help="LR scheduler")
+    parser.add_argument("--lr_warmup_steps", type=int, default=0.1, help="LR warmup steps")
+
+    # LoRA parameters
     parser.add_argument("--lora_rank", type=int, default=16, help="Rank for LoRA adaptation")
     parser.add_argument("--lora_alpha", type=int, default=32, help="Alpha parameter for LoRA")
     parser.add_argument("--lora_dropout", type=float, default=0.05, help="Dropout probability for LoRA layers")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument("--clip_grad_norm", type=float, default=0.0, help="Clip gradient norm")
+    
+    # Timestep sampler
+    parser.add_argument("--timestep_sampler", type=str, default="shift", choices=["shift", "logit-normal", "mode-sampling", "cosma"], help="Timestep sampler")
+    parser.add_argument("--sigmoid_scale", type=float, default=1.0, help="Sigmoid scale for timestep sampler")
+    parser.add_argument("--discrete_flow_shift", type=float, default=3.0, help="Discrete flow shift for timestep sampler")
+    
+    # Guidance scale
+    parser.add_argument("--guidance_scale", type=float, default=1.0, help="Guidance scale for diffusion model")
+
     return parser.parse_args()
 
 def get_default_args():
@@ -128,20 +145,33 @@ def get_default_args():
     
     # Training parameters
     args.resolution = 768  # Higher resolution for better quality
-    args.train_batch_size = 1  # Reduced from 8 to 4
-    args.learning_rate = 5e-5  # Slightly lower learning rate for stability
+    args.train_batch_size = 1  
+    args.learning_rate = 1e-5 # Slightly lower learning rate for stability
     args.max_train_steps = 2000  # More steps for better convergence
-    args.gradient_accumulation_steps = 4  # For effective batch size of 4
+    args.gradient_accumulation_steps = 8  # For effective batch size of 4
     args.use_8bit_adam = True  # Save memory with 8-bit optimizer
     args.mixed_precision = "no"  # Changed back to fp16
+    args.clip_grad_norm = 0.0
     
+    # Timestep sampler
+    args.timestep_sampler = "shift"
+    args.sigmoid_scale = 1.0
+    args.discrete_flow_shift = 3.0
+
+    # LR scheduler
+    args.lr_scheduler = "constant_with_warmup"
+    args.lr_warmup_steps = 0.1
+
+    # Guidance scale
+    args.guidance_scale = 1.0
+
     # LoRA parameters
-    args.lora_rank = 32  # Higher rank for better adaptation capacity
-    args.lora_alpha = 64  # Alpha = 2 * rank is a good rule of thumb
+    args.lora_rank = 4  # Higher rank for better adaptation capacity
+    args.lora_alpha = 16  # Alpha = 2 * rank is a good rule of thumb
     args.lora_dropout = 0.05  # Standard dropout value for LoRA
     
     # Miscellaneous
-    args.seed = 42  # Standard random seed
+    args.seed = 100  # Standard random seed
     
     return args
     
@@ -157,7 +187,7 @@ def train():
     accelerator = Accelerator(
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         mixed_precision=args.mixed_precision,  # Always use fp16
-        split_batches=True
+        split_batches=True,
     )
     
     # Load pipeline with mixed precision
@@ -181,9 +211,9 @@ def train():
         "to_q",  # Query projection
         "to_k",  # Key projection
         "to_v",  # Value projection
-        "to_out.0",  # Output projection
-        "ff.net.0.proj",  # MLP first projection
-        "ff.net.2",  # MLP second projection
+        # "to_out.0",  # Output projection
+        # "ff.net.0.proj",  # MLP first projection
+        # "ff.net.2",  # MLP second projection
     ]
     
     lora_config = LoraConfig(
@@ -243,6 +273,12 @@ def train():
     else:
         optimizer = torch.optim.AdamW(transformer.parameters(), lr=args.learning_rate)
     
+    lr_scheduler = get_constant_schedule_with_warmup(
+        optimizer=optimizer,
+        num_warmup_steps=args.lr_warmup_steps
+    )
+
+
     # Prepare for accelerator
     print("PREPARE TRANSFORMER")
     transformer, optimizer, dataloader = accelerator.prepare(
@@ -271,11 +307,9 @@ def train():
     
     # Training loop
     print("BEGIN TRAINING LOOP ")
-    print(type(pipeline.transformer))
-    print(type(transformer))
-    torch.manual_seed(55)
+    # torch.manual_seed(55)
+    transformer.train()
     while global_step < args.max_train_steps:
-        transformer.train()
         print(f"global step: {global_step}")
         for batch in dataloader:
             with accelerator.accumulate(transformer):
@@ -308,44 +342,90 @@ def train():
                     # Pack latents
                     batch_size, num_channels, height, width = latents.shape
                     latents = pipeline._pack_latents(latents, batch_size, num_channels, height, width)
-                    
-                    # Get noised latents
-                    noisy_latents, prev_latents, noise, timestep = get_noised_latent_at_random_timestep(
-                        sample_latents=latents,
-                        scheduler=noise_scheduler
+                    guidance = torch.full((batch_size,), float(args.guidance_scale), device=accelerator.device)
+
+                    img_ids = pipeline._prepare_latent_image_ids(
+                        batch_size, height // 2, width // 2, device, torch.float16
                     )
-                    
+                    text_ids = torch.zeros(prompt_embeds.shape[1], 3, device=device, dtype=torch.float16)   
+
+                    if torch.any(torch.isnan(latents)):
+                        print("latents: NAN")
+
+                    # Get noised latents
+                    # Sample noise that we'll add to the latents
+                    noisy_latents, noise, timesteps, _ = get_noisy_model_input_and_timestep(
+                        args,
+                        latents=latents,
+                        noise_scheduler=noise_scheduler,
+                        device=device,
+                        dtype=torch.float16
+                    )
+
                     # Ensure float16
                     # latents = noise_scheduler.step(noise_pred, t, latents, return_dict=False)[0]
                     noisy_latents = noisy_latents.to(torch.float16)
-                    prev_latents = prev_latents.to(torch.float16)
                     noise = noise.to(torch.float16)
 
                 # Forward pass
-                model_pred = transformer(
-                    hidden_states=noisy_latents,
-                    timestep=timestep/1000,
-                    pooled_projections=pooled_prompt_embeds,
-                    encoder_hidden_states=prompt_embeds,
-                    guidance=torch.full([1], 1.0, device=device, dtype=torch.float16),
-                    txt_ids=torch.zeros(prompt_embeds.shape[1], 3, device=device, dtype=torch.float16),
-                    img_ids=pipeline._prepare_latent_image_ids(
-                        batch_size, height // 2, width // 2, device, torch.float16
-                    ),
-                    return_dict=False
-                )[0]
-
+                # Forward pass through transformer
+                def call_transformer(noisy_latents, timesteps, pooled_prompt_embeds, prompt_embeds, guidance, text_ids, img_ids):
+                    with torch.set_grad_enabled(True), accelerator.autocast():
+                        model_pred = transformer(
+                            hidden_states=noisy_latents,
+                            timestep=timesteps /1000,
+                            pooled_projections=pooled_prompt_embeds,
+                            encoder_hidden_states=prompt_embeds,
+                            guidance=guidance,
+                            txt_ids=text_ids,
+                            img_ids=img_ids,
+                            return_dict=False,
+                        )[0]
+                    return model_pred
+                optimizer.zero_grad()
+                model_pred = call_transformer(noisy_latents, timesteps, pooled_prompt_embeds, prompt_embeds, guidance, text_ids, img_ids)
                 # Calculate loss
-                target = (noisy_latents - prev_latents)
-                loss = F.mse_loss(target, noise)
-
-                print(f"backpropagating loss: Step {global_step}: loss = {loss.item()}")
+                target = noise - latents
                 
+                # LOSS FUNCTION
+                # loss = train_util.conditional_loss(model_pred.float(), target.float(), args.loss_type, "none", huber_c)
+                if torch.any(torch.isnan(model_pred)):
+                    print("model_pred: NAN")
+                if torch.any(torch.isnan(target)):
+                    print("target: NAN")
+
+                loss = torch.nn.functional.mse_loss(model_pred, target)
+
+                print(f"Current learning rate: {optimizer.param_groups[0]['lr']:.8f}")
+                print(f"backpropagating loss: Step {global_step}: loss = {loss.item()}")
+
                 # Backward pass
                 accelerator.backward(loss)
-                torch.nn.utils.clip_grad_norm_(transformer.parameters(), 1.0)
+                
+                # Check gradients
+                has_bad_grads = check_gradients(transformer, global_step)
+                
+                # Optional: Skip update if gradients are bad
+                if has_bad_grads:
+                    print("WARNING: Bad gradients detected, skipping update")
+                    optimizer.zero_grad()
+                    global_step += 1
+                    continue
+                
+                # Clip gradients
+                torch.nn.utils.clip_grad_norm_(transformer.parameters(), args.clip_grad_norm)
                 optimizer.step()
+                lr_scheduler.step()
                 optimizer.zero_grad()
+
+                
+                # Print gradient norms for specific layers (optional)
+                if global_step % 100 == 0:
+                    for name, param in transformer.named_parameters():
+                        if param.grad is not None and "lora" in name.lower():
+                            grad_norm = param.grad.norm().item()
+                            print(f"Gradient norm for {name}: {grad_norm:.6f}")
+                
             
             # Update progress
             if accelerator.is_main_process:
@@ -355,7 +435,7 @@ def train():
                     print(f"Step {global_step}: loss = {loss.item()}")
                 
                 # Save checkpoint
-                if global_step % 500 == 0:
+                if global_step % 500 == 0 and global_step > 0:
                     # Unwrap the model
                     unwrapped_transformer = accelerator.unwrap_model(transformer)
                     
@@ -418,7 +498,7 @@ def _get_random_timestep(noise_scheduler, latents):
 
 def get_noise_pred_and_target(noise_scheduler, latents):
 
-    b_size, min_timestep, max_timestep = _get_random_timestep(noise_scheduler, latents)
+    timesteps = _get_random_timestep(noise_scheduler, latents)
     return 
 
 def prepare_timesteps(image_seq_len, scheduler, device, num_inference_steps=1000, sigmas=None, mu=None):
@@ -504,53 +584,50 @@ def decode_and_display_latent(cur_latent, prev_latent, noise, vae):
     plt.show()
 
 
-def get_noised_latent_at_random_timestep(sample_latents, scheduler, generator=None):
+def get_sigmas(noise_scheduler, timesteps, device, n_dim, dtype):
     """
-    Get a noised latent at a random timestep along with its previous timestep value.
+    Compute the sigmas for the given timesteps.
     """
-    # Sample a random timestep
-    num_train_timesteps = scheduler.config.num_train_timesteps
-    timesteps = scheduler.timesteps
-    timestep = torch.randint(
-        200, num_train_timesteps, (sample_latents.shape[0],), 
-        device=sample_latents.device, generator=generator
-    ).long()
-    timestep = torch.clamp(timestep, min=2)
-    print("timestep: ", timestep)
-    print("step idx: ", scheduler.index_for_timestep(timestep, scheduler.timesteps))
-    print("len timesteps: ", len(scheduler.timesteps))
-    # step_indices = [scheduler.index_for_timestep(t, timesteps) for t in timestep]
+    sigmas = noise_scheduler.sigmas.to(device=device, dtype=dtype)
+    schedule_timesteps = noise_scheduler.timesteps.to(device)
+    timesteps = timesteps.to(device)
+    step_indices = [(schedule_timesteps == t).nonzero().item() for t in timesteps]
 
-    breakpoint()
-    # Generate random noise and ensure it requires gradients
-    noise = torch.randn_like(sample_latents, requires_grad=True)
+    sigma = sigmas[step_indices].flatten()
+    return sigma
     
-    print("timestep: ", timestep)
-    
-    # Get noised latents at both timesteps
-    cur_latents = scheduler.scale_noise(
-        sample=sample_latents,
-        timestep=timestep,
-        noise=noise
-    )
-    
-    # Calculate what the previous timestep would be
-    prev_timestep = torch.clamp(timestep - 1, min=1)
-    print("prev_timestep: ", prev_timestep)
-    print("sample_latents: ", sample_latents.shape)
-    print("noise: ", noise.shape)
-    prev_latents = scheduler.scale_noise(
-        sample=sample_latents,
-        timestep=prev_timestep,
-        noise=noise
-    )        
-    
-    # Ensure all tensors have gradients enabled
-    cur_latents.requires_grad_(True)
-    prev_latents.requires_grad_(True)
-    
-    return cur_latents, prev_latents, noise, timestep
 
+def get_noisy_model_input_and_timestep(args, latents, noise_scheduler, device, dtype):
+    """
+    Compute the density for sampling the timesteps when doing SD3 training.
+
+    SD3 paper reference: https://arxiv.org/abs/2403.03206v1 
+        - Section 3.1: The purpose of these samplers is to adaptively allocate more training samples 
+        (in terms of sampling and loss weighting) to the harder parts of the problem,
+        - TODO Options:
+            - "Logit-Normal Sampling": 
+            - "Mode Sampling with Heavy Tails": 
+            - "CosMa": 
+    """
+    batch_size = latents.shape[0]
+    noise = torch.randn_like(latents)
+
+    # Sample Uniformly from [0, 1]
+    if args.timestep_sampler == "shift":
+        shift = args.discrete_flow_shift
+        sigmas = torch.randn(batch_size, device=device)
+        sigmas = sigmas * args.sigmoid_scale  # larger scale for more uniform sampling
+        sigmas = sigmas.sigmoid()
+        sigmas = (sigmas * shift) / (1 + (shift - 1) * sigmas)
+        timesteps = sigmas * noise_scheduler.config.num_train_timesteps
+    else:
+        u = torch.rand(size=(batch_size,), device="cpu")
+        indices = (u * noise_scheduler.config.num_train_timesteps).long()
+        timesteps = noise_scheduler.timesteps[indices].to(device=device)
+        sigmas = get_sigmas(noise_scheduler, timesteps, device, n_dim=latents.ndim, dtype=dtype)
+
+    noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
+    return noisy_model_input.to(dtype), noise.to(dtype), timesteps.to(dtype), sigmas.to(dtype)
 
 def display_image(pipeline):
     prompt = "Paul Mescal holding a sign that says hello world"
@@ -579,6 +656,44 @@ def display_image(pipeline):
         print(e)
         print("Failed to generate image")
 
+def check_gradients(model, step):
+    """Helper function to check gradient statistics"""
+    grad_stats = {
+        "max": float("-inf"),
+        "min": float("inf"),
+        "mean": 0,
+        "num_zero": 0,
+        "num_nan": 0,
+        "num_inf": 0,
+        "total_params": 0
+    }
+    
+    for name, param in model.named_parameters():
+        if param.grad is not None:
+            grad = param.grad.data
+            grad_stats["total_params"] += grad.numel()
+            
+            # Check for NaN and Inf
+            grad_stats["num_nan"] += torch.isnan(grad).sum().item()
+            grad_stats["num_inf"] += torch.isinf(grad).sum().item()
+            
+            # Skip statistics for NaN/Inf values
+            valid_grad = grad[~torch.isnan(grad) & ~torch.isinf(grad)]
+            if len(valid_grad) > 0:
+                grad_stats["max"] = max(grad_stats["max"], valid_grad.max().item())
+                grad_stats["min"] = min(grad_stats["min"], valid_grad.min().item())
+                grad_stats["mean"] += valid_grad.mean().item()
+                grad_stats["num_zero"] += (valid_grad == 0).sum().item()
+    
+    print(f"\nGradient Stats at step {step}:")
+    print(f"Max grad: {grad_stats['max']:.6f}")
+    print(f"Min grad: {grad_stats['min']:.6f}")
+    print(f"Mean grad: {grad_stats['mean']:.6f}")
+    print(f"Zero grads: {grad_stats['num_zero']} / {grad_stats['total_params']}")
+    print(f"NaN grads: {grad_stats['num_nan']}")
+    print(f"Inf grads: {grad_stats['num_inf']}\n")
+    
+    return grad_stats["num_nan"] > 0 or grad_stats["num_inf"] > 0
 
 if __name__ == "__main__":
     train()
