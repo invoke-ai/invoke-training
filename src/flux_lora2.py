@@ -148,8 +148,8 @@ def get_default_args():
     args.train_batch_size = 1  
     args.learning_rate = 1e-5 # Slightly lower learning rate for stability
     args.max_train_steps = 2000  # More steps for better convergence
-    args.gradient_accumulation_steps = 8  # For effective batch size of 4
-    args.use_8bit_adam = True  # Save memory with 8-bit optimizer
+    args.gradient_accumulation_steps = 16  # For effective batch size of 4
+    args.use_8bit_adam = False  # Save memory with 8-bit optimizer
     args.mixed_precision = "no"  # Changed back to fp16
     args.clip_grad_norm = 0.0
     
@@ -186,15 +186,15 @@ def train():
     # Initialize accelerator
     accelerator = Accelerator(
         gradient_accumulation_steps=args.gradient_accumulation_steps,
-        mixed_precision=args.mixed_precision,  # Always use fp16
-        split_batches=True,
+        mixed_precision=args.mixed_precision,  
+        # split_batches=True,
     )
     
     # Load pipeline with mixed precision
     print("Loading FLUX pipeline...")
     pipeline = FluxPipeline.from_pretrained(
         args.pretrained_model_name,
-        torch_dtype=torch.float16,  # Always use float16
+        torch_dtype=torch.float16,
     )
 
     # Extract components
@@ -205,6 +205,7 @@ def train():
     tokenizer = pipeline.tokenizer
     tokenizer_2 = pipeline.tokenizer_2
     noise_scheduler = pipeline.scheduler
+
     
     # Configure LoRA for the transformer
     target_modules = [
@@ -336,8 +337,10 @@ def train():
                     )[0]
                     prompt_embeds = t5_outputs.to(torch.float16)
                     
+
                     # Process latents
-                    latents = vae.encode(images).latent_dist.sample().to(torch.float16) * 0.18215
+                    latents = vae.encode(images).latent_dist.sample().to(torch.float16) 
+                    # latents = vae.encode(images).latent_dist.sample().to(torch.float16) * 0.18215
                     
                     # Pack latents
                     batch_size, num_channels, height, width = latents.shape
@@ -373,7 +376,7 @@ def train():
                     with torch.set_grad_enabled(True), accelerator.autocast():
                         model_pred = transformer(
                             hidden_states=noisy_latents,
-                            timestep=timesteps /1000,
+                            timestep=timesteps / 1000,
                             pooled_projections=pooled_prompt_embeds,
                             encoder_hidden_states=prompt_embeds,
                             guidance=guidance,
@@ -382,19 +385,20 @@ def train():
                             return_dict=False,
                         )[0]
                     return model_pred
+
                 optimizer.zero_grad()
                 model_pred = call_transformer(noisy_latents, timesteps, pooled_prompt_embeds, prompt_embeds, guidance, text_ids, img_ids)
                 # Calculate loss
                 target = noise - latents
-                
-                # LOSS FUNCTION
-                # loss = train_util.conditional_loss(model_pred.float(), target.float(), args.loss_type, "none", huber_c)
+                loss = torch.nn.functional.mse_loss(model_pred, target, reduction="none")
+                loss = loss.mean([1, 2])
+
                 if torch.any(torch.isnan(model_pred)):
                     print("model_pred: NAN")
                 if torch.any(torch.isnan(target)):
                     print("target: NAN")
 
-                loss = torch.nn.functional.mse_loss(model_pred, target)
+                torch.nn.utils.clip_grad_norm_(transformer.parameters(), args.clip_grad_norm)
 
                 print(f"Current learning rate: {optimizer.param_groups[0]['lr']:.8f}")
                 print(f"backpropagating loss: Step {global_step}: loss = {loss.item()}")
@@ -413,7 +417,6 @@ def train():
                     continue
                 
                 # Clip gradients
-                torch.nn.utils.clip_grad_norm_(transformer.parameters(), args.clip_grad_norm)
                 optimizer.step()
                 lr_scheduler.step()
                 optimizer.zero_grad()
@@ -625,6 +628,8 @@ def get_noisy_model_input_and_timestep(args, latents, noise_scheduler, device, d
         indices = (u * noise_scheduler.config.num_train_timesteps).long()
         timesteps = noise_scheduler.timesteps[indices].to(device=device)
         sigmas = get_sigmas(noise_scheduler, timesteps, device, n_dim=latents.ndim, dtype=dtype)
+    
+    # sigmas = sigmas.view(-1, 1, 1, 1)
 
     noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
     return noisy_model_input.to(dtype), noise.to(dtype), timesteps.to(dtype), sigmas.to(dtype)

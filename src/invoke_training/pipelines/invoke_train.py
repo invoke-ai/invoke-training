@@ -1,4 +1,5 @@
 from invoke_training.config.pipeline_config import PipelineConfig
+from invoke_training.pipelines.flux.lora.train import train as train_flux_lora
 from invoke_training.pipelines._experimental.sd_dpo_lora.train import train as train_sd_ddpo_lora
 from invoke_training.pipelines.callbacks import PipelineCallbacks
 from invoke_training.pipelines.stable_diffusion.lora.train import train as train_sd_lora
@@ -18,7 +19,9 @@ def train(config: PipelineConfig, callbacks: list[PipelineCallbacks] | None = No
     for cb in callbacks or []:
         assert isinstance(cb, PipelineCallbacks)
 
-    if config.type == "SD_LORA":
+    if config.type == "FLUX_LORA":
+        train_flux_lora(config, callbacks)
+    elif config.type == "SD_LORA":
         train_sd_lora(config, callbacks)
     elif config.type == "SDXL_LORA":
         train_sdxl_lora(config, callbacks)
