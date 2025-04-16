@@ -18,7 +18,7 @@ FLUX_DIFFUSER_TARGET_MODULES =[
     "proj_out"
 ]
 class FluxLoraConfig(BasePipelineConfig):
-    type: Literal["SD_LORA"] = "SD_LORA"
+    type: Literal["FLUX_LORA"] = "FLUX_LORA"
 
     model: str = "runwayml/stable-diffusion-v1-5"
     """Name or path of the base model to train. Can be in diffusers format, or a single stable diffusion checkpoint
@@ -68,8 +68,8 @@ class FluxLoraConfig(BasePipelineConfig):
     rate.
     """
 
-    unet_learning_rate: float | None = 1e-4
-    """The learning rate to use for the UNet model. If set, this overrides the optimizer's default learning rate.
+    diffuser_learning_rate: float | None = 1e-4
+    """The learning rate to use for the diffuser model. If set, this overrides the optimizer's default learning rate.
     """
 
     lr_scheduler: Literal[
@@ -224,6 +224,17 @@ class FluxLoraConfig(BasePipelineConfig):
     data_loader: Annotated[
         Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig], Field(discriminator="type")
     ]
+
+    timestep_sampler: Literal["shift", "uniform"] = "shift"
+    """The timestep sampler to use. Choose between 'shift' or 'uniform'."""
+
+    discrete_flow_shift: float = 3.0
+    """The shift parameter for the discrete flow. Only used if `timestep_sampler == "shift"`.
+    """
+
+    sigmoid_scale: float = 1.0
+    """The scale parameter for the sigmoid function. Only used if `timestep_sampler == "shift"`.
+    """
 
     @model_validator(mode="after")
     def check_validation_prompts(self):

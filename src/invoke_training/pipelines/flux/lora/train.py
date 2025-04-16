@@ -12,11 +12,11 @@ import peft
 import torch
 import torch.utils.data
 from accelerate.utils import set_seed
-from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel
+from diffusers import AutoencoderKL, FlowMatchEulerDiscreteScheduler, FluxTransformer2DModel
 from diffusers.optimization import get_scheduler
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
-from transformers import CLIPTextModel, CLIPTokenizer
+from transformers import CLIPPreTrainedModel, CLIPTextModel, CLIPTokenizer, T5EncoderModel, T5Tokenizer
 
 from invoke_training._shared.accelerator.accelerator_utils import (
     get_dtype_from_str,
@@ -34,20 +34,21 @@ from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
     save_sd_peft_checkpoint,
 )
 from invoke_training._shared.stable_diffusion.min_snr_weighting import compute_snr
-from invoke_training._shared.stable_diffusion.model_loading_utils import load_models_flux
+from invoke_training._shared.flux.model_loading_utils import load_models_flux
 from invoke_training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sd
 # from invoke_training._shared.utils.import_xformers import import_xformers
 from invoke_training.config.data.data_loader_config import ImageCaptionSDDataLoaderConfig
 from invoke_training.pipelines.callbacks import ModelCheckpoint, ModelType, PipelineCallbacks, TrainingCheckpoint
-from invoke_training.pipelines.flux.lora.config import FluxLora Config
+from invoke_training.pipelines.flux.lora.config import FluxLoraConfig
 
 
-def _save_sd_lora_checkpoint(
+def _save_sdxl_lora_checkpoint(
     epoch: int,
     step: int,
     unet: peft.PeftModel | None,
-    text_encoder: peft.PeftModel | None,
+    text_encoder_1: peft.PeftModel | None,
+    text_encoder_2: peft.PeftModel | None,
     logger: logging.Logger,
     checkpoint_tracker: CheckpointTracker,
     lora_checkpoint_format: Literal["invoke_peft", "kohya"],
@@ -61,10 +62,9 @@ def _save_sd_lora_checkpoint(
 
     if lora_checkpoint_format == "invoke_peft":
         model_type = ModelType.SD1_LORA_PEFT
-        save_sd_peft_checkpoint(Path(save_path), unet=unet, text_encoder=text_encoder)
-    # elif lora_checkpoint_format == "kohya":
-    #     model_type = ModelType.SD1_LORA_KOHYA
-    #     save_sd_kohya_checkpoint(Path(save_path), unet=unet, text_encoder=text_encoder)
+        save_sdxl_peft_checkpoint(
+            Path(save_path), unet=unet, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2
+        )
     else:
         raise ValueError(f"Unsupported lora_checkpoint_format: '{lora_checkpoint_format}'.")
 
@@ -78,7 +78,7 @@ def _save_sd_lora_checkpoint(
 
 
 def _build_data_loader(
-    data_loader_config: Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig],
+    data_loader_config: Union[ImageCaptionSDDataLoaderConfig], # TODO(sam): Add DreamboothSDDataLoaderConfig
     batch_size: int,
     use_masks: bool = False,
     text_encoder_output_cache_dir: Optional[str] = None,
@@ -113,13 +113,13 @@ def _build_data_loader(
 
 
 def cache_text_encoder_outputs(
-    cache_dir: str, config: SdLoraConfig, tokenizer: CLIPTokenizer, text_encoder: CLIPTextModel
+    cache_dir: str, config: FluxLoraConfig, tokenizer: CLIPTokenizer, text_encoder: CLIPTextModel
 ):
     """Run the text encoder on all captions in the dataset and cache the results to disk.
 
     Args:
         cache_dir (str): The directory where the results will be cached.
-        config (SdLoraConfig): Training config.
+        config (FluxLoraConfig): Training config.
         tokenizer (CLIPTokenizer): The tokenizer.
         text_encoder (CLIPTextModel): The text_encoder.
     """
@@ -158,15 +158,70 @@ def cache_vae_outputs(cache_dir: str, data_loader: DataLoader, vae: AutoencoderK
                 data["mask"] = data_batch["mask"][i]
             cache.save(data_batch["id"][i], data)
 
+def get_noisy_latents(noise_scheduler: FlowMatchEulerDiscreteScheduler, 
+                    latents: torch.Tensor, 
+                    noise: torch.Tensor, 
+                    timesteps: torch.Tensor,
+                    config: FluxLoraConfig):
+
+    batch_size = latents.shape[0]
+    dtype = latents.dtype
+    device = latents.device
+    if config.timestep_sampler == "shift":
+        shift = config.discrete_flow_shift
+        sigmas = torch.randn(batch_size, device=device)
+        sigmas = sigmas * config.sigmoid_scale  # larger scale for more uniform sampling
+        sigmas = sigmas.sigmoid()
+        sigmas = (sigmas * shift) / (1 + (shift - 1) * sigmas)
+        timesteps = sigmas * noise_scheduler.config.num_train_timesteps
+    else:
+        u = torch.rand(size=(batch_size,), device="cpu")
+        indices = (u * noise_scheduler.config.num_train_timesteps).long()
+        timesteps = noise_scheduler.timesteps[indices].to(device=device)
+        sigmas = get_sigmas(noise_scheduler, timesteps, device, n_dim=latents.ndim, dtype=dtype)
+    
+    sigmas = sigmas.view(-1, 1, 1, 1)
+
+    noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
+    return noisy_model_input.to(dtype), noise.to(dtype), timesteps.to(dtype), sigmas.to(dtype)
+
+# encode_prompt was adapted from:
+# https://github.com/huggingface/diffusers/blob/7b07f9812a58bfa96c06ed8ffe9e6b584286e2fd/examples/text_to_image/train_text_to_image_lora_sdxl.py#L470-L496
+def _encode_prompt(text_encoders: list[CLIPPreTrainedModel], prompt_token_ids_list: list[torch.Tensor]):
+    prompt_embeds_list = []
+
+    for i, text_encoder in enumerate(text_encoders):
+        text_input_ids = prompt_token_ids_list[i]
+
+        prompt_embeds = text_encoder(
+            text_input_ids.to(text_encoder.device),
+            output_hidden_states=True,
+        )
+
+        # We are only ALWAYS interested in the pooled output of the final text encoder.
+        # TODO(ryand): Document this logic more clearly.
+        pooled_prompt_embeds = prompt_embeds[0]
+        prompt_embeds = prompt_embeds.hidden_states[-2]
+        bs_embed, seq_len, _ = prompt_embeds.shape
+        prompt_embeds = prompt_embeds.view(bs_embed, seq_len, -1)
+        prompt_embeds_list.append(prompt_embeds)
+
+    prompt_embeds = torch.concat(prompt_embeds_list, dim=-1)
+    pooled_prompt_embeds = pooled_prompt_embeds.view(bs_embed, -1)
+    return prompt_embeds, pooled_prompt_embeds
+
+
 
 def train_forward(  # noqa: C901
     config: FluxLoraConfig,
     data_batch: dict,
     vae: AutoencoderKL,
-    noise_scheduler: DDPMScheduler,
-    tokenizer: CLIPTokenizer,
-    text_encoder: CLIPTextModel,
-    unet: UNet2DConditionModel,
+    noise_scheduler: FlowMatchEulerDiscreteScheduler,
+    tokenizer_1: CLIPTokenizer,
+    tokenizer_2: T5Tokenizer,
+    text_encoder_1: CLIPTextModel,
+    text_encoder_2: T5EncoderModel,
+    diffuser: FluxTransformer2DModel,
     weight_dtype: torch.dtype,
     use_masks: bool = False,
     min_snr_gamma: float | None = None,
@@ -198,19 +253,49 @@ def train_forward(  # noqa: C901
 
     # Add noise to the latents according to the noise magnitude at each timestep (this is the forward
     # diffusion process).
-    breakpoint()
-    noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
+    noisy_latents, noise, timesteps, sigmas = get_noisy_latents(noise_scheduler, latents, noise, timesteps, config)
 
+    # def compute_time_ids(original_size, crops_coords_top_left):
+    #     # Adapted from pipeline.StableDiffusionXLPipeline._get_add_time_ids
+    #     target_size = Resolution.parse(resolution).to_tuple()
+    #     add_time_ids = list(original_size + crops_coords_top_left + target_size)
+    #     add_time_ids = torch.tensor([add_time_ids])
+    #     add_time_ids = add_time_ids.to(accelerator.device, dtype=weight_dtype)
+    #     return add_time_ids
+
+    # add_time_ids = torch.cat(
+    #     [compute_time_ids(s, c) for s, c in zip(data_batch["original_size_hw"], data_batch["crop_top_left_yx"])]
+    # )
+    # diffuser_conditions = {"time_ids": add_time_ids}
+    diffuser_conditions = {}
+    
     # Get the text embedding for conditioning.
-    # The text_encoder_output may have been cached and included in the data_batch. If not, we calculate it here.
-    encoder_hidden_states = data_batch.get("text_encoder_output", None)
-    if encoder_hidden_states is None:
-        caption_token_ids = tokenize_captions(tokenizer, data_batch["caption"]).to(text_encoder.device)
-        encoder_hidden_states = text_encoder(caption_token_ids)[0].to(dtype=weight_dtype)
+    # The text encoder output may have been cached and included in the data_batch. If not, we calculate it here.
+    if "prompt_embeds" in data_batch:
+        prompt_embeds = data_batch["prompt_embeds"]
+        pooled_prompt_embeds = data_batch["pooled_prompt_embeds"]
+    else:
+        from diffusers.pipelines.flux.pipeline_flux import FluxPipeline
+        breakpoint()
+        prompt_embeds = FluxPipeline._get_t5_prompt_embeds(
+            data_batch["caption"],
+            num_images_per_prompt=1,
+            device=latents.device,
+            dtype=weight_dtype,
+        )
 
+        pooled_prompt_embeds = FluxPipeline._pooled_prompt_embeds(
+            data_batch["caption"], 
+            num_images_per_prompt=1,
+            device=latents.device,
+            dtype=weight_dtype,
+        )
+
+
+    diffuser_conditions["text_embeds"] = pooled_prompt_embeds
     # Get the target for loss depending on the prediction type.
     if config.prediction_type is not None:
-        Set the prediction_type of scheduler if it's defined in config.
+        # Set the prediction_type of scheduler if it's defined in config.
         noise_scheduler.register_to_config(prediction_type=config.prediction_type)
     if noise_scheduler.config.prediction_type == "epsilon":
         target = noise
@@ -221,6 +306,7 @@ def train_forward(  # noqa: C901
 
     # Predict the noise residual.
     model_pred = diffuser(noisy_latents, timesteps, encoder_hidden_states)[0]
+    target = noise - latents
 
     # min_snr_weights = None
     # if min_snr_gamma is not None:
@@ -265,7 +351,7 @@ def train_forward(  # noqa: C901
     return loss.mean()
 
 
-def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None):  # noqa: C901
+def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = None):  # noqa: C901
     # Give a clear error message if an unsupported base model was chosen.
     # TODO(ryan): Update this check to work with single-file SD checkpoints.
     # check_base_model_version(
@@ -305,11 +391,9 @@ def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None
     tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, diffuser = load_models_flux(
         logger=logger,
         model_name_or_path=config.model,
-        hf_variant=config.hf_variant,
         base_embeddings=config.base_embeddings,
         dtype=weight_dtype,
     )
-
     # if config.xformers:
     #     import_xformers()
 
@@ -371,7 +455,7 @@ def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None
         vae.to("cpu")
         accelerator.wait_for_everyone()
     else:
-    vae.to(accelerator.device, dtype=weight_dtype)
+        vae.to(accelerator.device, dtype=weight_dtype)
 
     diffuser.to(accelerator.device, dtype=weight_dtype)
 
@@ -397,14 +481,14 @@ def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None
         return peft_model
 
     # Add LoRA layers to the model.
-    if config.train_unet:
-        unet_lora_config = peft.LoraConfig(
+    if config.train_diffuser:
+        diffuser_lora_config = peft.LoraConfig(
             r=config.lora_rank_dim,
             # TODO(ryand): Diffusers uses lora_alpha=config.lora_rank_dim. Is that preferred?
             lora_alpha=1.0,
-            target_modules=config.unet_lora_target_modules,
+            target_modules=config.flux_lora_target_modules,
         )
-        unet = inject_lora_layers(unet, unet_lora_config, lr=config.unet_learning_rate)
+        diffuser = inject_lora_layers(diffuser, diffuser_lora_config, lr=config.diffuser_learning_rate)
 
     if config.train_text_encoder:
         text_encoder_lora_config = peft.LoraConfig(
@@ -413,7 +497,12 @@ def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None
             # init_lora_weights="gaussian",
             target_modules=config.text_encoder_lora_target_modules,
         )
-        text_encoder = inject_lora_layers(text_encoder, text_encoder_lora_config, lr=config.text_encoder_learning_rate)
+        text_encoder_1 = inject_lora_layers(
+            text_encoder_1, text_encoder_lora_config, lr=config.text_encoder_learning_rate
+        )
+        text_encoder_2 = inject_lora_layers(
+            text_encoder_2, text_encoder_lora_config, lr=config.text_encoder_learning_rate
+        )
 
     # If mixed_precision is enabled, cast all trainable params to float32.
     if config.mixed_precision != "no":
@@ -430,28 +519,28 @@ def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None
         # not change its forward behavior.
         diffuser.train()
         if config.train_text_encoder:
-            text_encoder.gradient_checkpointing_enable()
-
-            # The text encoder must be in train() mode for gradient checkpointing to take effect. This should
-            # already be the case, since we are training the text_encoder, but we do it explicitly to make it clear
+            text_encoder_1.gradient_checkpointing_enable()
+            text_encoder_2.gradient_checkpointing_enable()
+            # The text encoders must be in train() mode for gradient checkpointing to take effect. This should
+            # already be the case, since we are training the text_encoders, be we do it explicitly to make it clear
             # that this is required.
             # At the time of writing, the text encoder dropout probabilities default to 0, so putting the text
             # encoders in train mode does not change their forward behavior.
-            text_encoder.train()
-
+            text_encoder_1.train()
+            text_encoder_2.train()
             # Set requires_grad = True on the first parameters of the text encoders. Without this, the text encoder
             # LoRA weights would have 0 gradients, and so would not get trained. Note that the set of
             # trainable_param_groups has already been populated - the embeddings will not be trained.
-            text_encoder.text_model.embeddings.requires_grad_(True)
-
+            text_encoder_1.text_model.embeddings.requires_grad_(True)
+            text_encoder_2.text_model.embeddings.requires_grad_(True)
     optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
 
     data_loader = _build_data_loader(
         data_loader_config=config.data_loader,
         batch_size=config.train_batch_size,
         use_masks=config.use_masks,
-        text_encoder_output_cache_dir=text_encoder_output_cache_dir_name,
-        vae_output_cache_dir=vae_output_cache_dir_name,
+        # text_encoder_output_cache_dir=text_encoder_output_cache_dir_name,
+        # vae_output_cache_dir=vae_output_cache_dir_name,
     )
 
     # log_aspect_ratio_buckets(logger=logger, batch_sampler=data_loader.batch_sampler)
@@ -486,15 +575,23 @@ def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None
         torch.utils.data.DataLoader,
         torch.optim.lr_scheduler.LRScheduler,
     ] = accelerator.prepare(
-        unet,
-        text_encoder,
+        diffuser,
+        text_encoder_1,
+        text_encoder_2,
         optimizer,
         data_loader,
         lr_scheduler,
         # Disable automatic device placement for text_encoder if the text encoder outputs were cached.
-        device_placement=[True, not config.cache_text_encoder_outputs, True, True, True],
+        device_placement=[
+            True,
+            not config.cache_text_encoder_outputs,
+            not config.cache_text_encoder_outputs,
+            True,
+            True,
+            True,
+        ],
     )
-    diffuser, text_encoder, optimizer, data_loader, lr_scheduler = prepared_result
+    diffuser, text_encoder_1, text_encoder_2, optimizer, data_loader, lr_scheduler = prepared_result
 
     if accelerator.is_main_process:
         accelerator.init_trackers("lora_training")
@@ -533,11 +630,12 @@ def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None
     def save_checkpoint(num_completed_epochs: int, num_completed_steps: int):
         accelerator.wait_for_everyone()
         if accelerator.is_main_process:
-            _save_sd_lora_checkpoint(
+            _save_sdxl_lora_checkpoint(
                 epoch=num_completed_epochs,
                 step=num_completed_steps,
-                unet=accelerator.unwrap_model(unet) if config.train_unet else None,
-                text_encoder=accelerator.unwrap_model(text_encoder) if config.train_text_encoder else None,
+                unet=unet if config.train_unet else None,
+                text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
+                text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
                 logger=logger,
                 checkpoint_tracker=checkpoint_tracker,
                 lora_checkpoint_format=config.lora_checkpoint_format,
@@ -555,10 +653,12 @@ def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None
             #     out_dir=out_dir,
             #     accelerator=accelerator,
             #     vae=vae,
-            #     text_encoder=text_encoder,
-            #     tokenizer=tokenizer,
+            #     text_encoder_1=text_encoder_1,
+            #     text_encoder_2=text_encoder_2,
+            #     tokenizer_1=tokenizer_1,
+            #     tokenizer_2=tokenizer_2,
             #     noise_scheduler=noise_scheduler,
-            #     unet=unet,
+            #     diffuser=diffuser,
             #     config=config,
             #     logger=logger,
             #     callbacks=callbacks,
@@ -568,15 +668,17 @@ def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None
     for epoch in range(first_epoch, num_train_epochs):
         train_loss = 0.0
         for data_batch_idx, data_batch in enumerate(data_loader):
-            with accelerator.accumulate(unet, text_encoder):
+            with accelerator.accumulate(diffuser, text_encoder_1, text_encoder_2):
                 loss = train_forward(
                     config=config,
                     data_batch=data_batch,
                     vae=vae,
                     noise_scheduler=noise_scheduler,
-                    tokenizer=tokenizer,
-                    text_encoder=text_encoder,
-                    unet=unet,
+                    tokenizer_1=tokenizer_1,
+                    tokenizer_2=tokenizer_2,
+                    text_encoder_1=text_encoder_1,
+                    text_encoder_2=text_encoder_2,
+                    diffuser=diffuser,
                     weight_dtype=weight_dtype,
                     use_masks=config.use_masks,
                     min_snr_gamma=config.min_snr_gamma,
@@ -604,11 +706,11 @@ def train(config: SdLoraConfig, callbacks: list[PipelineCallbacks] | None = None
                 log = {"train_loss": train_loss}
 
                 lrs = lr_scheduler.get_last_lr()
-                if config.train_unet:
+                if config.train_diffuser:
                     # When training the UNet, it will always be the first parameter group.
-                    log["lr/unet"] = float(lrs[0])
+                    log["lr/diffuser"] = float(lrs[0])
                     if config.optimizer.optimizer_type == "Prodigy":
-                        log["lr/d*lr/unet"] = optimizer.param_groups[0]["d"] * optimizer.param_groups[0]["lr"]
+                        log["lr/d*lr/diffuser"] = optimizer.param_groups[0]["d"] * optimizer.param_groups[0]["lr"]
                 if config.train_text_encoder:
                     # When training the text encoder, it will always be the last parameter group.
                     log["lr/text_encoder"] = float(lrs[-1])

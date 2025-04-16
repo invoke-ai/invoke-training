@@ -27,7 +27,7 @@ data_loader:
   dataset:
     type: IMAGE_CAPTION_JSONL_DATASET
     # Update the jsonl_path field to point to the metadata.jsonl file of the downloaded dataset.
-    jsonl_path: sample_data/bruce_the_gnome/data_masks.jsonl
+    jsonl_path: sample_data/bruce_the_gnome/data.jsonl
   resolution: 512
   aspect_ratio_buckets:
     target_resolution: 512
@@ -38,7 +38,7 @@ data_loader:
   dataloader_num_workers: 4
 
 # General
-model: black-forest-labs/flux-1-dev
+model: black-forest-labs/FLUX.1-dev
 gradient_accumulation_steps: 1
 weight_dtype: float16
 gradient_checkpointing: True
