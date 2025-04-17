@@ -98,7 +98,9 @@ def load_flux_peft_checkpoint(
         raise_if_subdir_missing=False,
     )
 
-    return models[SD_PEFT_UNET_KEY], models[SD_PEFT_TEXT_ENCODER_KEY]
+    return models[FLUX_DIFFUSER_PEFT_UNET_KEY], models[FLUX_DIFFUSER_PEFT_TEXT_ENCODER_1_KEY], models[
+        FLUX_DIFFUSER_PEFT_TEXT_ENCODER_2_KEY
+    ]
 
 
 def save_flux_peft_checkpoint(
@@ -108,19 +110,19 @@ def save_flux_peft_checkpoint(
     text_encoder_2: peft.PeftModel | None,
 ):
     models = {}
-    if unet is not None:
-        models[FLUX_PEFT_UNET_KEY] = diffuser
+    if diffuser is not None:
+        models[FLUX_DIFFUSER_PEFT_UNET_KEY] = diffuser
     if text_encoder_1 is not None:
-        models[FLUX_PEFT_TEXT_ENCODER_1_KEY] = text_encoder_1
+        models[FLUX_DIFFUSER_PEFT_TEXT_ENCODER_1_KEY] = text_encoder_1
     if text_encoder_2 is not None:
-        models[FLUX_PEFT_TEXT_ENCODER_2_KEY] = text_encoder_2
+        models[FLUX_DIFFUSER_PEFT_TEXT_ENCODER_2_KEY] = text_encoder_2
 
     save_multi_model_peft_checkpoint(checkpoint_dir=checkpoint_dir, models=models)
 
 
-def load_sdxl_peft_checkpoint(
+def load_flux_peft_checkpoint(
     checkpoint_dir: Path | str,
-    unet: UNet2DConditionModel,
+    diffuser: UNet2DConditionModel,
     text_encoder_1: CLIPTextModel,
     text_encoder_2: CLIPTextModel,
     is_trainable: bool = False,
@@ -128,15 +130,17 @@ def load_sdxl_peft_checkpoint(
     models = load_multi_model_peft_checkpoint(
         checkpoint_dir=checkpoint_dir,
         models={
-            SDXL_PEFT_UNET_KEY: unet,
-            SDXL_PEFT_TEXT_ENCODER_1_KEY: text_encoder_1,
-            SDXL_PEFT_TEXT_ENCODER_2_KEY: text_encoder_2,
+            FLUX_DIFFUSER_PEFT_UNET_KEY: diffuser,
+            FLUX_DIFFUSER_PEFT_TEXT_ENCODER_1_KEY: text_encoder_1,
+            FLUX_DIFFUSER_PEFT_TEXT_ENCODER_2_KEY: text_encoder_2,
         },
         is_trainable=is_trainable,
         raise_if_subdir_missing=False,
     )
 
-    return models[SDXL_PEFT_UNET_KEY], models[SDXL_PEFT_TEXT_ENCODER_1_KEY], models[SDXL_PEFT_TEXT_ENCODER_2_KEY]
+    return models[FLUX_DIFFUSER_PEFT_UNET_KEY], models[FLUX_DIFFUSER_PEFT_TEXT_ENCODER_1_KEY], models[
+        FLUX_DIFFUSER_PEFT_TEXT_ENCODER_2_KEY
+    ]
 
 
 # This implementation is based on

@@ -43,7 +43,7 @@ gradient_accumulation_steps: 1
 weight_dtype: float16
 gradient_checkpointing: True
 
-max_train_epochs: 15
+max_train_epochs: 5
 save_every_n_epochs: 1
 validate_every_n_epochs: 1
 

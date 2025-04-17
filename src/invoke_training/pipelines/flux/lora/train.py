@@ -32,21 +32,21 @@ from invoke_training._shared.data.data_loaders.image_caption_flux_dataloader imp
 from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import log_aspect_ratio_buckets
 from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training._shared.optimizer.optimizer_utils import initialize_optimizer
-from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
-    save_sdxl_peft_checkpoint,
+from invoke_training._shared.flux.lora_checkpoint_utils import (
+    save_flux_peft_checkpoint,
 )
 from invoke_training._shared.stable_diffusion.min_snr_weighting import compute_snr
 from invoke_training._shared.flux.encoding_utils import encode_prompt
 from invoke_training._shared.flux.model_loading_utils import load_models_flux
 from invoke_training._shared.stable_diffusion.tokenize_captions import tokenize_captions
-from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sd
+from invoke_training._shared.flux.validation import generate_validation_images_flux
 # from invoke_training._shared.utils.import_xformers import import_xformers
 from invoke_training.config.data.data_loader_config import ImageCaptionSDDataLoaderConfig
 from invoke_training.pipelines.callbacks import ModelCheckpoint, ModelType, PipelineCallbacks, TrainingCheckpoint
 from invoke_training.pipelines.flux.lora.config import FluxLoraConfig
 
 
-def _save_sdxl_lora_checkpoint(
+def _save_flux_lora_checkpoint(
     epoch: int,
     step: int,
     diffuser: peft.PeftModel | None,
@@ -65,8 +65,8 @@ def _save_sdxl_lora_checkpoint(
 
     if lora_checkpoint_format == "invoke_peft":
         model_type = ModelType.SD1_LORA_PEFT
-        save_sdxl_peft_checkpoint(
-            Path(save_path), unet=diffuser, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2
+        save_flux_peft_checkpoint(
+            Path(save_path), diffuser=diffuser, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2
         )
     else:
         raise ValueError(f"Unsupported lora_checkpoint_format: '{lora_checkpoint_format}'.")
@@ -298,7 +298,6 @@ def train_forward(  # noqa: C901
     #TEMPORARY
     noisy_latents=noisy_latents[0]
 
-    breakpoint()
     #     hidden_states = torch.cat([encoder_hidden_states, hidden_states], dim=1)
     # RuntimeError: Tensors must have same number of dimensions: got 3 and 4
    
@@ -636,7 +635,7 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
     def save_checkpoint(num_completed_epochs: int, num_completed_steps: int):
         accelerator.wait_for_everyone()
         if accelerator.is_main_process:
-            _save_sdxl_lora_checkpoint(
+            _save_flux_lora_checkpoint(
                 epoch=num_completed_epochs,
                 step=num_completed_steps,
                 diffuser=diffuser if config.train_transformer else None,
@@ -644,8 +643,8 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
                 text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
                 logger=logger,
                 checkpoint_tracker=checkpoint_tracker,
-                callbacks=callbacks,
                 lora_checkpoint_format=config.lora_checkpoint_format,
+                callbacks=callbacks,
             )
         accelerator.wait_for_everyone()
 
@@ -653,22 +652,22 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
         accelerator.wait_for_everyone()
         if accelerator.is_main_process:
             print("Validation not implemented for Flux")
-            # generate_validation_images_sd(
-            #     epoch=num_completed_epochs,
-            #     step=num_completed_steps,
-            #     out_dir=out_dir,
-            #     accelerator=accelerator,
-            #     vae=vae,
-            #     text_encoder_1=text_encoder_1,
-            #     text_encoder_2=text_encoder_2,
-            #     tokenizer_1=tokenizer_1,
-            #     tokenizer_2=tokenizer_2,
-            #     noise_scheduler=noise_scheduler,
-            #     diffuser=diffuser,
-            #     config=config,
-            #     logger=logger,
-            #     callbacks=callbacks,
-            # )
+            generate_validation_images_flux(
+                epoch=num_completed_epochs,
+                step=num_completed_steps,
+                out_dir=out_dir,
+                accelerator=accelerator,
+                vae=vae,
+                text_encoder_1=text_encoder_1,
+                text_encoder_2=text_encoder_2,
+                tokenizer_1=tokenizer_1,
+                tokenizer_2=tokenizer_2,
+                noise_scheduler=noise_scheduler,
+                diffuser=diffuser,
+                config=config,
+                logger=logger,
+                callbacks=callbacks,
+            )
         accelerator.wait_for_everyone()
 
     for epoch in range(first_epoch, num_train_epochs):

@@ -69,6 +69,4 @@ class FluxImageTransform:
 
         for field_name, image in image_fields.items():
             data[field_name] = image
-            print(f"Resolution: {resolution}, Image shape: {list(image.size())}")
-        print("end")
         return data
