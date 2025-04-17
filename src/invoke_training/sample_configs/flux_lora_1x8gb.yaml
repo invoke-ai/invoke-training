@@ -51,5 +51,5 @@ max_checkpoints: 5
 validation_prompts:
   - A stuffed gnome at the beach with a pina colada in its hand.
   - A stuffed gnome reading a book in a cozy library.
-train_batch_size: 4
+train_batch_size: 1
 num_validation_images_per_prompt: 3

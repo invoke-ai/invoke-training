@@ -13,10 +13,10 @@ from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler imp
 from invoke_training._shared.data.transforms.caption_prefix_transform import CaptionPrefixTransform
 from invoke_training._shared.data.transforms.drop_field_transform import DropFieldTransform
 from invoke_training._shared.data.transforms.load_cache_transform import LoadCacheTransform
-from invoke_training._shared.data.transforms.sd_image_transform import SDImageTransform
+from invoke_training._shared.data.transforms.flux_image_transform import FluxImageTransform
 from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training._shared.data.utils.aspect_ratio_bucket_manager import AspectRatioBucketManager
-from invoke_training.config.data.data_loader_config import AspectRatioBucketConfig, ImageCaptionSDDataLoaderConfig
+from invoke_training.config.data.data_loader_config import AspectRatioBucketConfig, ImageCaptionFluxDataLoaderConfig
 from invoke_training.config.data.dataset_config import (
     HFHubImageCaptionDatasetConfig,
     ImageCaptionDirDatasetConfig,
@@ -71,7 +71,7 @@ def build_aspect_ratio_bucket_manager(config: AspectRatioBucketConfig):
 
 
 def build_image_caption_flux_dataloader(  # noqa: C901
-    config: ImageCaptionSDDataLoaderConfig,
+    config: ImageCaptionFluxDataLoaderConfig,
     batch_size: int,
     use_masks: bool = False,
     text_encoder_output_cache_dir: typing.Optional[str] = None,
@@ -131,12 +131,11 @@ def build_image_caption_flux_dataloader(  # noqa: C901
             all_transforms.append(DropFieldTransform("mask"))
 
         all_transforms.append(
-            SDImageTransform(
+            FluxImageTransform(
                 image_field_names=image_field_names,
                 fields_to_normalize_to_range_minus_one_to_one=["image"],
-                resolution=target_resolution,
+                resolution=config.resolution,
                 aspect_ratio_bucket_manager=aspect_ratio_bucket_manager,
-                center_crop=config.center_crop,
                 random_flip=config.random_flip,
             )
         )
@@ -172,7 +171,6 @@ def build_image_caption_flux_dataloader(  # noqa: C901
                 cache_field_to_output_field=text_encoder_cache_field_to_output_field,
             )
         )
-
     dataset = TransformDataset(base_dataset, all_transforms)
 
     if batch_sampler is None:

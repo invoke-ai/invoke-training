@@ -33,8 +33,7 @@ from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler imp
 from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training._shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
-    save_sd_kohya_checkpoint,
-    save_sd_peft_checkpoint,
+    save_sdxl_peft_checkpoint,
 )
 from invoke_training._shared.stable_diffusion.min_snr_weighting import compute_snr
 from invoke_training._shared.flux.encoding_utils import encode_prompt
@@ -50,13 +49,13 @@ from invoke_training.pipelines.flux.lora.config import FluxLoraConfig
 def _save_sdxl_lora_checkpoint(
     epoch: int,
     step: int,
-    unet: peft.PeftModel | None,
+    diffuser: peft.PeftModel | None,
     text_encoder_1: peft.PeftModel | None,
     text_encoder_2: peft.PeftModel | None,
     logger: logging.Logger,
     checkpoint_tracker: CheckpointTracker,
-    lora_checkpoint_format: Literal["invoke_peft", "kohya"],
     callbacks: list[PipelineCallbacks] | None,
+    lora_checkpoint_format: Literal["invoke_peft", "kohya"] = "invoke_peft",
 ):
     # Prune checkpoints and get new checkpoint path.
     num_pruned = checkpoint_tracker.prune(1)
@@ -67,7 +66,7 @@ def _save_sdxl_lora_checkpoint(
     if lora_checkpoint_format == "invoke_peft":
         model_type = ModelType.SD1_LORA_PEFT
         save_sdxl_peft_checkpoint(
-            Path(save_path), unet=unet, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2
+            Path(save_path), unet=diffuser, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2
         )
     else:
         raise ValueError(f"Unsupported lora_checkpoint_format: '{lora_checkpoint_format}'.")
@@ -236,7 +235,7 @@ def train_forward(  # noqa: C901
 
     # Add noise to the latents according to the noise magnitude at each timestep (this is the forward
     # diffusion process).
-    img_ids = FluxPipeline._prepare_latent_image_ids(
+    latent_image_ids = FluxPipeline._prepare_latent_image_ids(
         batch_size, height // 2, width // 2, latents.device, latents.dtype
     )
     noisy_latents, noise, timesteps, sigmas = get_noisy_latents(noise_scheduler, latents, noise, timesteps, config)
@@ -287,26 +286,29 @@ def train_forward(  # noqa: C901
     #     raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
 
     # Predict the noise residual.
-    breakpoint()
     # model_pred = diffuser(hidden_states=noisy_latents, timestep=timesteps / 1000, pooled_projections=pooled_prompt_embeds, encoder_hidden_states=prompt_embeds, guidance=guidance, txt_ids=text_ids, img_ids=img_ids, return_dict=False)[0]   
-    # noisy_latents.shape: torch.Size([4, 4, 1008, 64])
+    # noisy_latents.shape: torch.Size([1, 1, 1024, 64])
     # timesteps.shape: torch.Size([4])
     # pooled_prompt_embeds.shape: torch.Size([4, 768])
     # prompt_embeds.shape: torch.Size([4, 512, 4096])
     # guidance.shape: torch.Size([4])
     # text_ids.shape: torch.Size([512, 3]
     # img_ids.shape: torch.Size([1008, 3])
-
-
     
-    
+    #TEMPORARY
+    noisy_latents=noisy_latents[0]
+
+    breakpoint()
+    #     hidden_states = torch.cat([encoder_hidden_states, hidden_states], dim=1)
+    # RuntimeError: Tensors must have same number of dimensions: got 3 and 4
+   
     model_pred = diffuser(hidden_states=noisy_latents,
                             timestep=timesteps / 1000,
                             pooled_projections=pooled_prompt_embeds,
                             encoder_hidden_states=prompt_embeds,
                             guidance=guidance,
                             txt_ids=text_ids,
-                            img_ids=img_ids,
+                            img_ids=latent_image_ids,
                             return_dict=False,
                         )[0]
 
@@ -333,7 +335,6 @@ def train_forward(  # noqa: C901
     #         raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
 
     loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="none")
-
     # if use_masks:
     #     # TODO(ryand): As a future performance optimization, we may want to do this resizing in the dataloader.
     #     mask = data_batch["mask"].to(dtype=loss.dtype, device=loss.device)
@@ -343,6 +344,7 @@ def train_forward(  # noqa: C901
 
     # Mean-reduce the loss along all dimensions except for the batch dimension.
     loss = loss.mean(dim=list(range(1, len(loss.shape))))
+    print("loss: ",loss)
 
     # Apply min_snr_weights.
     # if min_snr_weights is not None:
@@ -508,12 +510,12 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
             text_encoder_2, text_encoder_lora_config, lr=config.text_encoder_learning_rate
         )
 
-    # If mixed_precision is enabled, cast all trainable params to float32.
-    if config.mixed_precision != "no":
-        for trainable_model in all_trainable_models:
-            for param in trainable_model.parameters():
-                if param.requires_grad:
-                    param.data = param.to(torch.float32)
+    # # If mixed_precision is enabled, cast all trainable params to float32.
+    # if config.mixed_precision != "no":
+    #     for trainable_model in all_trainable_models:
+    #         for param in trainable_model.parameters():
+    #             if param.requires_grad:
+    #                 param.data = param.to(torch.float16)
 
     if config.gradient_checkpointing:
         # We want to enable gradient checkpointing in the UNet regardless of whether it is being trained.
@@ -637,13 +639,13 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
             _save_sdxl_lora_checkpoint(
                 epoch=num_completed_epochs,
                 step=num_completed_steps,
-                unet=unet if config.train_unet else None,
+                diffuser=diffuser if config.train_transformer else None,
                 text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
                 text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
                 logger=logger,
                 checkpoint_tracker=checkpoint_tracker,
-                lora_checkpoint_format=config.lora_checkpoint_format,
                 callbacks=callbacks,
+                lora_checkpoint_format=config.lora_checkpoint_format,
             )
         accelerator.wait_for_everyone()
 
@@ -672,6 +674,8 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
     for epoch in range(first_epoch, num_train_epochs):
         train_loss = 0.0
         for data_batch_idx, data_batch in enumerate(data_loader):
+            # (Pdb) data_batch['image'].shape
+            # torch.Size([4, 3, 512, 512])
             with accelerator.accumulate(diffuser, text_encoder_1, text_encoder_2):
                 loss = train_forward(
                     config=config,

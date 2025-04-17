@@ -50,7 +50,7 @@ class FluxLoraConfig(BasePipelineConfig):
     generation time with the resultant LoRA model.
     """
 
-    lora_checkpoint_format: Literal["invoke_peft", "kohya"] = "kohya"
+    lora_checkpoint_format: Literal["invoke_peft", "kohya"] = "invoke_peft"
     """The format of the LoRA checkpoint to save. Choose between `invoke_peft` or `kohya`."""
 
     train_diffuser: bool = True
@@ -150,7 +150,7 @@ class FluxLoraConfig(BasePipelineConfig):
     Accelerate. This is an alternative to increasing the batch size when training with limited VRAM.
     """
 
-    weight_dtype: Literal["float32", "float16", "bfloat16"] = "bfloat16"
+    weight_dtype: Literal["float32", "float16", "bfloat16"] = "float16"
     """All weights (trainable and fixed) will be cast to this precision. Lower precision dtypes require less VRAM, and
     result in faster training, but are more prone to issues with numerical stability.
 
@@ -212,7 +212,7 @@ class FluxLoraConfig(BasePipelineConfig):
     become quite slow if this number is too large.
     """
 
-    train_batch_size: int = 4
+    train_batch_size: int = 1
     """The training batch size.
     """
 
@@ -242,6 +242,10 @@ class FluxLoraConfig(BasePipelineConfig):
 
     guidance_scale: float = 3.5
     """The guidance scale for the Flux model.
+    """
+
+    train_transformer: bool = True
+    """Whether to train the Flux diffuser (FluxTransformer2DModel) model.
     """
 
     @model_validator(mode="after")
