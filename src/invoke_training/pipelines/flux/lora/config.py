@@ -236,6 +236,14 @@ class FluxLoraConfig(BasePipelineConfig):
     """The scale parameter for the sigmoid function. Only used if `timestep_sampler == "shift"`.
     """
 
+    lora_scale: float | None = 1.0
+    """The scale parameter for the LoRA layers. If set, this overrides the optimizer's default learning rate.
+    """
+
+    guidance_scale: float = 3.5
+    """The guidance scale for the Flux model.
+    """
+
     @model_validator(mode="after")
     def check_validation_prompts(self):
         if self.negative_validation_prompts is not None and len(self.negative_validation_prompts) != len(

@@ -7,6 +7,7 @@ import tempfile
 import time
 from pathlib import Path
 from typing import Literal, Optional, Union
+from torchvision import transforms
 
 import peft
 import torch
@@ -14,6 +15,7 @@ import torch.utils.data
 from accelerate.utils import set_seed
 from diffusers import AutoencoderKL, FlowMatchEulerDiscreteScheduler, FluxTransformer2DModel
 from diffusers.optimization import get_scheduler
+from diffusers.pipelines.flux.pipeline_flux import FluxPipeline
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers import CLIPPreTrainedModel, CLIPTextModel, CLIPTokenizer, T5EncoderModel, T5Tokenizer
@@ -23,9 +25,10 @@ from invoke_training._shared.accelerator.accelerator_utils import (
     initialize_accelerator,
     initialize_logging,
 )
+
 from invoke_training._shared.checkpoints.checkpoint_tracker import CheckpointTracker
 from invoke_training._shared.data.data_loaders.dreambooth_sd_dataloader import build_dreambooth_sd_dataloader
-from invoke_training._shared.data.data_loaders.image_caption_sd_dataloader import build_image_caption_sd_dataloader
+from invoke_training._shared.data.data_loaders.image_caption_flux_dataloader import build_image_caption_flux_dataloader
 from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import log_aspect_ratio_buckets
 from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training._shared.optimizer.optimizer_utils import initialize_optimizer
@@ -34,6 +37,7 @@ from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
     save_sd_peft_checkpoint,
 )
 from invoke_training._shared.stable_diffusion.min_snr_weighting import compute_snr
+from invoke_training._shared.flux.encoding_utils import encode_prompt
 from invoke_training._shared.flux.model_loading_utils import load_models_flux
 from invoke_training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training._shared.stable_diffusion.validation import generate_validation_images_sd
@@ -78,7 +82,7 @@ def _save_sdxl_lora_checkpoint(
 
 
 def _build_data_loader(
-    data_loader_config: Union[ImageCaptionSDDataLoaderConfig], # TODO(sam): Add DreamboothSDDataLoaderConfig
+    data_loader_config: Union[ImageCaptionSDDataLoaderConfig],
     batch_size: int,
     use_masks: bool = False,
     text_encoder_output_cache_dir: Optional[str] = None,
@@ -87,7 +91,7 @@ def _build_data_loader(
     sequential_batching: bool = False,
 ) -> DataLoader:
     if data_loader_config.type == "IMAGE_CAPTION_SD_DATA_LOADER":
-        return build_image_caption_sd_dataloader(
+        return build_image_caption_flux_dataloader(
             config=data_loader_config,
             batch_size=batch_size,
             use_masks=use_masks,
@@ -185,31 +189,6 @@ def get_noisy_latents(noise_scheduler: FlowMatchEulerDiscreteScheduler,
     noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
     return noisy_model_input.to(dtype), noise.to(dtype), timesteps.to(dtype), sigmas.to(dtype)
 
-# encode_prompt was adapted from:
-# https://github.com/huggingface/diffusers/blob/7b07f9812a58bfa96c06ed8ffe9e6b584286e2fd/examples/text_to_image/train_text_to_image_lora_sdxl.py#L470-L496
-def _encode_prompt(text_encoders: list[CLIPPreTrainedModel], prompt_token_ids_list: list[torch.Tensor]):
-    prompt_embeds_list = []
-
-    for i, text_encoder in enumerate(text_encoders):
-        text_input_ids = prompt_token_ids_list[i]
-
-        prompt_embeds = text_encoder(
-            text_input_ids.to(text_encoder.device),
-            output_hidden_states=True,
-        )
-
-        # We are only ALWAYS interested in the pooled output of the final text encoder.
-        # TODO(ryand): Document this logic more clearly.
-        pooled_prompt_embeds = prompt_embeds[0]
-        prompt_embeds = prompt_embeds.hidden_states[-2]
-        bs_embed, seq_len, _ = prompt_embeds.shape
-        prompt_embeds = prompt_embeds.view(bs_embed, seq_len, -1)
-        prompt_embeds_list.append(prompt_embeds)
-
-    prompt_embeds = torch.concat(prompt_embeds_list, dim=-1)
-    pooled_prompt_embeds = pooled_prompt_embeds.view(bs_embed, -1)
-    return prompt_embeds, pooled_prompt_embeds
-
 
 
 def train_forward(  # noqa: C901
@@ -235,13 +214,17 @@ def train_forward(  # noqa: C901
     # The VAE output may have been cached and included in the data_batch. If not, we calculate it here.
     latents = data_batch.get("vae_output", None)
     if latents is None:
-        latents = vae.encode(data_batch["image"].to(dtype=weight_dtype)).latent_dist.sample()
+        # Cast input image to same dtype as VAE
+        image = data_batch["image"].to(device=vae.device, dtype=vae.dtype)
+        latents = vae.encode(image).latent_dist.sample()
+        batch_size, num_channels, height, width = latents.shape
         latents = latents * vae.config.scaling_factor
-
+        latents = FluxPipeline._pack_latents(latents, batch_size, num_channels, height, width)
+    else:
+        batch_size, num_channels, height, width = latents.shape
     # Sample noise that we'll add to the latents.
     noise = torch.randn_like(latents)
 
-    batch_size = latents.shape[0]
     # Sample a random timestep for each image.
     timesteps = torch.randint(
         0,
@@ -253,6 +236,9 @@ def train_forward(  # noqa: C901
 
     # Add noise to the latents according to the noise magnitude at each timestep (this is the forward
     # diffusion process).
+    img_ids = FluxPipeline._prepare_latent_image_ids(
+        batch_size, height // 2, width // 2, latents.device, latents.dtype
+    )
     noisy_latents, noise, timesteps, sigmas = get_noisy_latents(noise_scheduler, latents, noise, timesteps, config)
 
     # def compute_time_ids(original_size, crops_coords_top_left):
@@ -275,37 +261,55 @@ def train_forward(  # noqa: C901
         prompt_embeds = data_batch["prompt_embeds"]
         pooled_prompt_embeds = data_batch["pooled_prompt_embeds"]
     else:
-        from diffusers.pipelines.flux.pipeline_flux import FluxPipeline
-        breakpoint()
-        prompt_embeds = FluxPipeline._get_t5_prompt_embeds(
+        prompt_embeds, pooled_prompt_embeds, text_ids = encode_prompt(
             data_batch["caption"],
-            num_images_per_prompt=1,
+            data_batch.get("caption_2", None),
+            tokenizer_1,
+            tokenizer_2,
+            text_encoder_1,
+            text_encoder_2,
             device=latents.device,
-            dtype=weight_dtype,
-        )
-
-        pooled_prompt_embeds = FluxPipeline._pooled_prompt_embeds(
-            data_batch["caption"], 
             num_images_per_prompt=1,
-            device=latents.device,
-            dtype=weight_dtype,
+            lora_scale=config.lora_scale,
         )
-
-
+        
     diffuser_conditions["text_embeds"] = pooled_prompt_embeds
+    guidance = torch.full((batch_size,), float(config.guidance_scale), device=latents.device)
     # Get the target for loss depending on the prediction type.
-    if config.prediction_type is not None:
-        # Set the prediction_type of scheduler if it's defined in config.
-        noise_scheduler.register_to_config(prediction_type=config.prediction_type)
-    if noise_scheduler.config.prediction_type == "epsilon":
-        target = noise
-    elif noise_scheduler.config.prediction_type == "v_prediction":
-        target = noise_scheduler.get_velocity(latents, noise, timesteps)
-    else:
-        raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
+    # if config.prediction_type is not None:
+    #     # Set the prediction_type of scheduler if it's defined in config.
+    #     noise_scheduler.register_to_config(prediction_type=config.prediction_type)
+    # if noise_scheduler.config.prediction_type == "epsilon":
+    #     target = noise
+    # elif noise_scheduler.config.prediction_type == "v_prediction":
+    #     target = noise_scheduler.get_velocity(latents, noise, timesteps)
+    # else:
+    #     raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
 
     # Predict the noise residual.
-    model_pred = diffuser(noisy_latents, timesteps, encoder_hidden_states)[0]
+    breakpoint()
+    # model_pred = diffuser(hidden_states=noisy_latents, timestep=timesteps / 1000, pooled_projections=pooled_prompt_embeds, encoder_hidden_states=prompt_embeds, guidance=guidance, txt_ids=text_ids, img_ids=img_ids, return_dict=False)[0]   
+    # noisy_latents.shape: torch.Size([4, 4, 1008, 64])
+    # timesteps.shape: torch.Size([4])
+    # pooled_prompt_embeds.shape: torch.Size([4, 768])
+    # prompt_embeds.shape: torch.Size([4, 512, 4096])
+    # guidance.shape: torch.Size([4])
+    # text_ids.shape: torch.Size([512, 3]
+    # img_ids.shape: torch.Size([1008, 3])
+
+
+    
+    
+    model_pred = diffuser(hidden_states=noisy_latents,
+                            timestep=timesteps / 1000,
+                            pooled_projections=pooled_prompt_embeds,
+                            encoder_hidden_states=prompt_embeds,
+                            guidance=guidance,
+                            txt_ids=text_ids,
+                            img_ids=img_ids,
+                            return_dict=False,
+                        )[0]
+
     target = noise - latents
 
     # min_snr_weights = None
