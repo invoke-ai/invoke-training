@@ -64,7 +64,7 @@ def _save_flux_lora_checkpoint(
     save_path = checkpoint_tracker.get_path(epoch=epoch, step=step)
 
     if lora_checkpoint_format == "invoke_peft":
-        model_type = ModelType.SD1_LORA_PEFT
+        model_type = ModelType.FLUX_LORA_PEFT
         save_flux_peft_checkpoint(
             Path(save_path), transformer=transformer, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2
         )

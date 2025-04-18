@@ -58,7 +58,7 @@ def load_models_flux(
     text_encoder_2: T5EncoderModel = pipeline.text_encoder_2
 
 
-    # Diffuser and Scheduler
+    # Transformer and Scheduler
     transformer: FluxTransformer2DModel = pipeline.transformer
     noise_scheduler: FlowMatchEulerDiscreteScheduler = pipeline.scheduler
 

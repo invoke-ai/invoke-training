@@ -7,6 +7,9 @@ class ModelType(Enum):
     # base_model, model_type, checkpoint_format). But, I haven't yet come up with a taxonomy that feels sufficiently
     # future-proof. So, for now, there is one enum for each file type that invoke-training can produce.
 
+    # A Flux LoRA model in PEFT format.
+    FLUX_LORA_PEFT = "FLUX_LORA_PEFT"
+
     # A Stable Diffusion 1.x LoRA model in Kohya format.
     SD1_LORA_KOHYA = "SD1_LORA_KOHYA"
     # A Stable Diffusion 1.x LoRA model in PEFT format.
