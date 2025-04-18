@@ -16,14 +16,17 @@ from invoke_training._shared.checkpoints.serialization import load_state_dict
 
 
 class PipelineVersionEnum(Enum):
-    SD = "SD"
-    SDXL = "SDXL"
+    FLUX = "FLUX"
 
 def load_pipeline(
     logger: logging.Logger,
     model_name_or_path: str = "black-forest-labs/FLUX.1-dev",
+    pipeline_version: PipelineVersionEnum = PipelineVersionEnum.FLUX,
 ) -> FluxPipeline:
-    pipeline = FluxPipeline.from_pretrained(model_name_or_path)
+    if pipeline_version == PipelineVersionEnum.FLUX:
+        pipeline = FluxPipeline.from_pretrained(model_name_or_path)
+    else:
+        raise ValueError(f"Invalid pipeline version: {pipeline_version}")
     return pipeline
 
 
@@ -41,6 +44,7 @@ def load_models_flux(
     pipeline: FluxPipeline = load_pipeline(
         logger=logger,
         model_name_or_path=model_name_or_path,
+        pipeline_version=PipelineVersionEnum.FLUX,
     )
 
     for token, embedding_path in base_embeddings.items():
@@ -55,7 +59,7 @@ def load_models_flux(
 
 
     # Diffuser and Scheduler
-    diffuser: FluxTransformer2DModel = pipeline.transformer
+    transformer: FluxTransformer2DModel = pipeline.transformer
     noise_scheduler: FlowMatchEulerDiscreteScheduler = pipeline.scheduler
 
     # Decoder 
@@ -65,19 +69,19 @@ def load_models_flux(
     text_encoder_1.requires_grad_(False)
     text_encoder_2.requires_grad_(False)
     vae.requires_grad_(False)
-    diffuser.requires_grad_(False)
+    transformer.requires_grad_(False)
 
     if dtype is not None:
         text_encoder_1 = text_encoder_1.to(dtype=dtype)
         text_encoder_2 = text_encoder_2.to(dtype=dtype)
         vae = vae.to(dtype=dtype)
-        diffuser = diffuser.to(dtype=dtype)
+        transformer = transformer.to(dtype=dtype)
 
     # Put models in 'eval' mode.
     text_encoder_1.eval()
     text_encoder_2.eval()
     vae.eval()
-    diffuser.eval()
+    transformer.eval()
 
-    return tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, diffuser
+    return tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, transformer
 
