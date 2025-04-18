@@ -101,49 +101,7 @@ class FluxLoraConfigGroup(UIConfigElement):
                     info="Whether to use gradient checkpointing to save memory at the expense of slower backward pass.",
                     interactive=True,
                 )
-            with gr.Row():
-                self.max_train_steps = gr.Number(
-                    label="Max Train Steps",
-                    info="Total number of training steps to perform. If provided, overrides max_train_epochs.",
-                    interactive=True,
-                    precision=0,
-                )
-                self.max_train_epochs = gr.Number(
-                    label="Max Train Epochs",
-                    info="Total number of training epochs to perform. Ignored if max_train_steps is provided.",
-                    interactive=True,
-                    precision=0,
-                )
-            with gr.Row():
-                self.save_every_n_steps = gr.Number(
-                    label="Save Every N Steps",
-                    info="Save a checkpoint every N steps. If None, then checkpoints will only be saved at the end of "
-                    "each epoch.",
-                    interactive=True,
-                    precision=0,
-                )
-                self.save_every_n_epochs = gr.Number(
-                    label="Save Every N Epochs",
-                    info="Save a checkpoint every N epochs. If None, then checkpoints will only be saved at the end of "
-                    "training.",
-                    interactive=True,
-                    precision=0,
-                )
-            with gr.Row():
-                self.validate_every_n_steps = gr.Number(
-                    label="Validate Every N Steps",
-                    info="Run validation every N steps. If None, then validation will only be run at the end of each "
-                    "epoch.",
-                    interactive=True,
-                    precision=0,
-                )
-                self.validate_every_n_epochs = gr.Number(
-                    label="Validate Every N Epochs",
-                    info="Run validation every N epochs. If None, then validation will only be run at the end of "
-                    "training.",
-                    interactive=True,
-                    precision=0,
-                )
+            # Training/saving/validating steps/epochs are handled by BasePipelineConfigGroup
 
         with gr.Tab("Advanced"):
             with gr.Column():
@@ -258,12 +216,6 @@ class FluxLoraConfigGroup(UIConfigElement):
             self.text_encoder_learning_rate,
             self.gradient_accumulation_steps,
             self.gradient_checkpointing,
-            self.max_train_steps,
-            self.max_train_epochs,
-            self.save_every_n_steps,
-            self.save_every_n_epochs,
-            self.validate_every_n_steps,
-            self.validate_every_n_epochs,
             self.lr_scheduler,
             self.lr_warmup_steps,
 
@@ -310,12 +262,6 @@ class FluxLoraConfigGroup(UIConfigElement):
                 self.text_encoder_learning_rate: config.text_encoder_learning_rate,
                 self.gradient_accumulation_steps: config.gradient_accumulation_steps,
                 self.gradient_checkpointing: config.gradient_checkpointing,
-                self.max_train_steps: config.max_train_steps,
-                self.max_train_epochs: config.max_train_epochs,
-                self.save_every_n_steps: config.save_every_n_steps,
-                self.save_every_n_epochs: config.save_every_n_epochs,
-                self.validate_every_n_steps: config.validate_every_n_steps,
-                self.validate_every_n_epochs: config.validate_every_n_epochs,
                 self.lr_scheduler: config.lr_scheduler,
                 self.lr_warmup_steps: config.lr_warmup_steps,
 
@@ -393,12 +339,7 @@ class FluxLoraConfigGroup(UIConfigElement):
             new_config.text_encoder_learning_rate = safe_pop(self.text_encoder_learning_rate, new_config.text_encoder_learning_rate)
             new_config.gradient_accumulation_steps = safe_pop(self.gradient_accumulation_steps, new_config.gradient_accumulation_steps)
             new_config.gradient_checkpointing = safe_pop(self.gradient_checkpointing, new_config.gradient_checkpointing)
-            new_config.max_train_steps = safe_pop(self.max_train_steps, new_config.max_train_steps)
-            new_config.max_train_epochs = safe_pop(self.max_train_epochs, new_config.max_train_epochs)
-            new_config.save_every_n_steps = safe_pop(self.save_every_n_steps, new_config.save_every_n_steps)
-            new_config.save_every_n_epochs = safe_pop(self.save_every_n_epochs, new_config.save_every_n_epochs)
-            new_config.validate_every_n_steps = safe_pop(self.validate_every_n_steps, new_config.validate_every_n_steps)
-            new_config.validate_every_n_epochs = safe_pop(self.validate_every_n_epochs, new_config.validate_every_n_epochs)
+            # Training/saving/validating steps/epochs are handled by BasePipelineConfigGroup
             new_config.lr_scheduler = safe_pop(self.lr_scheduler, new_config.lr_scheduler)
             new_config.lr_warmup_steps = safe_pop(self.lr_warmup_steps, new_config.lr_warmup_steps)
 

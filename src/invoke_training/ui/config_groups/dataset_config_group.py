@@ -199,7 +199,7 @@ class DatasetConfigGroup(UIConfigElement):
         self.hf_hub_image_caption_dataset_config_group = hf_hub_image_caption_dataset_config_group
 
         with gr.Group() as image_caption_jsonl_dataset_config_group:
-            self.hf_dir_image_caption_dataset_config = ImageCaptionJsonlDatasetConfigGroup()
+            self.image_caption_jsonl_dataset_config = ImageCaptionJsonlDatasetConfigGroup()
         self.image_caption_jsonl_dataset_config_group = image_caption_jsonl_dataset_config_group
 
         with gr.Group() as image_caption_dir_dataset_config_group:
@@ -250,7 +250,7 @@ class DatasetConfigGroup(UIConfigElement):
             )
         )
         update_dict.update(
-            self.hf_dir_image_caption_dataset_config.update_ui_components_with_config_data(
+            self.image_caption_jsonl_dataset_config.update_ui_components_with_config_data(
                 config if config.type == "IMAGE_CAPTION_JSONL_DATASET" else None
             )
         )
@@ -273,7 +273,7 @@ class DatasetConfigGroup(UIConfigElement):
         # TODO: Use orig_config.
 
         new_config_hf_hub = self.hf_hub_image_caption_dataset_config.update_config_with_ui_component_data(None, ui_data)
-        new_config_hf_dir = self.hf_dir_image_caption_dataset_config.update_config_with_ui_component_data(None, ui_data)
+        new_config_jsonl = self.image_caption_jsonl_dataset_config.update_config_with_ui_component_data(None, ui_data)
         new_config_image_caption_dir = self.image_caption_dir_dataset_config.update_config_with_ui_component_data(
             None, ui_data
         )
@@ -283,7 +283,7 @@ class DatasetConfigGroup(UIConfigElement):
         if type == "HF_HUB_IMAGE_CAPTION_DATASET":
             new_config = new_config_hf_hub
         elif type == "IMAGE_CAPTION_JSONL_DATASET":
-            new_config = self.image_caption_jsonl_dataset_config.update_config_with_ui_component_data(None, ui_data)
+            new_config = new_config_jsonl
         elif type == "IMAGE_CAPTION_DIR_DATASET":
             new_config = new_config_image_caption_dir
         elif type == "IMAGE_DIR_DATASET":
