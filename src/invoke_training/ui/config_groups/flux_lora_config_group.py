@@ -74,13 +74,12 @@ class FluxLoraConfigGroup(UIConfigElement):
         gr.Markdown("## General Training Configs")
         with gr.Tab("Core"):
             with gr.Row():
-                self.train_diffuser = gr.Checkbox(label="Train Diffuser", interactive=True)
-                self.train_text_encoder = gr.Checkbox(label="Train Text Encoder", interactive=True)
                 self.train_transformer = gr.Checkbox(label="Train Transformer", interactive=True)
+                self.train_text_encoder = gr.Checkbox(label="Train Text Encoder", interactive=True)
             with gr.Row():
-                self.diffuser_learning_rate = gr.Number(
-                    label="Diffuser Learning Rate",
-                    info="The diffuser learning rate. If None, then it is inherited from the base optimizer "
+                self.transformer_learning_rate = gr.Number(
+                    label="Transformer Learning Rate",
+                    info="The transformer learning rate. If None, then it is inherited from the base optimizer "
                     "learning rate.",
                     interactive=True,
                 )
@@ -253,10 +252,9 @@ class FluxLoraConfigGroup(UIConfigElement):
         components = [
             self.model,
             self.hf_variant,
-            self.train_diffuser,
-            self.train_text_encoder,
             self.train_transformer,
-            self.diffuser_learning_rate,
+            self.train_text_encoder,
+            self.transformer_learning_rate,
             self.text_encoder_learning_rate,
             self.gradient_accumulation_steps,
             self.gradient_checkpointing,
@@ -306,10 +304,9 @@ class FluxLoraConfigGroup(UIConfigElement):
             update_dict = {
                 self.model: config.model,
                 self.hf_variant: config.hf_variant,
-                self.train_diffuser: config.train_diffuser,
-                self.train_text_encoder: config.train_text_encoder,
                 self.train_transformer: config.train_transformer,
-                self.diffuser_learning_rate: config.diffuser_learning_rate,
+                self.train_text_encoder: config.train_text_encoder,
+                self.transformer_learning_rate: config.transformer_learning_rate,
                 self.text_encoder_learning_rate: config.text_encoder_learning_rate,
                 self.gradient_accumulation_steps: config.gradient_accumulation_steps,
                 self.gradient_checkpointing: config.gradient_checkpointing,
@@ -390,10 +387,9 @@ class FluxLoraConfigGroup(UIConfigElement):
             # Set basic properties
             new_config.model = safe_pop(self.model, new_config.model)
             new_config.hf_variant = safe_pop(self.hf_variant, new_config.hf_variant)
-            new_config.train_diffuser = safe_pop(self.train_diffuser, new_config.train_diffuser)
-            new_config.train_text_encoder = safe_pop(self.train_text_encoder, new_config.train_text_encoder)
             new_config.train_transformer = safe_pop(self.train_transformer, new_config.train_transformer)
-            new_config.diffuser_learning_rate = safe_pop(self.diffuser_learning_rate, new_config.diffuser_learning_rate)
+            new_config.train_text_encoder = safe_pop(self.train_text_encoder, new_config.train_text_encoder)
+            new_config.transformer_learning_rate = safe_pop(self.transformer_learning_rate, new_config.transformer_learning_rate)
             new_config.text_encoder_learning_rate = safe_pop(self.text_encoder_learning_rate, new_config.text_encoder_learning_rate)
             new_config.gradient_accumulation_steps = safe_pop(self.gradient_accumulation_steps, new_config.gradient_accumulation_steps)
             new_config.gradient_checkpointing = safe_pop(self.gradient_checkpointing, new_config.gradient_checkpointing)
