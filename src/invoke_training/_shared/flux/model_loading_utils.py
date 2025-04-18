@@ -22,33 +22,91 @@ def load_pipeline(
     logger: logging.Logger,
     model_name_or_path: str = "black-forest-labs/FLUX.1-dev",
     pipeline_version: PipelineVersionEnum = PipelineVersionEnum.FLUX,
+    transformer_path: str | None = None,
+    text_encoder_1_path: str | None = None,
+    text_encoder_2_path: str | None = None,
+    torch_dtype: torch.dtype | None = None,
 ) -> FluxPipeline:
-    if pipeline_version == PipelineVersionEnum.FLUX:
-        pipeline = FluxPipeline.from_pretrained(model_name_or_path)
-    else:
+    """Load a Flux pipeline with optional custom components from .safetensors files.
+    
+    Args:
+        logger: Logger instance
+        model_name_or_path: Base model path or repository
+        pipeline_version: Pipeline version (currently only FLUX supported)
+        transformer_path: Path to custom transformer .safetensors file
+        text_encoder_1_path: Path to custom CLIP text encoder .safetensors file
+        text_encoder_2_path: Path to custom T5 text encoder .safetensors file
+        torch_dtype: Desired dtype for the models
+        
+    Returns:
+        FluxPipeline: Configured pipeline with custom components if specified
+    """
+    if pipeline_version != PipelineVersionEnum.FLUX:
         raise ValueError(f"Invalid pipeline version: {pipeline_version}")
+
+    # Prepare kwargs for from_pretrained
+    kwargs = {
+        "torch_dtype": torch_dtype
+    }
+
+    # Add components only if custom paths are provided
+    if transformer_path is not None:
+        logger.info(f"Loading custom transformer from {transformer_path}")
+        kwargs["transformer"] = FluxTransformer2DModel.from_single_file(
+            transformer_path,
+            torch_dtype=torch_dtype
+        )
+
+    if text_encoder_1_path is not None:
+        logger.info(f"Loading custom CLIP text encoder from {text_encoder_1_path}")
+        kwargs["text_encoder"] = CLIPTextModel.from_single_file(
+            text_encoder_1_path,
+            torch_dtype=torch_dtype
+        )
+
+    if text_encoder_2_path is not None:
+        logger.info(f"Loading custom T5 text encoder from {text_encoder_2_path}")
+        kwargs["text_encoder_2"] = T5EncoderModel.from_single_file(
+            text_encoder_2_path,
+            torch_dtype=torch_dtype
+        )
+
+    # Load the pipeline with any custom components
+    pipeline = FluxPipeline.from_pretrained(model_name_or_path, **kwargs)
+
     return pipeline
 
 
 def load_models_flux(
     logger: logging.Logger,
     model_name_or_path: str = "black-forest-labs/FLUX.1-dev",
-    base_embeddings: dict[str, str] = None,
     dtype: torch.dtype | None = None,
+    transformer_path: str | None = None,
+    text_encoder_1_path: str | None = None,
+    text_encoder_2_path: str | None = None,
 ) -> tuple[CLIPTokenizer, FlowMatchEulerDiscreteScheduler, CLIPTextModel, AutoencoderKL, FluxTransformer2DModel]:
     """Load all models required for training from disk, transfer them to the
     target training device and cast their weight dtypes.
+
+    Args:
+        logger: Logger instance
+        model_name_or_path: Base model path or repository
+        dtype: Desired dtype for the models
+        transformer_path: Path to custom transformer .safetensors file
+        text_encoder_1_path: Path to custom CLIP text encoder .safetensors file
+        text_encoder_2_path: Path to custom T5 text encoder .safetensors file
     """
-    base_embeddings = base_embeddings or {}
 
     pipeline: FluxPipeline = load_pipeline(
         logger=logger,
         model_name_or_path=model_name_or_path,
         pipeline_version=PipelineVersionEnum.FLUX,
+        transformer_path=transformer_path,
+        text_encoder_1_path=text_encoder_1_path,
+        text_encoder_2_path=text_encoder_2_path,
+        torch_dtype=dtype,
     )
 
-    for token, embedding_path in base_embeddings.items():
-        pipeline.load_textual_inversion(embedding_path, token=token)
 
     # Tokenizers and text encoders.
     tokenizer_1: CLIPTokenizer = pipeline.tokenizer
@@ -57,13 +115,30 @@ def load_models_flux(
     tokenizer_2: T5Tokenizer = pipeline.tokenizer_2
     text_encoder_2: T5EncoderModel = pipeline.text_encoder_2
 
-
     # Transformer and Scheduler
     transformer: FluxTransformer2DModel = pipeline.transformer
     noise_scheduler: FlowMatchEulerDiscreteScheduler = pipeline.scheduler
 
     # Decoder 
     vae: AutoencoderKL = pipeline.vae
+
+    # Log component status
+    logger.info(f"Pipeline components loaded: tokenizer_1={tokenizer_1 is not None}, "
+                f"text_encoder_1={text_encoder_1 is not None}, "
+                f"tokenizer_2={tokenizer_2 is not None}, "
+                f"text_encoder_2={text_encoder_2 is not None}, "
+                f"transformer={transformer is not None}, "
+                f"vae={vae is not None}")
+
+    # Check for None components
+    if text_encoder_1 is None:
+        raise ValueError("text_encoder_1 failed to load. Check if you have access to the model repository and are properly authenticated.")
+    if text_encoder_2 is None:
+        raise ValueError("text_encoder_2 failed to load. Check if you have access to the model repository and are properly authenticated.")
+    if transformer is None:
+        raise ValueError("transformer failed to load. Check if you have access to the model repository and are properly authenticated.")
+    if vae is None:
+        raise ValueError("vae failed to load. Check if you have access to the model repository and are properly authenticated.")
 
     # Disable gradient calculation for model weights to save memory.
     text_encoder_1.requires_grad_(False)

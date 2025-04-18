@@ -254,8 +254,8 @@ def train_forward(  # noqa: C901
             prompt_2=data_batch.get("caption_2", None),
             clip_tokenizer=tokenizer_1,
             t5_tokenizer=tokenizer_2,
-            clip_encoder=text_encoder_1,
-            t5_encoder=text_encoder_2,
+            clip_text_encoder=text_encoder_1,
+            t5_text_encoder=text_encoder_2,
             device=latents.device,
             num_images_per_prompt=1,
             lora_scale=config.lora_scale,
@@ -315,7 +315,9 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
     tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, transformer = load_models_flux(
         logger=logger,
         model_name_or_path=config.model,
-        base_embeddings=config.base_embeddings,
+        transformer_path=config.transformer_path,
+        text_encoder_1_path=config.text_encoder_1_path,
+        text_encoder_2_path=config.text_encoder_2_path,
         dtype=weight_dtype,
     )
 

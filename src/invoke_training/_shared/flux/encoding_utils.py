@@ -1,6 +1,7 @@
 import torch
 from typing import Any, Callable, Dict, List, Optional, Union, Tuple
 from transformers import CLIPTextModel, CLIPTokenizer, T5EncoderModel, T5TokenizerFast
+from invoke_training.utils.logging import logger
 
 def get_clip_prompt_embeds(
     prompt: Union[str, List[str]],
@@ -31,7 +32,7 @@ def get_clip_prompt_embeds(
     # Check if truncation occurred
     if untruncated_ids.shape[-1] >= text_input_ids.shape[-1] and not torch.equal(text_input_ids, untruncated_ids):
         removed_text = tokenizer.batch_decode(untruncated_ids[:, tokenizer_max_length - 1 : -1])
-        print(f"Warning: The following part of your input was truncated: {removed_text}")
+        logger.warning(f"Warning: The following part of your input was truncated: {removed_text}")
 
     # Get prompt embeddings through the text encoder
     prompt_embeds = text_encoder(text_input_ids.to(device), output_hidden_states=False)
@@ -49,8 +50,8 @@ def get_clip_prompt_embeds(
 
 def get_t5_prompt_embeds(
     prompt: Union[str, List[str]],
-    t5_tokenizer: T5TokenizerFast,
-    t5_encoder: T5EncoderModel,
+    tokenizer: T5TokenizerFast,
+    text_encoder: T5EncoderModel,
     device: torch.device,
     num_images_per_prompt: int = 1,
     tokenizer_max_length: int = 512
@@ -60,27 +61,27 @@ def get_t5_prompt_embeds(
     batch_size = len(prompt)
 
     # Process text input with the tokenizer
-    text_inputs = t5_tokenizer(
+    text_inputs = tokenizer(
         prompt,
         padding="max_length",
-        max_length=t5_tokenizer_max_length,
+        max_length=tokenizer_max_length,
         truncation=True,
         return_length=False,
         return_overflowing_tokens=False,
         return_tensors="pt",
     )
     text_input_ids = text_inputs.input_ids
-    untruncated_ids = tokenizer_2(prompt, padding="longest", return_tensors="pt").input_ids
+    untruncated_ids = tokenizer(prompt, padding="longest", return_tensors="pt").input_ids
 
     # Check if truncation occurred
     if untruncated_ids.shape[-1] >= text_input_ids.shape[-1] and not torch.equal(text_input_ids, untruncated_ids):
-        removed_text = tokenizer_2.batch_decode(untruncated_ids[:, t5_tokenizer_max_length - 1 : -1])
-        print(f"Warning: The following part of your input was truncated: {removed_text}")
+        removed_text = tokenizer.batch_decode(untruncated_ids[:, tokenizer_max_length - 1 : -1])
+        logger.warning(f"Warning: The following part of your input was truncated: {removed_text}")
 
     # Get prompt embeddings through the text encoder
-    prompt_embeds = text_encoder_2(text_input_ids.to(device), output_hidden_states=False)[0]
+    prompt_embeds = text_encoder(text_input_ids.to(device), output_hidden_states=False)[0]
 
-    dtype = text_encoder_2.dtype
+    dtype = text_encoder.dtype
     prompt_embeds = prompt_embeds.to(dtype=dtype, device=device)
 
     # Get shape and duplicate for multiple generations
@@ -92,8 +93,8 @@ def get_t5_prompt_embeds(
 
 
 def handle_lora_scale(
-    text_encoder: CLIPTextModel,
-    text_encoder_2: T5EncoderModel,
+    clip_text_encoder: CLIPTextModel,
+    t5_text_encoder: T5EncoderModel,
     lora_scale: Optional[float] = None,
     use_peft_backend: bool = False
 ):
@@ -112,8 +113,8 @@ def handle_lora_scale(
 
 
 def reset_lora_scale(
-    text_encoder: CLIPTextModel,
-    text_encoder_2: T5EncoderModel,
+    clip_text_encoder: CLIPTextModel,
+    t5_text_encoder: T5EncoderModel,
     lora_scale: Optional[float] = None,
     lora_applied: bool = False,
     use_peft_backend: bool = False
@@ -135,8 +136,8 @@ def encode_prompt(
     prompt_2: Optional[Union[str, List[str]]],
     clip_tokenizer: CLIPTokenizer,
     t5_tokenizer: T5TokenizerFast,
-    clip_encoder: CLIPTextModel,
-    t5_encoder: T5EncoderModel,
+    clip_text_encoder: CLIPTextModel,
+    t5_text_encoder: T5EncoderModel,
     device: torch.device,
     num_images_per_prompt: int = 1,
     prompt_embeds: Optional[torch.FloatTensor] = None,
@@ -157,7 +158,10 @@ def encode_prompt(
     """
     # Apply LoRA scale if needed
     lora_applied = handle_lora_scale(
-        text_encoder, text_encoder_2, lora_scale, use_peft_backend
+        clip_text_encoder=clip_text_encoder, 
+        t5_text_encoder=t5_text_encoder, 
+        lora_scale=lora_scale, 
+        use_peft_backend=use_peft_backend
     )
     
     # If no pre-generated embeddings, create them
@@ -168,8 +172,8 @@ def encode_prompt(
         # Get CLIP pooled embeddings
         pooled_prompt_embeds = get_clip_prompt_embeds(
             prompt=prompt,
-            tokenizer=tokenizer,
-            text_encoder=text_encoder,
+            tokenizer=clip_tokenizer,
+            text_encoder=clip_text_encoder,
             device=device,
             num_images_per_prompt=num_images_per_prompt,
             tokenizer_max_length=clip_tokenizer_max_length
@@ -178,8 +182,8 @@ def encode_prompt(
         # Get T5 text embeddings
         prompt_embeds = get_t5_prompt_embeds(
             prompt=prompt_2,
-            t5_tokenizer=t5_tokenizer,
-            t5_encoder=t5_encoder,
+            tokenizer=t5_tokenizer,
+            text_encoder=t5_text_encoder,
             device=device,
             num_images_per_prompt=num_images_per_prompt,
             tokenizer_max_length=t5_tokenizer_max_length
@@ -187,11 +191,15 @@ def encode_prompt(
     
     # Reset LoRA scale if it was applied
     reset_lora_scale(
-        text_encoder, text_encoder_2, lora_scale, lora_applied, use_peft_backend
+        clip_text_encoder=clip_text_encoder, 
+        t5_text_encoder=t5_text_encoder, 
+        lora_scale=lora_scale, 
+        lora_applied=lora_applied, 
+        use_peft_backend=use_peft_backend
     )
     
     # Create text_ids placeholder for model
-    dtype = text_encoder.dtype if text_encoder is not None else text_encoder_2.dtype
+    dtype = clip_text_encoder.dtype if clip_text_encoder is not None else t5_text_encoder.dtype
     text_ids = torch.zeros(prompt_embeds.shape[1], 3).to(device=device, dtype=dtype)
     
     return prompt_embeds, pooled_prompt_embeds, text_ids

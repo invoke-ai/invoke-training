@@ -18,30 +18,14 @@ class FluxLoraConfig(BasePipelineConfig):
     file. (E.g. 'black-forest-labs/FLUX.1-dev', '/path/to/flux.1-dev.safetensors', etc. )
     """
 
-    hf_variant: str | None = None
-    """The Hugging Face Hub model variant to use. Only applies if `model` is a Hugging Face Hub model name.
-    """
+    transformer_path: str | None = None
+    """Path to the custom transformer .safetensors file. If not provided, the default black-forest-labs/FLUX.1-dev transformer will be used."""
 
-    # Note: Pydantic handles mutable default values well:
-    # https://docs.pydantic.dev/latest/concepts/models/#fields-with-non-hashable-default-values
-    base_embeddings: dict[str, str] = {}
-    """A mapping of embedding tokens to trained embedding file paths. These embeddings will be applied to the base model
-    before training.
+    text_encoder_1_path: str | None = None
+    """Path to the custom CLIP text encoder .safetensors file. If not provided, the default openai/clip-vit-base-patch32 text encoder will be used."""
 
-    Example:
-    ```
-    base_embeddings = {
-        "bruce_the_gnome": "/path/to/bruce_the_gnome.safetensors",
-    }
-    ```
-
-    Consider also adding the embedding tokens to the `data_loader.caption_prefix` if they are not already present in the
-    dataset captions.
-
-    Note that the embeddings themselves are not fine-tuned further, but they will impact the LoRA model training if they
-    are referenced in the dataset captions. The list of embeddings provided here should be the same list used at
-    generation time with the resultant LoRA model.
-    """
+    text_encoder_2_path: str | None = None
+    """Path to the custom T5 text encoder .safetensors file. If not provided, the default google/t5-v1_1-xl text encoder will be used."""
 
     lora_checkpoint_format: Literal["invoke_peft", "kohya"] = "invoke_peft"
     """The format of the LoRA checkpoint to save. Choose between `invoke_peft` or `kohya`."""
