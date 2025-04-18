@@ -1,7 +1,7 @@
+import logging
 import torch
 from typing import Any, Callable, Dict, List, Optional, Union, Tuple
 from transformers import CLIPTextModel, CLIPTokenizer, T5EncoderModel, T5TokenizerFast
-from invoke_training.utils.logging import logger
 
 def get_clip_prompt_embeds(
     prompt: Union[str, List[str]],
@@ -10,6 +10,7 @@ def get_clip_prompt_embeds(
     device: torch.device,
     num_images_per_prompt: int = 1,
     tokenizer_max_length: int = 77,
+    logger: logging.Logger | None = None
 ) -> torch.FloatTensor:
     """Encodes the prompt using CLIP text encoder and returns pooled embeddings."""
     prompt = [prompt] if isinstance(prompt, str) else prompt
@@ -32,7 +33,8 @@ def get_clip_prompt_embeds(
     # Check if truncation occurred
     if untruncated_ids.shape[-1] >= text_input_ids.shape[-1] and not torch.equal(text_input_ids, untruncated_ids):
         removed_text = tokenizer.batch_decode(untruncated_ids[:, tokenizer_max_length - 1 : -1])
-        logger.warning(f"Warning: The following part of your input was truncated: {removed_text}")
+        if logger is not None:
+            logger.warning(f"Warning: The following part of your input was truncated: {removed_text}")
 
     # Get prompt embeddings through the text encoder
     prompt_embeds = text_encoder(text_input_ids.to(device), output_hidden_states=False)
@@ -54,7 +56,8 @@ def get_t5_prompt_embeds(
     text_encoder: T5EncoderModel,
     device: torch.device,
     num_images_per_prompt: int = 1,
-    tokenizer_max_length: int = 512
+    tokenizer_max_length: int = 512,
+    logger: logging.Logger | None = None
 ) -> torch.FloatTensor:
     """Encodes the prompt using T5 text encoder."""
     prompt = [prompt] if isinstance(prompt, str) else prompt
@@ -76,7 +79,8 @@ def get_t5_prompt_embeds(
     # Check if truncation occurred
     if untruncated_ids.shape[-1] >= text_input_ids.shape[-1] and not torch.equal(text_input_ids, untruncated_ids):
         removed_text = tokenizer.batch_decode(untruncated_ids[:, tokenizer_max_length - 1 : -1])
-        logger.warning(f"Warning: The following part of your input was truncated: {removed_text}")
+        if logger is not None:
+            logger.warning(f"Warning: The following part of your input was truncated: {removed_text}")
 
     # Get prompt embeddings through the text encoder
     prompt_embeds = text_encoder(text_input_ids.to(device), output_hidden_states=False)[0]
@@ -145,7 +149,8 @@ def encode_prompt(
     lora_scale: Optional[float] = None,
     use_peft_backend: bool = False,
     clip_tokenizer_max_length: int = 77,
-    t5_tokenizer_max_length: int = 512
+    t5_tokenizer_max_length: int = 512,
+    logger: logging.Logger | None = None
 ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
     """
     Encodes the prompt using both CLIP and T5 text encoders.

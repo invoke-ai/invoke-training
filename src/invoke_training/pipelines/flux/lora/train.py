@@ -260,7 +260,8 @@ def train_forward(  # noqa: C901
             num_images_per_prompt=1,
             lora_scale=config.lora_scale,
             clip_tokenizer_max_length=config.clip_tokenizer_max_length,
-            t5_tokenizer_max_length=config.t5_tokenizer_max_length
+            t5_tokenizer_max_length=config.t5_tokenizer_max_length,
+            logger=logger
         )
         
     guidance = torch.full((batch_size,), float(config.guidance_scale), device=latents.device)
