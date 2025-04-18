@@ -1,3 +1,8 @@
+# Training mode: LoRA
+# Base model:    Flux.1-dev
+# Dataset:       Bruce the Gnome
+# GPU:           1 x 8GB
+
 type: FLUX_LORA
 seed: 1
 base_output_dir: output/bruce_the_gnome/flux_lora
