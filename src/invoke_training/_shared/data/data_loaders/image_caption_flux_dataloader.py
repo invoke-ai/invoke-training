@@ -3,17 +3,23 @@ import typing
 import torch
 from torch.utils.data import DataLoader
 
+from invoke_training._shared.data.data_loaders.image_caption_sd_dataloader import (
+    build_aspect_ratio_bucket_manager,
+    sd_image_caption_collate_fn as flux_image_caption_collate_fn,
+)
 from invoke_training._shared.data.datasets.build_dataset import (
     build_hf_hub_image_caption_dataset,
     build_image_caption_dir_dataset,
     build_image_caption_jsonl_dataset,
 )
 from invoke_training._shared.data.datasets.transform_dataset import TransformDataset
-from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import AspectRatioBucketBatchSampler
+from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import (
+    AspectRatioBucketBatchSampler,
+)
 from invoke_training._shared.data.transforms.caption_prefix_transform import CaptionPrefixTransform
 from invoke_training._shared.data.transforms.drop_field_transform import DropFieldTransform
-from invoke_training._shared.data.transforms.load_cache_transform import LoadCacheTransform
 from invoke_training._shared.data.transforms.flux_image_transform import FluxImageTransform
+from invoke_training._shared.data.transforms.load_cache_transform import LoadCacheTransform
 from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
 from invoke_training._shared.data.utils.aspect_ratio_bucket_manager import AspectRatioBucketManager
 from invoke_training.config.data.data_loader_config import AspectRatioBucketConfig, ImageCaptionFluxDataLoaderConfig
@@ -22,52 +28,6 @@ from invoke_training.config.data.dataset_config import (
     ImageCaptionDirDatasetConfig,
     ImageCaptionJsonlDatasetConfig,
 )
-
-
-def sd_image_caption_collate_fn(examples):
-    """A batch collation function for the image-caption SDXL data loader."""
-    out_examples = {
-        "id": [example["id"] for example in examples],
-    }
-
-    if "image" in examples[0]:
-        out_examples["image"] = torch.stack([example["image"] for example in examples])
-
-    if "original_size_hw" in examples[0]:
-        out_examples["original_size_hw"] = [example["original_size_hw"] for example in examples]
-
-    if "crop_top_left_yx" in examples[0]:
-        out_examples["crop_top_left_yx"] = [example["crop_top_left_yx"] for example in examples]
-
-    if "caption" in examples[0]:
-        out_examples["caption"] = [example["caption"] for example in examples]
-
-    if "loss_weight" in examples[0]:
-        out_examples["loss_weight"] = torch.tensor([example["loss_weight"] for example in examples])
-
-    if "prompt_embeds" in examples[0]:
-        out_examples["prompt_embeds"] = torch.stack([example["prompt_embeds"] for example in examples])
-        out_examples["pooled_prompt_embeds"] = torch.stack([example["pooled_prompt_embeds"] for example in examples])
-
-    if "text_encoder_output" in examples[0]:
-        out_examples["text_encoder_output"] = torch.stack([example["text_encoder_output"] for example in examples])
-
-    if "vae_output" in examples[0]:
-        out_examples["vae_output"] = torch.stack([example["vae_output"] for example in examples])
-
-    if "mask" in examples[0]:
-        out_examples["mask"] = torch.stack([example["mask"] for example in examples])
-
-    return out_examples
-
-
-def build_aspect_ratio_bucket_manager(config: AspectRatioBucketConfig):
-    return AspectRatioBucketManager.from_constraints(
-        target_resolution=config.target_resolution,
-        start_dim=config.start_dim,
-        end_dim=config.end_dim,
-        divisible_by=config.divisible_by,
-    )
 
 
 def build_image_caption_flux_dataloader(  # noqa: C901
@@ -79,10 +39,10 @@ def build_image_caption_flux_dataloader(  # noqa: C901
     vae_output_cache_dir: typing.Optional[str] = None,
     shuffle: bool = True,
 ) -> DataLoader:
-    """Construct a DataLoader for an image-caption dataset for Stable Diffusion XL.
+    """Construct a DataLoader for an image-caption dataset for Flux.1-dev.
 
     Args:
-        config (ImageCaptionSDDataLoaderConfig): The dataset config.
+        config (ImageCaptionFluxDataLoaderConfig): The dataset config.
         batch_size (int): The DataLoader batch size.
         text_encoder_output_cache_dir (str, optional): The directory where text encoder outputs are cached and should be
             loaded from. If set, then the TokenizeTransform will not be applied.
@@ -177,7 +137,7 @@ def build_image_caption_flux_dataloader(  # noqa: C901
         return DataLoader(
             dataset,
             shuffle=shuffle,
-            collate_fn=sd_image_caption_collate_fn,
+            collate_fn=flux_image_caption_collate_fn,
             batch_size=batch_size,
             num_workers=config.dataloader_num_workers,
         )
@@ -185,6 +145,6 @@ def build_image_caption_flux_dataloader(  # noqa: C901
         return DataLoader(
             dataset,
             batch_sampler=batch_sampler,
-            collate_fn=sd_image_caption_collate_fn,
+            collate_fn=flux_image_caption_collate_fn,
             num_workers=config.dataloader_num_workers,
         )
