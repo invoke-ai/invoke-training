@@ -317,6 +317,17 @@ class FluxLoraConfigGroup(UIConfigElement):
         self, orig_config: FluxLoraConfig, ui_data: dict[gr.components.Component, typing.Any]
     ) -> FluxLoraConfig:
         try:
+            # Handle the case where orig_config might be None
+            if orig_config is None:
+                from invoke_training.pipelines.flux.lora.config import FluxLoraConfig
+                from invoke_training.config.optimizer_config import AdamOptimizerConfig
+
+                # Create a default config
+                orig_config = FluxLoraConfig(
+                    model="black-forest-labs/FLUX.1-dev",
+                    optimizer=AdamOptimizerConfig(),
+                )
+
             new_config = orig_config.model_copy(deep=True)
 
             # Create a copy of ui_data to avoid modifying the original
@@ -384,6 +395,7 @@ class FluxLoraConfigGroup(UIConfigElement):
             # Update nested configs
             try:
                 data_loader_config_group = self.image_caption_sd_data_loader_config_group
+                # Handle the case where data_loader might be None
                 new_config.data_loader = data_loader_config_group.update_config_with_ui_component_data(
                     new_config.data_loader, ui_data_copy
                 )
@@ -397,6 +409,11 @@ class FluxLoraConfigGroup(UIConfigElement):
                 print(f"Error updating base pipeline config: {e}")
 
             try:
+                # Handle the case where optimizer might be None
+                if new_config.optimizer is None:
+                    from invoke_training.config.optimizer_config import AdamOptimizerConfig
+                    new_config.optimizer = AdamOptimizerConfig()
+
                 new_config.optimizer = self.optimizer_config_group.update_config_with_ui_component_data(
                     new_config.optimizer, ui_data_copy
                 )
