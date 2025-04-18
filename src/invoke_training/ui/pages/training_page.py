@@ -7,6 +7,7 @@ import gradio as gr
 import yaml
 
 from invoke_training.config.pipeline_config import PipelineConfig
+from invoke_training.pipelines.flux.lora.config import FluxLoraConfig
 from invoke_training.pipelines.stable_diffusion.lora.config import SdLoraConfig
 from invoke_training.pipelines.stable_diffusion.textual_inversion.config import SdTextualInversionConfig
 from invoke_training.pipelines.stable_diffusion_xl.finetune.config import SdxlFinetuneConfig
@@ -15,6 +16,7 @@ from invoke_training.pipelines.stable_diffusion_xl.lora_and_textual_inversion.co
     SdxlLoraAndTextualInversionConfig,
 )
 from invoke_training.pipelines.stable_diffusion_xl.textual_inversion.config import SdxlTextualInversionConfig
+from invoke_training.ui.config_groups.flux_lora_config_group import FluxLoraConfigGroup
 from invoke_training.ui.config_groups.sd_lora_config_group import SdLoraConfigGroup
 from invoke_training.ui.config_groups.sd_textual_inversion_config_group import SdTextualInversionConfigGroup
 from invoke_training.ui.config_groups.sdxl_finetune_config_group import SdxlFinetuneConfigGroup
@@ -69,7 +71,22 @@ class TrainingPage:
             css=custom_css,  # Use updated CSS
             title="invoke-training",
             analytics_enabled=False,
-            head='<link rel="icon" type="image/x-icon" href="/assets/favicon.png">',
+            head='''
+                <link rel="icon" type="image/x-icon" href="/assets/favicon.png">
+                <script>
+                    // Handle page refreshes more gracefully
+                    window.addEventListener('beforeunload', function(e) {
+                        // Cancel any pending requests
+                        if (window.gradio_client) {
+                            try {
+                                window.gradio_client.cancel_all();
+                            } catch (err) {
+                                console.error('Error cancelling requests:', err);
+                            }
+                        }
+                    });
+                </script>
+            ''',
         ) as app:
             self._header = Header()
             with gr.Tab(label="SD LoRA"):
@@ -123,6 +140,15 @@ class TrainingPage:
                     default_config_file_path=str(get_config_dir_path() / "sdxl_finetune_baroque_1x24gb.yaml"),
                     pipeline_config_cls=SdxlFinetuneConfig,
                     config_group_cls=SdxlFinetuneConfigGroup,
+                    run_training_cb=self._run_training,
+                    app=app,
+                )
+            with gr.Tab(label="Flux LoRA"):
+                PipelineTab(
+                    name="Flux LoRA",
+                    default_config_file_path=str(get_config_dir_path() / "flux_lora_1x8gb.yaml"),
+                    pipeline_config_cls=FluxLoraConfig,
+                    config_group_cls=FluxLoraConfigGroup,
                     run_training_cb=self._run_training,
                     app=app,
                 )
