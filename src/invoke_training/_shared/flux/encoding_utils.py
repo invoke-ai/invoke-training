@@ -130,7 +130,7 @@ def reset_lora_scale(
             unscale_lora_layers(text_encoder_2, lora_scale)
 
 # A lot of this code was adapted from:
-# https://github.com/huggingface/diffusers/blob/7b07f9812a58bfa96c06ed8ffe9e6b584286e2fd/examples/text_to_image/train_text_to_image_lora_sdxl.py#L470-L496
+# https://github.com/huggingface/diffusers/blob/ea81a4228d8ff16042c3ccaf61f0e588e60166cd/src/diffusers/pipelines/flux/pipeline_flux.py#L310-L387
 def encode_prompt(
     prompt: Union[str, List[str]],
     prompt_2: Optional[Union[str, List[str]]],
