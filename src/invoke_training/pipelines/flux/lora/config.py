@@ -8,15 +8,8 @@ from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
 from invoke_training.config.base_pipeline_config import BasePipelineConfig
 from invoke_training.config.data.data_loader_config import DreamboothSDDataLoaderConfig, ImageCaptionSDDataLoaderConfig
 from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
+from invoke_training._shared.flux.lora_checkpoint_utils import FLUX_DIFFUSER_TARGET_MODULES
 
-FLUX_DIFFUSER_TARGET_MODULES =[
-    "to_q",
-    "to_k",
-    "to_v",
-    "proj",
-    "proj_in",
-    "proj_out"
-]
 class FluxLoraConfig(BasePipelineConfig):
     type: Literal["FLUX_LORA"] = "FLUX_LORA"
 

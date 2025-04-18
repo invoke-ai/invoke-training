@@ -1,55 +1,46 @@
-# Training mode: Finetuning with LoRA
-# Base model:    Flux.1-dev
-# Dataset:       Bruce the Gnome
-# GPU:           1 x 8GB
-
-# Instructions:
-# 1. Download the dataset from https://huggingface.co/datasets/InvokeAI/nga-baroque.
-# 2. Update the `jsonl_path` field in the `data_loader` section to point to the `metadata.jsonl` file of the downloaded
-# dataset.
-
-# Notes:
-# This config file has been optimized for the primary goal of achieving reasonable results *quickly* for demo purposes.
-
 type: FLUX_LORA
 seed: 1
-base_output_dir: output/baroque/flux_lora
+base_output_dir: output/bruce_the_gnome/flux_lora
 
 optimizer:
   optimizer_type: AdamW
   learning_rate: 1e-4
 
-lr_warmup_steps: 100
-lr_scheduler: constant_with_warmup
-
+lr_warmup_steps: 1
+lr_scheduler: constant
+diffuser_learning_rate: 1e-4
 data_loader:
   type: IMAGE_CAPTION_SD_DATA_LOADER
   dataset:
     type: IMAGE_CAPTION_JSONL_DATASET
     # Update the jsonl_path field to point to the metadata.jsonl file of the downloaded dataset.
     jsonl_path: sample_data/bruce_the_gnome/data.jsonl
-  resolution: 512
+  resolution: 768
   aspect_ratio_buckets:
-    target_resolution: 512
-    start_dim: 256
-    end_dim: 768
-    divisible_by: 64
-  caption_prefix: "A stuffed gnome"
+    target_resolution: 768
+    start_dim: 384
+    end_dim: 1536
+    divisible_by: 128
+  caption_prefix: "bruce the gnome"
   dataloader_num_workers: 4
 
 # General
 model: black-forest-labs/FLUX.1-dev
 gradient_accumulation_steps: 1
-weight_dtype: float16
+weight_dtype: bfloat16
 gradient_checkpointing: True
 
-max_train_epochs: 5
-save_every_n_epochs: 1
-validate_every_n_epochs: 1
+max_train_steps: 500
+save_every_n_steps: 10
+validate_every_n_steps: 10
 
-max_checkpoints: 5
+max_checkpoints: 10
 validation_prompts:
   - A stuffed gnome at the beach with a pina colada in its hand.
   - A stuffed gnome reading a book in a cozy library.
-train_batch_size: 1
+  - A stuffed gnome sitting in a garden surrounded by colorful flowers and butterflies.
+  - Bruce the Gnome at the beach with a pina colada in its hand.
+  - Bruce the Gnome reading a book in a cozy library.
+  - Bruce the Gnome sitting in a garden surrounded by colorful flowers and butterflies.
+train_batch_size: 4
 num_validation_images_per_prompt: 3

@@ -8,23 +8,28 @@ from transformers import CLIPTextModel
 
 from invoke_training._shared.checkpoints.serialization import save_state_dict
 
-# Copied from https://github.com/huggingface/peft/blob/8665e2b5719faa4e4b91749ddec09442927b53e0/examples/stable_diffusion/train_dreambooth.py#L49C1-L65C87
 FLUX_DIFFUSER_TARGET_MODULES = [
-    "to_q",
-    "to_k",
-    "to_v",
-    "proj",
-    "proj_in",
-    "proj_out",
-    "conv",
-    "conv1",
-    "conv2",
-    "conv_shortcut",
-    "to_out.0",
-    "time_emb_proj",
-    "ff.net.2",
+# double blocks
+"attn.add_k_proj",
+"attn.add_q_proj",
+"attn.add_v_proj",
+"attn.to_add_out",
+"attn.to_k",
+"attn.to_q",
+"attn.to_v",
+"attn.to_out.0",
+"ff.net.0.proj",
+"ff.net.2.0",
+"ff_context.net.0.proj",
+"ff_context.net.2.0",
+# single blocks
+"attn.to_k",
+"attn.to_q",
+"attn.to_v",
+"proj_out",
 ]
-TEXT_ENCODER_TARGET_MODULES = ["fc1", "fc2", "q_proj", "k_proj", "v_proj", "out_proj"]
+
+TEXT_ENCODER_TARGET_MODULES = ["fc1", "fc2", "q_proj", "k_proj", "v_proj", "out_proj", ""]
 
 # Module lists copied from diffusers training script.
 # These module lists will produce lighter, less expressive, LoRA models than the non-light versions.

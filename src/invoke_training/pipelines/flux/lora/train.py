@@ -188,7 +188,17 @@ def get_noisy_latents(noise_scheduler: FlowMatchEulerDiscreteScheduler,
     noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
     return noisy_model_input.to(dtype), noise.to(dtype), timesteps.to(dtype), sigmas.to(dtype)
 
+def decode_latents(vae: AutoencoderKL, latents: torch.Tensor):
+    latents = latents / vae.config.scaling_factor
+    image = vae.decode(latents).sample
 
+    # tensor to image
+    image = image.cpu().numpy()
+    image = (image * 255).astype(np.uint8)
+    image = Image.fromarray(image)
+
+    image.save("image.png")
+    return image
 
 def train_forward(  # noqa: C901
     config: FluxLoraConfig,
@@ -286,8 +296,9 @@ def train_forward(  # noqa: C901
     #     raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
 
     # Predict the noise residual.
+    # 4 batch
     # model_pred = diffuser(hidden_states=noisy_latents, timestep=timesteps / 1000, pooled_projections=pooled_prompt_embeds, encoder_hidden_states=prompt_embeds, guidance=guidance, txt_ids=text_ids, img_ids=img_ids, return_dict=False)[0]   
-    # noisy_latents.shape: torch.Size([1, 1, 1024, 64])
+    # noisy_latents.shape: torch.Size([4, 4, 1024, 64])
     # timesteps.shape: torch.Size([4])
     # pooled_prompt_embeds.shape: torch.Size([4, 768])
     # prompt_embeds.shape: torch.Size([4, 512, 4096])
@@ -295,13 +306,29 @@ def train_forward(  # noqa: C901
     # text_ids.shape: torch.Size([512, 3]
     # img_ids.shape: torch.Size([1008, 3])
     
-    #TEMPORARY
-    noisy_latents=noisy_latents[0]
 
     #     hidden_states = torch.cat([encoder_hidden_states, hidden_states], dim=1)
     # RuntimeError: Tensors must have same number of dimensions: got 3 and 4
    
-    model_pred = diffuser(hidden_states=noisy_latents,
+    # 2 batch
+    # noisy_latents.shape torch.Size([2, 2  , 1024, 64])
+    # timesteps.shape torch.Size([2])
+    # pooled_prompt_embeds.shape torch.Size([2, 768])
+    # prompt_embeds.shape torch.Size([2, 512, 4096])
+    # guidance.shape torch.Size([2])
+    # text_ids.shape torch.Size([512, 3])
+    # img_ids.shape torch.Size([1008, 3])
+
+    # 1 batch
+    # noisy_latents.shape torch.Size([1, 1  , 1024, 64])
+    # timesteps.shape torch.Size([1])
+    # pooled_prompt_embeds.shape torch.Size([1, 768])
+    # prompt_embeds.shape torch.Size([1, 512, 4096])
+    # guidance.shape torch.Size([1])
+    # text_ids.shape torch.Size([512, 3])
+    # img_ids.shape torch.Size([1008, 3])
+
+    model_pred = diffuser(hidden_states=noisy_latents[0],
                             timestep=timesteps / 1000,
                             pooled_projections=pooled_prompt_embeds,
                             encoder_hidden_states=prompt_embeds,
@@ -310,8 +337,10 @@ def train_forward(  # noqa: C901
                             img_ids=latent_image_ids,
                             return_dict=False,
                         )[0]
-
+    ### Flow matching loss
     target = noise - latents
+
+
 
     # min_snr_weights = None
     # if min_snr_gamma is not None:
@@ -651,7 +680,7 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
     def validate(num_completed_epochs: int, num_completed_steps: int):
         accelerator.wait_for_everyone()
         if accelerator.is_main_process:
-            print("Validation not implemented for Flux")
+            print(type(diffuser))
             generate_validation_images_flux(
                 epoch=num_completed_epochs,
                 step=num_completed_steps,
