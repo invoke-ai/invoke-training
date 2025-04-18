@@ -6,6 +6,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
+from peft import PeftModel
 from typing import Literal, Optional, Union
 from torchvision import transforms
 
@@ -35,12 +36,11 @@ from invoke_training._shared.optimizer.optimizer_utils import initialize_optimiz
 from invoke_training._shared.flux.lora_checkpoint_utils import (
     save_flux_peft_checkpoint,
 )
-from invoke_training._shared.stable_diffusion.min_snr_weighting import compute_snr
 from invoke_training._shared.flux.encoding_utils import encode_prompt
 from invoke_training._shared.flux.model_loading_utils import load_models_flux
-from invoke_training._shared.stable_diffusion.tokenize_captions import tokenize_captions
 from invoke_training._shared.flux.validation import generate_validation_images_flux
-# from invoke_training._shared.utils.import_xformers import import_xformers
+from invoke_training._shared.stable_diffusion.tokenize_captions import tokenize_captions
+
 from invoke_training.config.data.data_loader_config import ImageCaptionSDDataLoaderConfig
 from invoke_training.pipelines.callbacks import ModelCheckpoint, ModelType, PipelineCallbacks, TrainingCheckpoint
 from invoke_training.pipelines.flux.lora.config import FluxLoraConfig
@@ -49,9 +49,9 @@ from invoke_training.pipelines.flux.lora.config import FluxLoraConfig
 def _save_flux_lora_checkpoint(
     epoch: int,
     step: int,
-    diffuser: peft.PeftModel | None,
-    text_encoder_1: peft.PeftModel | None,
-    text_encoder_2: peft.PeftModel | None,
+    transformer: peft.PeftModel | None,
+    text_encoder_1: CLIPTextModel | None,
+    text_encoder_2: T5EncoderModel | None,
     logger: logging.Logger,
     checkpoint_tracker: CheckpointTracker,
     callbacks: list[PipelineCallbacks] | None,
@@ -66,7 +66,7 @@ def _save_flux_lora_checkpoint(
     if lora_checkpoint_format == "invoke_peft":
         model_type = ModelType.SD1_LORA_PEFT
         save_flux_peft_checkpoint(
-            Path(save_path), diffuser=diffuser, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2
+            Path(save_path), transformer=transformer, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2
         )
     else:
         raise ValueError(f"Unsupported lora_checkpoint_format: '{lora_checkpoint_format}'.")
@@ -89,7 +89,7 @@ def _build_data_loader(
     shuffle: bool = True,
     sequential_batching: bool = False,
 ) -> DataLoader:
-    if data_loader_config.type == "IMAGE_CAPTION_SD_DATA_LOADER":
+    if data_loader_config.type == "IMAGE_CAPTION_FLUX_DATA_LOADER":
         return build_image_caption_flux_dataloader(
             config=data_loader_config,
             batch_size=batch_size,
@@ -99,18 +99,6 @@ def _build_data_loader(
             vae_output_cache_dir=vae_output_cache_dir,
             shuffle=shuffle,
         )
-    # elif data_loader_config.type == "DREAMBOOTH_SD_DATA_LOADER":
-    #     if use_masks:
-    #         raise NotImplementedError("Masks are not yet supported for DreamBooth data loaders.")
-    #     return build_dreambooth_sd_dataloader(
-    #         config=data_loader_config,
-    #         batch_size=batch_size,
-    #         text_encoder_output_cache_dir=text_encoder_output_cache_dir,
-    #         text_encoder_cache_field_to_output_field={"text_encoder_output": "text_encoder_output"},
-    #         vae_output_cache_dir=vae_output_cache_dir,
-    #         shuffle=shuffle,
-    #         sequential_batching=sequential_batching,
-    #     )
     else:
         raise ValueError(f"Unsupported data loader config type: '{data_loader_config.type}'.")
 
@@ -163,13 +151,27 @@ def cache_vae_outputs(cache_dir: str, data_loader: DataLoader, vae: AutoencoderK
 
 def get_noisy_latents(noise_scheduler: FlowMatchEulerDiscreteScheduler, 
                     latents: torch.Tensor, 
-                    noise: torch.Tensor, 
-                    timesteps: torch.Tensor,
                     config: FluxLoraConfig):
+    """ 
+    Generate random noise. Sample a random timestep from the distribution chosen by the config. 
+    Linearly interpolate between the latents and the noise based on timestep.
+    See Section 3.1 of https://arxiv.org/pdf/2403.03206v1 for timestep sampling.
+
+    Args:
+        noise_scheduler (FlowMatchEulerDiscreteScheduler): The noise scheduler.
+        latents (torch.Tensor): The latents.
+        config (FluxLoraConfig): The config.
+
+    Returns:
+        torch.Tensor: The noisy latents.
+
+    """
 
     batch_size = latents.shape[0]
     dtype = latents.dtype
     device = latents.device
+    noise = torch.randn_like(latents)
+
     if config.timestep_sampler == "shift":
         shift = config.discrete_flow_shift
         sigmas = torch.randn(batch_size, device=device)
@@ -185,6 +187,7 @@ def get_noisy_latents(noise_scheduler: FlowMatchEulerDiscreteScheduler,
     
     sigmas = sigmas.view(-1, 1, 1, 1)
 
+    # Linearly interpolate between the latents and the noise.
     noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
     return noisy_model_input.to(dtype), noise.to(dtype), timesteps.to(dtype), sigmas.to(dtype)
 
@@ -209,7 +212,7 @@ def train_forward(  # noqa: C901
     tokenizer_2: T5Tokenizer,
     text_encoder_1: CLIPTextModel,
     text_encoder_2: T5EncoderModel,
-    diffuser: FluxTransformer2DModel,
+    transformer: FluxTransformer2DModel | PeftModel,
     weight_dtype: torch.dtype,
     use_masks: bool = False,
     min_snr_gamma: float | None = None,
@@ -232,38 +235,14 @@ def train_forward(  # noqa: C901
     else:
         batch_size, num_channels, height, width = latents.shape
     # Sample noise that we'll add to the latents.
-    noise = torch.randn_like(latents)
-
-    # Sample a random timestep for each image.
-    timesteps = torch.randint(
-        0,
-        noise_scheduler.config.num_train_timesteps,
-        (batch_size,),
-        device=latents.device,
-    )
-    timesteps = timesteps.long()
-
-    # Add noise to the latents according to the noise magnitude at each timestep (this is the forward
-    # diffusion process).
     latent_image_ids = FluxPipeline._prepare_latent_image_ids(
         batch_size, height // 2, width // 2, latents.device, latents.dtype
     )
-    noisy_latents, noise, timesteps, sigmas = get_noisy_latents(noise_scheduler, latents, noise, timesteps, config)
 
-    # def compute_time_ids(original_size, crops_coords_top_left):
-    #     # Adapted from pipeline.StableDiffusionXLPipeline._get_add_time_ids
-    #     target_size = Resolution.parse(resolution).to_tuple()
-    #     add_time_ids = list(original_size + crops_coords_top_left + target_size)
-    #     add_time_ids = torch.tensor([add_time_ids])
-    #     add_time_ids = add_time_ids.to(accelerator.device, dtype=weight_dtype)
-    #     return add_time_ids
-
-    # add_time_ids = torch.cat(
-    #     [compute_time_ids(s, c) for s, c in zip(data_batch["original_size_hw"], data_batch["crop_top_left_yx"])]
-    # )
-    # diffuser_conditions = {"time_ids": add_time_ids}
-    diffuser_conditions = {}
-    
+    # Add noise to the latents according to the noise magnitude at each timestep (this is the forward
+    # diffusion process).
+    noisy_latents, noise, timesteps, sigmas = get_noisy_latents(noise_scheduler, latents, config)
+        
     # Get the text embedding for conditioning.
     # The text encoder output may have been cached and included in the data_batch. If not, we calculate it here.
     if "prompt_embeds" in data_batch:
@@ -282,53 +261,8 @@ def train_forward(  # noqa: C901
             lora_scale=config.lora_scale,
         )
         
-    diffuser_conditions["text_embeds"] = pooled_prompt_embeds
     guidance = torch.full((batch_size,), float(config.guidance_scale), device=latents.device)
-    # Get the target for loss depending on the prediction type.
-    # if config.prediction_type is not None:
-    #     # Set the prediction_type of scheduler if it's defined in config.
-    #     noise_scheduler.register_to_config(prediction_type=config.prediction_type)
-    # if noise_scheduler.config.prediction_type == "epsilon":
-    #     target = noise
-    # elif noise_scheduler.config.prediction_type == "v_prediction":
-    #     target = noise_scheduler.get_velocity(latents, noise, timesteps)
-    # else:
-    #     raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
-
-    # Predict the noise residual.
-    # 4 batch
-    # model_pred = diffuser(hidden_states=noisy_latents, timestep=timesteps / 1000, pooled_projections=pooled_prompt_embeds, encoder_hidden_states=prompt_embeds, guidance=guidance, txt_ids=text_ids, img_ids=img_ids, return_dict=False)[0]   
-    # noisy_latents.shape: torch.Size([4, 4, 1024, 64])
-    # timesteps.shape: torch.Size([4])
-    # pooled_prompt_embeds.shape: torch.Size([4, 768])
-    # prompt_embeds.shape: torch.Size([4, 512, 4096])
-    # guidance.shape: torch.Size([4])
-    # text_ids.shape: torch.Size([512, 3]
-    # img_ids.shape: torch.Size([1008, 3])
-    
-
-    #     hidden_states = torch.cat([encoder_hidden_states, hidden_states], dim=1)
-    # RuntimeError: Tensors must have same number of dimensions: got 3 and 4
-   
-    # 2 batch
-    # noisy_latents.shape torch.Size([2, 2  , 1024, 64])
-    # timesteps.shape torch.Size([2])
-    # pooled_prompt_embeds.shape torch.Size([2, 768])
-    # prompt_embeds.shape torch.Size([2, 512, 4096])
-    # guidance.shape torch.Size([2])
-    # text_ids.shape torch.Size([512, 3])
-    # img_ids.shape torch.Size([1008, 3])
-
-    # 1 batch
-    # noisy_latents.shape torch.Size([1, 1  , 1024, 64])
-    # timesteps.shape torch.Size([1])
-    # pooled_prompt_embeds.shape torch.Size([1, 768])
-    # prompt_embeds.shape torch.Size([1, 512, 4096])
-    # guidance.shape torch.Size([1])
-    # text_ids.shape torch.Size([512, 3])
-    # img_ids.shape torch.Size([1008, 3])
-
-    model_pred = diffuser(hidden_states=noisy_latents[0],
+    model_pred = transformer(hidden_states=noisy_latents[0],
                             timestep=timesteps / 1000,
                             pooled_projections=pooled_prompt_embeds,
                             encoder_hidden_states=prompt_embeds,
@@ -338,61 +272,15 @@ def train_forward(  # noqa: C901
                             return_dict=False,
                         )[0]
     ### Flow matching loss
+    # See here for more discussion:https://discuss.huggingface.co/t/meaning-of-vector-fields-in-flux-and-sd3-loss-function/106601
     target = noise - latents
 
-
-
-    # min_snr_weights = None
-    # if min_snr_gamma is not None:
-    #     # Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.
-    #     # Since we predict the noise instead of x_0, the original formulation is slightly changed.
-    #     # This is discussed in Section 4.2 of the same paper.
-
-    #     snr = compute_snr(noise_scheduler, timesteps)
-
-    #     # Note: We divide by snr here per Section 4.2 of the paper, since we are predicting the noise instead of x_0.
-    #     # w_t = min(1, SNR(t)) / SNR(t)
-    #     min_snr_weights = torch.clamp(snr, max=min_snr_gamma) / snr
-
-    #     if noise_scheduler.config.prediction_type == "epsilon":
-    #         pass
-    #     elif noise_scheduler.config.prediction_type == "v_prediction":
-    #         # Velocity objective needs to be floored to an SNR weight of one.
-    #         min_snr_weights = min_snr_weights + 1
-    #     else:
-    #         raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
-
     loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="none")
-    # if use_masks:
-    #     # TODO(ryand): As a future performance optimization, we may want to do this resizing in the dataloader.
-    #     mask = data_batch["mask"].to(dtype=loss.dtype, device=loss.device)
-    #     _, _, latent_h, latent_w = loss.shape
-    #     mask = torch.nn.functional.interpolate(mask, size=(latent_h, latent_w), mode="nearest")
-    #     loss = loss * mask
-
-    # Mean-reduce the loss along all dimensions except for the batch dimension.
     loss = loss.mean(dim=list(range(1, len(loss.shape))))
-    print("loss: ",loss)
-
-    # Apply min_snr_weights.
-    # if min_snr_weights is not None:
-    #     loss = loss * min_snr_weights
-
-    # Apply per-example loss weights.
-    # if "loss_weight" in data_batch:
-    #     loss = loss * data_batch["loss_weight"]
-
     return loss.mean()
 
 
 def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = None):  # noqa: C901
-    # Give a clear error message if an unsupported base model was chosen.
-    # TODO(ryan): Update this check to work with single-file SD checkpoints.
-    # check_base_model_version(
-    #     {BaseModelVersionEnum.STABLE_DIFFUSION_V1, BaseModelVersionEnum.STABLE_DIFFUSION_V2},
-    #     config.model,
-    #     local_files_only=False,
-    # )
 
     # Create a timestamped directory for all outputs.
     out_dir = os.path.join(config.base_output_dir, f"{time.time()}")
@@ -422,44 +310,41 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
     weight_dtype = get_dtype_from_str(config.weight_dtype)
 
     logger.info("Loading models.")
-    tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, diffuser = load_models_flux(
+    tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, transformer = load_models_flux(
         logger=logger,
         model_name_or_path=config.model,
         base_embeddings=config.base_embeddings,
         dtype=weight_dtype,
     )
-    # if config.xformers:
-    #     import_xformers()
-
-    #     # TODO(ryand): There is a known issue if xformers is enabled when training in mixed precision where xformers
-    #     # will fail because Q, K, V have different dtypes.
-    #     unet.enable_xformers_memory_efficient_attention()
-    #     vae.enable_xformers_memory_efficient_attention()
 
     # Prepare text encoder output cache.
-    # text_encoder_output_cache_dir_name = None
-    # if config.cache_text_encoder_outputs:
-    #     # TODO(ryand): Think about how to better check if it is safe to cache the text encoder outputs. Currently, there
-    #     # are a number of configurations that would cause variation in the text encoder outputs and should not be used
-    #     # with caching.
-    #     if config.train_text_encoder:
-    #         raise ValueError("'cache_text_encoder_outputs' and 'train_text_encoder' cannot both be True.")
+    text_encoder_output_cache_dir_name = None
+    if config.cache_text_encoder_outputs:
+        # TODO(ryand): Think about how to better check if it is safe to cache the text encoder outputs. Currently, there
+        # are a number of configurations that would cause variation in the text encoder outputs and should not be used
+        # with caching.
 
-    #     # We use a temporary directory for the cache. The directory will automatically be cleaned up when
-    #     # tmp_text_encoder_output_cache_dir is destroyed.
-    #     tmp_text_encoder_output_cache_dir = tempfile.TemporaryDirectory()
-    #     text_encoder_output_cache_dir_name = tmp_text_encoder_output_cache_dir.name
-    #     if accelerator.is_local_main_process:
-    #         # Only the main process should populate the cache.
-    #         logger.info(f"Generating text encoder output cache ('{text_encoder_output_cache_dir_name}').")
-    #         text_encoder.to(accelerator.device, dtype=weight_dtype)
-    #         cache_text_encoder_outputs(text_encoder_output_cache_dir_name, config, tokenizer, text_encoder)
-    #     # Move the text_encoder back to the CPU, because it is not needed for training.
-    #     text_encoder.to("cpu")
-    #     accelerator.wait_for_everyone()
-    # else:
-    text_encoder_1.to(accelerator.device, dtype=weight_dtype)
-    text_encoder_2.to(accelerator.device, dtype=weight_dtype)
+        # We use a temporary directory for the cache. The directory will automatically be cleaned up when
+        # tmp_text_encoder_output_cache_dir is destroyed.
+        tmp_text_encoder_output_cache_dir = tempfile.TemporaryDirectory()
+        text_encoder_output_cache_dir_name = tmp_text_encoder_output_cache_dir.name
+        if accelerator.is_local_main_process:
+            # Only the main process should populate the cache.
+            logger.info(f"Generating text encoder output cache ('{text_encoder_output_cache_dir_name}').")
+            text_encoder_1.to(accelerator.device, dtype=weight_dtype)
+            text_encoder_2.to(accelerator.device, dtype=weight_dtype)
+            # TODO(ryan): Move cache_text_encoder_outputs to a shared location so that it is not imported from another
+            # pipeline.
+            cache_text_encoder_outputs(
+                text_encoder_output_cache_dir_name, config, tokenizer_1, tokenizer_2, text_encoder_1, text_encoder_2
+            )
+        # Move the text_encoders back to the CPU, because they are not needed for training.
+        text_encoder_1.to("cpu")
+        text_encoder_2.to("cpu")
+        accelerator.wait_for_everyone()
+    else:
+        text_encoder_1.to(accelerator.device, dtype=weight_dtype)
+        text_encoder_2.to(accelerator.device, dtype=weight_dtype)
 
     # Prepare VAE output cache.
     # vae_output_cache_dir_name = None
@@ -491,7 +376,7 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
     else:
         vae.to(accelerator.device, dtype=weight_dtype)
 
-    diffuser.to(accelerator.device, dtype=weight_dtype)
+    transformer.to(accelerator.device, dtype=weight_dtype)
 
     # Add LoRA layers to the models being trained.
     trainable_param_groups = []
@@ -515,14 +400,14 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
         return peft_model
 
     # Add LoRA layers to the model.
-    if config.train_diffuser:
-        diffuser_lora_config = peft.LoraConfig(
+    if config.train_transformer:
+        transformer_lora_config = peft.LoraConfig(
             r=config.lora_rank_dim,
             # TODO(ryand): Diffusers uses lora_alpha=config.lora_rank_dim. Is that preferred?
             lora_alpha=1.0,
             target_modules=config.flux_lora_target_modules,
         )
-        diffuser = inject_lora_layers(diffuser, diffuser_lora_config, lr=config.diffuser_learning_rate)
+        transformer = inject_lora_layers(transformer, transformer_lora_config, lr=config.transformer_learning_rate)
 
     if config.train_text_encoder:
         text_encoder_lora_config = peft.LoraConfig(
@@ -538,20 +423,14 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
             text_encoder_2, text_encoder_lora_config, lr=config.text_encoder_learning_rate
         )
 
-    # # If mixed_precision is enabled, cast all trainable params to float32.
-    # if config.mixed_precision != "no":
-    #     for trainable_model in all_trainable_models:
-    #         for param in trainable_model.parameters():
-    #             if param.requires_grad:
-    #                 param.data = param.to(torch.float16)
-
+    # Enable gradient checkpointing.
     if config.gradient_checkpointing:
         # We want to enable gradient checkpointing in the UNet regardless of whether it is being trained.
-        diffuser.enable_gradient_checkpointing()
+        transformer.enable_gradient_checkpointing()
         # unet must be in train() mode for gradient checkpointing to take effect.
         # At the time of writing, the unet dropout probabilities default to 0, so putting the unet in train mode does
         # not change its forward behavior.
-        diffuser.train()
+        transformer.train()
         if config.train_text_encoder:
             text_encoder_1.gradient_checkpointing_enable()
             text_encoder_2.gradient_checkpointing_enable()
@@ -605,11 +484,12 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
     prepared_result: tuple[
         FluxTransformer2DModel,
         CLIPTextModel,
+        T5EncoderModel,
         torch.optim.Optimizer,
         torch.utils.data.DataLoader,
         torch.optim.lr_scheduler.LRScheduler,
     ] = accelerator.prepare(
-        diffuser,
+        transformer,
         text_encoder_1,
         text_encoder_2,
         optimizer,
@@ -625,7 +505,7 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
             True,
         ],
     )
-    diffuser, text_encoder_1, text_encoder_2, optimizer, data_loader, lr_scheduler = prepared_result
+    transformer, text_encoder_1, text_encoder_2, optimizer, data_loader, lr_scheduler = prepared_result
 
     if accelerator.is_main_process:
         accelerator.init_trackers("lora_training")
@@ -667,7 +547,7 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
             _save_flux_lora_checkpoint(
                 epoch=num_completed_epochs,
                 step=num_completed_steps,
-                diffuser=diffuser if config.train_transformer else None,
+                transformer=transformer if config.train_transformer else None,
                 text_encoder_1=text_encoder_1 if config.train_text_encoder else None,
                 text_encoder_2=text_encoder_2 if config.train_text_encoder else None,
                 logger=logger,
@@ -680,7 +560,6 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
     def validate(num_completed_epochs: int, num_completed_steps: int):
         accelerator.wait_for_everyone()
         if accelerator.is_main_process:
-            print(type(diffuser))
             generate_validation_images_flux(
                 epoch=num_completed_epochs,
                 step=num_completed_steps,
@@ -692,7 +571,7 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
                 tokenizer_1=tokenizer_1,
                 tokenizer_2=tokenizer_2,
                 noise_scheduler=noise_scheduler,
-                diffuser=diffuser,
+                transformer=transformer,
                 config=config,
                 logger=logger,
                 callbacks=callbacks,
@@ -704,7 +583,7 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
         for data_batch_idx, data_batch in enumerate(data_loader):
             # (Pdb) data_batch['image'].shape
             # torch.Size([4, 3, 512, 512])
-            with accelerator.accumulate(diffuser, text_encoder_1, text_encoder_2):
+            with accelerator.accumulate(transformer, text_encoder_1, text_encoder_2):
                 loss = train_forward(
                     config=config,
                     data_batch=data_batch,
@@ -714,7 +593,7 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
                     tokenizer_2=tokenizer_2,
                     text_encoder_1=text_encoder_1,
                     text_encoder_2=text_encoder_2,
-                    diffuser=diffuser,
+                    transformer=transformer,
                     weight_dtype=weight_dtype,
                     use_masks=config.use_masks,
                     min_snr_gamma=config.min_snr_gamma,
@@ -742,11 +621,11 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
                 log = {"train_loss": train_loss}
 
                 lrs = lr_scheduler.get_last_lr()
-                if config.train_diffuser:
+                if config.train_transformer:
                     # When training the UNet, it will always be the first parameter group.
-                    log["lr/diffuser"] = float(lrs[0])
+                    log["lr/transformer"] = float(lrs[0])
                     if config.optimizer.optimizer_type == "Prodigy":
-                        log["lr/d*lr/diffuser"] = optimizer.param_groups[0]["d"] * optimizer.param_groups[0]["lr"]
+                        log["lr/d*lr/transformer"] = optimizer.param_groups[0]["d"] * optimizer.param_groups[0]["lr"]
                 if config.train_text_encoder:
                     # When training the text encoder, it will always be the last parameter group.
                     log["lr/text_encoder"] = float(lrs[-1])

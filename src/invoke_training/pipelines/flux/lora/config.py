@@ -2,23 +2,23 @@ from typing import Annotated, Literal, Union
 
 from pydantic import Field, model_validator
 
-from invoke_training._shared.stable_diffusion.lora_checkpoint_utils import (
+from invoke_training._shared.flux.lora_checkpoint_utils import (
     TEXT_ENCODER_TARGET_MODULES,
 )
 from invoke_training.config.base_pipeline_config import BasePipelineConfig
-from invoke_training.config.data.data_loader_config import DreamboothSDDataLoaderConfig, ImageCaptionSDDataLoaderConfig
+from invoke_training.config.data.data_loader_config import ImageCaptionFluxDataLoaderConfig
 from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
-from invoke_training._shared.flux.lora_checkpoint_utils import FLUX_DIFFUSER_TARGET_MODULES
+from invoke_training._shared.flux.lora_checkpoint_utils import FLUX_TRANSFORMER_TARGET_MODULES
 
 class FluxLoraConfig(BasePipelineConfig):
     type: Literal["FLUX_LORA"] = "FLUX_LORA"
 
-    model: str = "runwayml/stable-diffusion-v1-5"
-    """Name or path of the base model to train. Can be in diffusers format, or a single stable diffusion checkpoint
-    file. (E.g. 'runwayml/stable-diffusion-v1-5', '/path/to/realisticVisionV51_v51VAE.safetensors', etc. )
+    model: str = "black-forest-labs/FLUX.1-dev"
+    """Name or path of the base model to train. Can be in diffusers format, or a single Flux.1-dev checkpoint
+    file. (E.g. 'black-forest-labs/FLUX.1-dev', '/path/to/flux.1-dev.safetensors', etc. )
     """
 
-    hf_variant: str | None = "fp16"
+    hf_variant: str | None = None
     """The Hugging Face Hub model variant to use. Only applies if `model` is a Hugging Face Hub model name.
     """
 
@@ -46,8 +46,8 @@ class FluxLoraConfig(BasePipelineConfig):
     lora_checkpoint_format: Literal["invoke_peft", "kohya"] = "invoke_peft"
     """The format of the LoRA checkpoint to save. Choose between `invoke_peft` or `kohya`."""
 
-    train_diffuser: bool = True
-    """Whether to add LoRA layers to the UNet model and train it.
+    train_transformer: bool = True
+    """Whether to add LoRA layers to the FluxTransformer2DModel and train it.
     """
 
     train_text_encoder: bool = False
@@ -61,8 +61,9 @@ class FluxLoraConfig(BasePipelineConfig):
     rate.
     """
 
-    diffuser_learning_rate: float | None = 1e-4
-    """The learning rate to use for the diffuser model. If set, this overrides the optimizer's default learning rate.
+    transformer_learning_rate: float | None = 1e-4
+    """The learning rate to use for the transformer model. If set, this overrides the optimizer's default learning
+    rate.
     """
 
     lr_scheduler: Literal[
@@ -88,11 +89,9 @@ class FluxLoraConfig(BasePipelineConfig):
     but also increases the size of the generated LoRA model.
     """
 
-    # The default list of target modules is based on
-    # https://github.com/huggingface/peft/blob/8665e2b5719faa4e4b91749ddec09442927b53e0/examples/stable_diffusion/train_dreambooth.py#L49C1-L65C87
-    flux_lora_target_modules: list[str] = FLUX_DIFFUSER_TARGET_MODULES
-    """The list of target modules to apply LoRA layers to in the UNet model. The default list will produce a highly
-    expressive LoRA model.
+    flux_lora_target_modules: list[str] = FLUX_TRANSFORMER_TARGET_MODULES
+    """The list of target modules to apply LoRA layers to in the FluxTransformer2DModel. The default list will produce a
+    highly expressive LoRA model.
 
     For a smaller and less expressive LoRA model, the following list is recommended:
     ```python
@@ -153,7 +152,7 @@ class FluxLoraConfig(BasePipelineConfig):
     - `"bfloat16"`: Use this mode if you have limited VRAM and a GPU that supports bfloat16.
     - `"float16"`: Use this mode if you have limited VRAM and a GPU that does not support bfloat16.
 
-    See also [`mixed_precision`][invoke_training.pipelines.stable_diffusion.lora.config.SdLoraConfig.mixed_precision].
+    See also [`mixed_precision`][invoke_training.pipelines.flux.lora.config.FluxLoraConfig.mixed_precision].
     """  # noqa: E501
 
     mixed_precision: Literal["no", "fp16", "bf16", "fp8"] = "no"
@@ -215,7 +214,7 @@ class FluxLoraConfig(BasePipelineConfig):
     """
 
     data_loader: Annotated[
-        Union[ImageCaptionSDDataLoaderConfig, DreamboothSDDataLoaderConfig], Field(discriminator="type")
+        Union[ImageCaptionFluxDataLoaderConfig], Field(discriminator="type")
     ]
 
     timestep_sampler: Literal["shift", "uniform"] = "shift"
@@ -233,12 +232,12 @@ class FluxLoraConfig(BasePipelineConfig):
     """The scale parameter for the LoRA layers. If set, this overrides the optimizer's default learning rate.
     """
 
-    guidance_scale: float = 3.5
+    guidance_scale: float = 1.0
     """The guidance scale for the Flux model.
     """
 
     train_transformer: bool = True
-    """Whether to train the Flux diffuser (FluxTransformer2DModel) model.
+    """Whether to train the Flux transformer (FluxTransformer2DModel) model.
     """
 
     @model_validator(mode="after")

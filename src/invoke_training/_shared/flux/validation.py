@@ -13,6 +13,7 @@ from diffusers import (
     FluxTransformer2DModel,
 )
 from transformers import CLIPTextModel, CLIPTokenizer
+from peft import PeftModel
 
 from invoke_training._shared.data.utils.resolution import Resolution
 from invoke_training.pipelines.callbacks import PipelineCallbacks, ValidationImage, ValidationImages
@@ -30,7 +31,7 @@ def generate_validation_images_flux(  # noqa: C901
     tokenizer_1: CLIPTokenizer,
     tokenizer_2: CLIPTokenizer,
     noise_scheduler: FlowMatchEulerDiscreteScheduler,
-    diffuser: FluxTransformer2DModel,
+    transformer: FluxTransformer2DModel | PeftModel,
     config: FluxLoraConfig,
     logger: logging.Logger,
     callbacks: list[PipelineCallbacks] | None = None,
@@ -40,7 +41,7 @@ def generate_validation_images_flux(  # noqa: C901
     """
     # Record original model devices so that we can restore this state after running the pipeline with CPU model
     # offloading.
-    diffuser_device = diffuser.device
+    transformer_device = transformer.device
     vae_device = vae.device
     text_encoder_1_device = text_encoder_1.device
     text_encoder_2_device = text_encoder_2.device
@@ -52,7 +53,7 @@ def generate_validation_images_flux(  # noqa: C901
         text_encoder_2=text_encoder_2,
         tokenizer=tokenizer_1,
         tokenizer_2=tokenizer_2,
-        transformer=diffuser,
+        transformer=transformer,
         scheduler=noise_scheduler,
     )
     if config.enable_cpu_offload_during_validation:
@@ -119,14 +120,11 @@ def generate_validation_images_flux(  # noqa: C901
     del pipeline
     torch.cuda.empty_cache()
 
-    # Remove hooks from models.
-    # HACK(ryand): Hooks get added when calling `pipeline.enable_model_cpu_offload(...)`, but
-    # `StableDiffusionXLPipeline` does not offer a way to clean them up so we have to do this manually.
-    for model in [diffuser, vae, text_encoder_1, text_encoder_2]:
+    for model in [transformer, vae, text_encoder_1, text_encoder_2]:
         remove_hook_from_module(model)
 
     # Restore models to original devices.
-    diffuser.to(diffuser_device)
+    transformer.to(transformer_device)
     vae.to(vae_device)
     text_encoder_1.to(text_encoder_1_device)
     text_encoder_2.to(text_encoder_2_device)
