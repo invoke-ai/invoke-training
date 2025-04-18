@@ -1,6 +1,6 @@
 import logging
 import os
-import typing
+import torch
 from enum import Enum
 
 import torch
@@ -51,22 +51,24 @@ def load_pipeline(
 
     # Add components only if custom paths are provided
     if transformer_path is not None:
-        logger.info(f"Loading custom transformer from {transformer_path}")
-        kwargs["transformer"] = FluxTransformer2DModel.from_single_file(
+        # load_model_from_file_or_pretrained(FluxTransformer2DModel, transformer_path, torch_dtype=torch_dtype, use_safetensors=True, subfolder="transformer")
+        kwargs["transformer"] = FluxTransformer2DModel.from_pretrained(
             transformer_path,
-            torch_dtype=torch_dtype
+            torch_dtype=torch_dtype,
         )
+        logger.info(f"Loading custom transformer from {transformer_path}")
+
 
     if text_encoder_1_path is not None:
         logger.info(f"Loading custom CLIP text encoder from {text_encoder_1_path}")
-        kwargs["text_encoder"] = CLIPTextModel.from_single_file(
+        kwargs["text_encoder"] = CLIPTextModel.from_pretrained(
             text_encoder_1_path,
             torch_dtype=torch_dtype
         )
 
     if text_encoder_2_path is not None:
         logger.info(f"Loading custom T5 text encoder from {text_encoder_2_path}")
-        kwargs["text_encoder_2"] = T5EncoderModel.from_single_file(
+        kwargs["text_encoder_2"] = T5EncoderModel.from_pretrained(
             text_encoder_2_path,
             torch_dtype=torch_dtype
         )

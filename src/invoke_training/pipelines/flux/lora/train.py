@@ -216,6 +216,7 @@ def train_forward(  # noqa: C901
     weight_dtype: torch.dtype,
     use_masks: bool = False,
     min_snr_gamma: float | None = None,
+    logger: logging.Logger = None,
 ) -> torch.Tensor:
     """Run the forward training pass for a single data_batch.
 
@@ -314,12 +315,12 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
 
     logger.info("Loading models.")
     tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, transformer = load_models_flux(
-        logger=logger,
         model_name_or_path=config.model,
         transformer_path=config.transformer_path,
         text_encoder_1_path=config.text_encoder_1_path,
         text_encoder_2_path=config.text_encoder_2_path,
         dtype=weight_dtype,
+        logger=logger,
     )
 
     # Prepare text encoder output cache.
