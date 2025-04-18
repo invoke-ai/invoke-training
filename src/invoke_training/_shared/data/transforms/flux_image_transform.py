@@ -10,7 +10,7 @@ from invoke_training._shared.data.utils.resize import resize_to_cover
 
 
 class FluxImageTransform:
-    """A transform that prepares and augments images for Stable Diffusion training."""
+    """A transform that prepares and augments images for Flux.1-dev training."""
 
     def __init__(
         self,
@@ -22,7 +22,7 @@ class FluxImageTransform:
         orig_size_field_name: str = "original_size_hw",
         crop_field_name: str = "crop_top_left_yx",
     ):
-        """Initialize SDImageTransform.
+        """Initialize FluxImageTransform.
 
         Args:
             image_field_names (list[str]): The field names of the images to be transformed.
