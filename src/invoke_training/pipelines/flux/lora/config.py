@@ -240,6 +240,14 @@ class FluxLoraConfig(BasePipelineConfig):
     """Whether to train the Flux transformer (FluxTransformer2DModel) model.
     """
 
+    clip_tokenizer_max_length: int = 77
+    """The maximum length of the CLIP tokenizer. The maximum length of the CLIP tokenizer is 77.
+    """
+
+    t5_tokenizer_max_length: int = 512
+    """The maximum length of the T5 tokenizer. The maximum length of the T5 tokenizer is 512.
+    """
+
     @model_validator(mode="after")
     def check_validation_prompts(self):
         if self.negative_validation_prompts is not None and len(self.negative_validation_prompts) != len(

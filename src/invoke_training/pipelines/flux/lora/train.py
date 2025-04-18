@@ -250,15 +250,17 @@ def train_forward(  # noqa: C901
         pooled_prompt_embeds = data_batch["pooled_prompt_embeds"]
     else:
         prompt_embeds, pooled_prompt_embeds, text_ids = encode_prompt(
-            data_batch["caption"],
-            data_batch.get("caption_2", None),
-            tokenizer_1,
-            tokenizer_2,
-            text_encoder_1,
-            text_encoder_2,
+            prompt=data_batch["caption"],
+            prompt_2=data_batch.get("caption_2", None),
+            clip_tokenizer=tokenizer_1,
+            t5_tokenizer=tokenizer_2,
+            clip_encoder=text_encoder_1,
+            t5_encoder=text_encoder_2,
             device=latents.device,
             num_images_per_prompt=1,
             lora_scale=config.lora_scale,
+            clip_tokenizer_max_length=config.clip_tokenizer_max_length,
+            t5_tokenizer_max_length=config.t5_tokenizer_max_length
         )
         
     guidance = torch.full((batch_size,), float(config.guidance_scale), device=latents.device)
