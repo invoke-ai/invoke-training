@@ -31,13 +31,7 @@ class FluxLoraConfigGroup(UIConfigElement):
                         type="text",
                         interactive=True,
                     )
-                    self.hf_variant = gr.Textbox(
-                        label="Variant",
-                        info="(optional) The Hugging Face hub model variant (e.g., fp16, fp32) to use if the model is a"
-                        " HF Hub model name.",
-                        type="text",
-                        interactive=True,
-                    )
+                    # Flux model doesn't use hf_variant
             with gr.Column(scale=3):
                 with gr.Tab("Training Outputs"):
                     self.base_pipeline_config_group = BasePipelineConfigGroup()
@@ -209,7 +203,6 @@ class FluxLoraConfigGroup(UIConfigElement):
         # Get our own components
         components = [
             self.model,
-            self.hf_variant,
             self.train_transformer,
             self.train_text_encoder,
             self.transformer_learning_rate,
@@ -255,7 +248,6 @@ class FluxLoraConfigGroup(UIConfigElement):
         try:
             update_dict = {
                 self.model: config.model,
-                self.hf_variant: config.hf_variant,
                 self.train_transformer: config.train_transformer,
                 self.train_text_encoder: config.train_text_encoder,
                 self.transformer_learning_rate: config.transformer_learning_rate,
@@ -343,7 +335,6 @@ class FluxLoraConfigGroup(UIConfigElement):
 
             # Set basic properties
             new_config.model = safe_pop(self.model, new_config.model)
-            new_config.hf_variant = safe_pop(self.hf_variant, new_config.hf_variant)
             new_config.train_transformer = safe_pop(self.train_transformer, new_config.train_transformer)
             new_config.train_text_encoder = safe_pop(self.train_text_encoder, new_config.train_text_encoder)
             new_config.transformer_learning_rate = safe_pop(self.transformer_learning_rate, new_config.transformer_learning_rate)
