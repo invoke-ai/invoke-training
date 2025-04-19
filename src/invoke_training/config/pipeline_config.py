@@ -11,9 +11,11 @@ from invoke_training.pipelines.stable_diffusion_xl.lora_and_textual_inversion.co
     SdxlLoraAndTextualInversionConfig,
 )
 from invoke_training.pipelines.stable_diffusion_xl.textual_inversion.config import SdxlTextualInversionConfig
+from invoke_training.pipelines.flux.lora.config import FluxLoraConfig
 
 PipelineConfig = Annotated[
     Union[
+        FluxLoraConfig,
         SdLoraConfig,
         SdxlLoraConfig,
         SdTextualInversionConfig,

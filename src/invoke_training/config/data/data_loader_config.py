@@ -70,6 +70,37 @@ class ImageCaptionSDDataLoaderConfig(ConfigBaseModel):
     """
 
 
+class ImageCaptionFluxDataLoaderConfig(ConfigBaseModel):
+    type: Literal["IMAGE_CAPTION_FLUX_DATA_LOADER"] = "IMAGE_CAPTION_FLUX_DATA_LOADER"
+
+    dataset: ImageCaptionDatasetConfig
+
+    aspect_ratio_buckets: AspectRatioBucketConfig | None = None
+
+    resolution: int | tuple[int, int] = 512
+    """The resolution for input images. Either a scalar integer representing the square resolution height and width, or
+    a (height, width) tuple. All of the images in the dataset will be resized to this resolution unless the
+    `aspect_ratio_buckets` config is set.
+    """
+
+    center_crop: bool = True
+    """If True, input images will be center-cropped to the target resolution.
+    If False, input images will be randomly cropped to the target resolution.
+    """
+
+    random_flip: bool = False
+    """Whether random flip augmentations should be applied to input images.
+    """
+
+    caption_prefix: str | None = None
+    """A prefix that will be prepended to all captions. If None, no prefix will be added.
+    """
+
+    dataloader_num_workers: int = 0
+    """Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
+    """
+
+
 class DreamboothSDDataLoaderConfig(ConfigBaseModel):
     type: Literal["DREAMBOOTH_SD_DATA_LOADER"] = "DREAMBOOTH_SD_DATA_LOADER"
 
