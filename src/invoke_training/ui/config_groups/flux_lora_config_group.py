@@ -320,7 +320,7 @@ class FluxLoraConfigGroup(UIConfigElement):
             # Handle the case where orig_config might be None
             if orig_config is None:
                 from invoke_training.pipelines.flux.lora.config import FluxLoraConfig
-                from invoke_training.config.optimizer_config import AdamOptimizerConfig
+                from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfig
 
                 # Create a default config
                 orig_config = FluxLoraConfig(
@@ -411,7 +411,7 @@ class FluxLoraConfigGroup(UIConfigElement):
             try:
                 # Handle the case where optimizer might be None
                 if new_config.optimizer is None:
-                    from invoke_training.config.optimizer_config import AdamOptimizerConfig
+                    from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfig
                     new_config.optimizer = AdamOptimizerConfig()
 
                 new_config.optimizer = self.optimizer_config_group.update_config_with_ui_component_data(
