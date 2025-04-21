@@ -27,7 +27,7 @@ class FluxLoraConfig(BasePipelineConfig):
     text_encoder_2_path: str | None = None
     """Path to the custom T5 text encoder .safetensors file. If not provided, the default google/t5-v1_1-xl text encoder will be used."""
 
-    lora_checkpoint_format: Literal["invoke_peft", "kohya"] = "invoke_peft"
+    lora_checkpoint_format: Literal["invoke_peft", "kohya"] = "kohya"
     """The format of the LoRA checkpoint to save. Choose between `invoke_peft` or `kohya`."""
 
     train_transformer: bool = True
