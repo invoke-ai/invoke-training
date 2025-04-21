@@ -35,6 +35,7 @@ from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDisk
 from invoke_training._shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training._shared.flux.lora_checkpoint_utils import (
     save_flux_peft_checkpoint,
+    save_flux_kohya_checkpoint,
 )
 from invoke_training._shared.flux.encoding_utils import encode_prompt
 from invoke_training._shared.flux.model_loading_utils import load_models_flux
@@ -66,6 +67,11 @@ def _save_flux_lora_checkpoint(
     if lora_checkpoint_format == "invoke_peft":
         model_type = ModelType.FLUX_LORA_PEFT
         save_flux_peft_checkpoint(
+            Path(save_path), transformer=transformer, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2
+        )
+    elif lora_checkpoint_format == "kohya":
+        model_type = ModelType.FLUX_LORA_KOHYA
+        save_flux_kohya_checkpoint(
             Path(save_path), transformer=transformer, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2
         )
     else:

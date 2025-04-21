@@ -7,6 +7,8 @@ from diffusers import FluxTransformer2DModel
 from transformers import CLIPTextModel
 
 from invoke_training._shared.checkpoints.serialization import save_state_dict
+from invoke_training._shared.checkpoints.lora_checkpoint_utils import save_multi_model_peft_checkpoint, load_multi_model_peft_checkpoint, _convert_peft_models_to_kohya_state_dict, _convert_peft_state_dict_to_kohya_state_dict
+
 
 FLUX_TRANSFORMER_TARGET_MODULES = [
 # double blocks
@@ -40,53 +42,33 @@ FLUX_PEFT_TRANSFORMER_KEY = "transformer"
 FLUX_PEFT_TEXT_ENCODER_1_KEY = "text_encoder_1"
 FLUX_PEFT_TEXT_ENCODER_2_KEY = "text_encoder_2"
 
+FLUX_KOHYA_TRANSFORMER_KEY = "lora_transformer"
+FLUX_KOHYA_TEXT_ENCODER_1_KEY = "lora_te1"
+FLUX_KOHYA_TEXT_ENCODER_2_KEY = "lora_te2"
 
-def save_multi_model_peft_checkpoint(checkpoint_dir: Path | str, models: dict[str, peft.PeftModel]):
-    """Save a dict of PeftModels to a checkpoint directory.
-
-    The `models` dict keys are used as the subdirectories for each individual model.
-
-    `load_multi_model_peft_checkpoint(...)` can be used to load the resultant checkpoint.
-    """
-    checkpoint_dir = Path(checkpoint_dir)
-    for model_key, peft_model in models.items():
-        assert isinstance(peft_model, peft.PeftModel)
-
-        # HACK(ryand): PeftModel.save_pretrained(...) expects the config to have a "_name_or_path" entry. For now, we
-        # set this to None here. This should be fixed upstream in PEFT.
-        if (
-            hasattr(peft_model, "config")
-            and isinstance(peft_model.config, dict)
-            and "_name_or_path" not in peft_model.config
-        ):
-            peft_model.config["_name_or_path"] = None
-
-        peft_model.save_pretrained(str(checkpoint_dir / model_key))
+FLUX_PEFT_TO_KOHYA_KEYS = {
+    FLUX_PEFT_TRANSFORMER_KEY: FLUX_KOHYA_TRANSFORMER_KEY,
+    FLUX_PEFT_TEXT_ENCODER_1_KEY: FLUX_KOHYA_TEXT_ENCODER_1_KEY,
+    FLUX_PEFT_TEXT_ENCODER_2_KEY: FLUX_KOHYA_TEXT_ENCODER_2_KEY,
+}
 
 
-def load_multi_model_peft_checkpoint(
+
+def save_flux_peft_checkpoint(
     checkpoint_dir: Path | str,
-    models: dict[str, torch.nn.Module],
-    is_trainable: bool = False,
-    raise_if_subdir_missing: bool = True,
-) -> dict[str, torch.nn.Module]:
-    """Load a multi-model PEFT checkpoint that was saved with `save_multi_model_peft_checkpoint(...)`."""
-    checkpoint_dir = Path(checkpoint_dir)
-    assert checkpoint_dir.exists()
+    transformer: peft.PeftModel | None,
+    text_encoder_1: peft.PeftModel | None,
+    text_encoder_2: peft.PeftModel | None,
+):
+    models = {}
+    if transformer is not None:
+        models[FLUX_PEFT_TRANSFORMER_KEY] = transformer
+    if text_encoder_1 is not None:
+        models[FLUX_PEFT_TEXT_ENCODER_1_KEY] = text_encoder_1
+    if text_encoder_2 is not None:
+        models[FLUX_PEFT_TEXT_ENCODER_2_KEY] = text_encoder_2
 
-    out_models = {}
-    for model_key, model in models.items():
-        dir_path: Path = checkpoint_dir / model_key
-        if dir_path.exists():
-            out_models[model_key] = peft.PeftModel.from_pretrained(model, dir_path, is_trainable=is_trainable)
-        else:
-            if raise_if_subdir_missing:
-                raise ValueError(f"'{dir_path}' does not exist.")
-            else:
-                # Pass through the model unchanged.
-                out_models[model_key] = model
-
-    return out_models
+    save_multi_model_peft_checkpoint(checkpoint_dir=checkpoint_dir, models=models)
 
 
 def load_flux_peft_checkpoint(
@@ -108,42 +90,53 @@ def load_flux_peft_checkpoint(
     ]
 
 
-def save_flux_peft_checkpoint(
-    checkpoint_dir: Path | str,
-    transformer: peft.PeftModel | None,
-    text_encoder_1: peft.PeftModel | None,
-    text_encoder_2: peft.PeftModel | None,
-):
-    models = {}
-    if transformer is not None:
-        models[FLUX_PEFT_TRANSFORMER_KEY] = transformer
-    if text_encoder_1 is not None:
-        models[FLUX_PEFT_TEXT_ENCODER_1_KEY] = text_encoder_1
-    if text_encoder_2 is not None:
-        models[FLUX_PEFT_TEXT_ENCODER_2_KEY] = text_encoder_2
+def save_flux_kohya_checkpoint(checkpoint_path: Path, transformer: peft.PeftModel | None, text_encoder_1: peft.PeftModel | None, text_encoder_2: peft.PeftModel | None):
+    kohya_prefixes = []
+    models = []
+    for kohya_prefix, peft_model in zip([FLUX_KOHYA_TRANSFORMER_KEY, FLUX_KOHYA_TEXT_ENCODER_1_KEY, FLUX_KOHYA_TEXT_ENCODER_2_KEY], [transformer, text_encoder_1, text_encoder_2]):
+        if peft_model is not None:
+            kohya_prefixes.append(kohya_prefix)
+            models.append(peft_model)
 
-    save_multi_model_peft_checkpoint(checkpoint_dir=checkpoint_dir, models=models)
+    kohya_state_dict = _convert_peft_models_to_kohya_state_dict(kohya_prefixes=kohya_prefixes, models=models)
+
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    save_state_dict(kohya_state_dict, checkpoint_path)
 
 
-def load_flux_peft_checkpoint(
-    checkpoint_dir: Path | str,
-    transformer: FluxTransformer2DModel,
-    text_encoder_1: CLIPTextModel,
-    text_encoder_2: CLIPTextModel,
-    is_trainable: bool = False,
-):
-    models = load_multi_model_peft_checkpoint(
-        checkpoint_dir=checkpoint_dir,
-        models={
-            FLUX_PEFT_TRANSFORMER_KEY: transformer,
-            FLUX_PEFT_TEXT_ENCODER_1_KEY: text_encoder_1,
-            FLUX_PEFT_TEXT_ENCODER_2_KEY: text_encoder_2,
-        },
-        is_trainable=is_trainable,
-        raise_if_subdir_missing=False,
-    )
+def convert_flux_peft_checkpoint_to_kohya_state_dict(
+    in_checkpoint_dir: Path,
+    out_checkpoint_file: Path,
+    dtype: torch.dtype = torch.float32,
+) -> dict[str, torch.Tensor]:
+    """Convert Flux PEFT models to a Kohya-format LoRA state dict."""
+    # Get the immediate subdirectories of the checkpoint directory. We assume that each subdirectory is a PEFT model.
+    peft_model_dirs = os.listdir(in_checkpoint_dir)
+    peft_model_dirs = [in_checkpoint_dir / d for d in peft_model_dirs]  # Convert to Path objects.
+    peft_model_dirs = [d for d in peft_model_dirs if d.is_dir()]  # Filter out non-directories.
 
-    return models[FLUX_PEFT_TRANSFORMER_KEY], models[FLUX_PEFT_TEXT_ENCODER_1_KEY], models[
-        FLUX_PEFT_TEXT_ENCODER_2_KEY
-    ]
-    
+    if len(peft_model_dirs) == 0:
+        raise ValueError(f"No checkpoint files found in directory '{in_checkpoint_dir}'.")
+
+    kohya_state_dict = {}
+    for peft_model_dir in peft_model_dirs:
+        if peft_model_dir.name in FLUX_PEFT_TO_KOHYA_KEYS:
+            kohya_prefix = FLUX_PEFT_TO_KOHYA_KEYS[peft_model_dir.name]
+        else:
+            raise ValueError(f"Unrecognized checkpoint directory: '{peft_model_dir}'.")
+
+        # Note: This logic to load the LoraConfig and weights directly is based on how it is done here:
+        # https://github.com/huggingface/peft/blob/8665e2b5719faa4e4b91749ddec09442927b53e0/src/peft/peft_model.py#L672-L689
+        # This may need to be updated in the future to support other adapter types (LoKr, LoHa, etc.).
+        # Also, I could see this interface breaking in the future.
+        lora_config = peft.LoraConfig.from_pretrained(peft_model_dir)
+        lora_weights = peft.utils.load_peft_weights(peft_model_dir, device="cpu")
+
+        kohya_state_dict.update(
+            _convert_peft_state_dict_to_kohya_state_dict(
+                lora_config=lora_config, peft_state_dict=lora_weights, prefix=kohya_prefix, dtype=dtype
+            )
+        )
+
+    save_state_dict(kohya_state_dict, out_checkpoint_file)
+
