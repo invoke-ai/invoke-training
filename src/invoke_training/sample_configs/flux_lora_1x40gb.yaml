@@ -5,7 +5,7 @@
 
 type: FLUX_LORA
 seed: 1
-base_output_dir: output/bruce_the_gnome/flux_lora
+base_output_dir: output/experiments/bruce_the_gnome/flux_lora
 
 optimizer:
   optimizer_type: AdamW
@@ -13,8 +13,8 @@ optimizer:
 
 lr_warmup_steps: 1
 lr_scheduler: constant
-transformer_learning_rate: 1e-4
-text_encoder_learning_rate: 1e-4
+transformer_learning_rate: 4e-4
+text_encoder_learning_rate: 4e-4
 
 data_loader:
   type: IMAGE_CAPTION_FLUX_DATA_LOADER
@@ -38,8 +38,8 @@ weight_dtype: bfloat16
 gradient_checkpointing: True
 
 max_train_steps: 350
-save_every_n_steps: 5
-validate_every_n_steps: 5
+save_every_n_steps: 50
+validate_every_n_steps: 50
 
 max_checkpoints: 10
 validation_prompts:

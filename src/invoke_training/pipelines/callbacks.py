@@ -9,6 +9,8 @@ class ModelType(Enum):
 
     # A Flux LoRA model in PEFT format.
     FLUX_LORA_PEFT = "FLUX_LORA_PEFT"
+    # A Flux LoRA model in Kohya format.
+    FLUX_LORA_KOHYA = "FLUX_LORA_KOHYA"
 
     # A Stable Diffusion 1.x LoRA model in Kohya format.
     SD1_LORA_KOHYA = "SD1_LORA_KOHYA"

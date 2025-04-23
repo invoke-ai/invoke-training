@@ -19,6 +19,7 @@ from invoke_training._shared.data.utils.resolution import Resolution
 from invoke_training.pipelines.callbacks import PipelineCallbacks, ValidationImage, ValidationImages
 from invoke_training.pipelines.flux.lora.config import FluxLoraConfig
 
+NUM_INFERENCE_STEPS = 20
 
 def generate_validation_images_flux(  # noqa: C901
     epoch: int,
@@ -88,7 +89,7 @@ def generate_validation_images_flux(  # noqa: C901
                     images.append(
                         pipeline(
                             positive_prompt,
-                            num_inference_steps=20,
+                            num_inference_steps=NUM_INFERENCE_STEPS,
                             generator=generator,
                             height=validation_resolution.height,
                             width=validation_resolution.width,
