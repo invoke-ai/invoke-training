@@ -34,7 +34,7 @@ FLUX_TRANSFORMER_TARGET_MODULES = [
 "proj_in",
 ]
 
-TEXT_ENCODER_TARGET_MODULES = ["fc1", "fc2", "q_proj", "k_proj", "v_proj", "out_proj", ""]
+TEXT_ENCODER_TARGET_MODULES = ["fc1", "fc2", "q_proj", "k_proj", "v_proj", "out_proj"]
 
 # Module lists copied from diffusers training script.
 # These module lists will produce lighter, less expressive, LoRA models than the non-light versions.
@@ -96,7 +96,7 @@ def load_flux_peft_checkpoint(
 def save_flux_kohya_checkpoint(checkpoint_path: Path, transformer: peft.PeftModel | None, text_encoder_1: peft.PeftModel | None, text_encoder_2: peft.PeftModel | None):
     kohya_prefixes = []
     models = []
-    for kohya_prefix, peft_model in zip([FLUX_KOHYA_TRANSFORMER_KEY, FLUX_KOHYA_TEXT_ENCODER_1_KEY, FLUX_KOHYA_TEXT_ENCODER_2_KEY], [transformer, text_encoder_1, text_encoder_2]):
+    for kohya_prefix, peft_model in zip([FLUX_KOHYA_TRANSFORMER_KEY, FLUX_KOHYA_TEXT_ENCODER_1_KEY], [transformer, text_encoder_1]):
         if peft_model is not None:
             kohya_prefixes.append(kohya_prefix)
             models.append(peft_model)

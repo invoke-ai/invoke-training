@@ -427,11 +427,9 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
             # init_lora_weights="gaussian",
             target_modules=config.text_encoder_lora_target_modules,
         )
+
         text_encoder_1 = inject_lora_layers(
             text_encoder_1, text_encoder_lora_config, lr=config.text_encoder_learning_rate
-        )
-        text_encoder_2 = inject_lora_layers(
-            text_encoder_2, text_encoder_lora_config, lr=config.text_encoder_learning_rate
         )
 
     # Enable gradient checkpointing.
@@ -444,19 +442,17 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
         transformer.train()
         if config.train_text_encoder:
             text_encoder_1.gradient_checkpointing_enable()
-            text_encoder_2.gradient_checkpointing_enable()
             # The text encoders must be in train() mode for gradient checkpointing to take effect. This should
             # already be the case, since we are training the text_encoders, be we do it explicitly to make it clear
             # that this is required.
             # At the time of writing, the text encoder dropout probabilities default to 0, so putting the text
             # encoders in train mode does not change their forward behavior.
             text_encoder_1.train()
-            text_encoder_2.train()
             # Set requires_grad = True on the first parameters of the text encoders. Without this, the text encoder
             # LoRA weights would have 0 gradients, and so would not get trained. Note that the set of
             # trainable_param_groups has already been populated - the embeddings will not be trained.
             text_encoder_1.text_model.embeddings.requires_grad_(True)
-            text_encoder_2.text_model.embeddings.requires_grad_(True)
+
     optimizer = initialize_optimizer(config.optimizer, trainable_param_groups)
 
     data_loader = _build_data_loader(

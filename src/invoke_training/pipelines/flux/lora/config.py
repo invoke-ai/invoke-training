@@ -88,7 +88,7 @@ class FluxLoraConfig(BasePipelineConfig):
     """
 
     text_encoder_lora_target_modules: list[str] = TEXT_ENCODER_TARGET_MODULES
-    """The list of target modules to apply LoRA layers to in the text encoder models. The default list will produce a
+    """The list of target modules to apply LoRA layers to in the CLIP text encoder. The default list will produce a
     highly expressive LoRA model.
 
     For a smaller and less expressive LoRA model, the following list is recommended:
@@ -149,10 +149,6 @@ class FluxLoraConfig(BasePipelineConfig):
     [`accelerate.Accelerator.mixed_precision`](https://huggingface.co/docs/accelerate/package_reference/accelerator#accelerate.Accelerator.mixed_precision)
     for more details.
     """  # noqa: E501
-
-    xformers: bool = False
-    """If true, use xformers for more efficient attention blocks.
-    """
 
     gradient_checkpointing: bool = False
     """Whether or not to use gradient checkpointing to save memory at the expense of a slower backward pass. Enabling

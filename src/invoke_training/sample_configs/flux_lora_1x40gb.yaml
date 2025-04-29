@@ -15,6 +15,7 @@ lr_warmup_steps: 1
 lr_scheduler: constant
 transformer_learning_rate: 4e-4
 text_encoder_learning_rate: 4e-4
+train_text_encoder: False
 
 data_loader:
   type: IMAGE_CAPTION_FLUX_DATA_LOADER
