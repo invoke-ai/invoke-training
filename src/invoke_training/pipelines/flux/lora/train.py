@@ -377,7 +377,6 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
             data_loader = _build_data_loader(
                 data_loader_config=config.data_loader,
                 batch_size=config.train_batch_size,
-                use_masks=config.use_masks,
                 shuffle=False,
                 sequential_batching=True,
             )
@@ -463,12 +462,9 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
     data_loader = _build_data_loader(
         data_loader_config=config.data_loader,
         batch_size=config.train_batch_size,
-        use_masks=config.use_masks,
         # text_encoder_output_cache_dir=text_encoder_output_cache_dir_name,
         # vae_output_cache_dir=vae_output_cache_dir_name,
     )
-
-    # log_aspect_ratio_buckets(logger=logger, batch_sampler=data_loader.batch_sampler)
 
     assert sum([config.max_train_steps is not None, config.max_train_epochs is not None]) == 1
     assert sum([config.save_every_n_steps is not None, config.save_every_n_epochs is not None]) == 1
@@ -607,7 +603,6 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
                     text_encoder_2=text_encoder_2,
                     transformer=transformer,
                     weight_dtype=weight_dtype,
-                    use_masks=config.use_masks,
                     min_snr_gamma=config.min_snr_gamma,
                 )
 

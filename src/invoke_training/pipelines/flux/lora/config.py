@@ -178,11 +178,6 @@ class FluxLoraConfig(BasePipelineConfig):
     See also 'validate_every_n_epochs'.
     """
 
-    negative_validation_prompts: list[str] | None = None
-    """A list of negative prompts that will be applied when generating validation images. If set, this list should have
-    the same length as 'validation_prompts'.
-    """
-
     num_validation_images_per_prompt: int = 4
     """The number of validation images to generate for each prompt in 'validation_prompts'. Careful, validation can
     become quite slow if this number is too large.
@@ -231,14 +226,3 @@ class FluxLoraConfig(BasePipelineConfig):
     t5_tokenizer_max_length: int = 512
     """The maximum length of the T5 tokenizer. The maximum length of the T5 tokenizer is 512.
     """
-
-    @model_validator(mode="after")
-    def check_validation_prompts(self):
-        if self.negative_validation_prompts is not None and len(self.negative_validation_prompts) != len(
-            self.validation_prompts
-        ):
-            raise ValueError(
-                f"The number of validation_prompts ({len(self.validation_prompts)}) must match the number of "
-                f"negative_validation_prompts ({len(self.negative_validation_prompts)})."
-            )
-        return self

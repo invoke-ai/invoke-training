@@ -1,3 +1,5 @@
+import os
+
 from invoke_training.config.pipeline_config import PipelineConfig
 from invoke_training.pipelines.flux.lora.train import train as train_flux_lora
 from invoke_training.pipelines._experimental.sd_dpo_lora.train import train as train_sd_ddpo_lora
@@ -20,6 +22,8 @@ def train(config: PipelineConfig, callbacks: list[PipelineCallbacks] | None = No
         assert isinstance(cb, PipelineCallbacks)
 
     if config.type == "FLUX_LORA":
+        # Disable tokenizer parallelism to avoid issues with tokenization
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"
         train_flux_lora(config, callbacks)
     elif config.type == "SD_LORA":
         train_sd_lora(config, callbacks)

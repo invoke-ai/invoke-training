@@ -75,8 +75,6 @@ def generate_validation_images_flux(  # noqa: C901
         for prompt_idx in range(len(config.validation_prompts)):
             positive_prompt = config.validation_prompts[prompt_idx]
             negative_prompt = None
-            if config.negative_validation_prompts is not None:
-                negative_prompt = config.negative_validation_prompts[prompt_idx]
             logger.info(f"Validation prompt {prompt_idx}, pos: '{positive_prompt}', neg: '{negative_prompt or ''}'")
 
             generator = torch.Generator(device=accelerator.device)
