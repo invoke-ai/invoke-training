@@ -65,7 +65,7 @@ class TrainingPage:
             css=custom_css,
             title="invoke-training",
             analytics_enabled=False,
-            head='''
+            head="""
                 <link rel="icon" type="image/x-icon" href="/assets/favicon.png">
                 <script>
                     window.addEventListener('beforeunload', function(e) {
@@ -78,7 +78,7 @@ class TrainingPage:
                         }
                     });
                 </script>
-            ''',
+            """,
         ) as app:
             self._header = Header()
             with gr.Tab(label="SD LoRA"):
@@ -138,7 +138,9 @@ class TrainingPage:
             with gr.Tab(label="Flux LoRA"):
                 PipelineTab(
                     name="Flux LoRA",
-                    default_config_file_path=str(get_config_dir_path() / "flux_lora_1x40gb.yaml"),  # Changed from 8gb to 40gb # noqa: E501
+                    default_config_file_path=str(
+                        get_config_dir_path() / "flux_lora_1x40gb.yaml"
+                    ),  # Changed from 8gb to 40gb # noqa: E501
                     pipeline_config_cls=FluxLoraConfig,
                     config_group_cls=FluxLoraConfigGroup,
                     run_training_cb=self._run_training,

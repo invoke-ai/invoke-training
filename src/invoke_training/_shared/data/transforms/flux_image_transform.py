@@ -43,7 +43,6 @@ class FluxImageTransform:
         for field_name in self.image_field_names:
             image_fields[field_name] = data[field_name]
 
-
         for field_name, image in image_fields.items():
             # Determine the target image resolution.
             if self.resolution is not None:

@@ -119,9 +119,11 @@ class PipelineTab:
             print(f"Error resetting config: {e}")
             # Return a minimal update dict to avoid UI errors
             if self._current_config:
-                return {self._config_yaml: yaml.safe_dump(
-                    self._current_config.model_dump(), default_flow_style=False, sort_keys=False
-                )}
+                return {
+                    self._config_yaml: yaml.safe_dump(
+                        self._current_config.model_dump(), default_flow_style=False, sort_keys=False
+                    )
+                }
             return {self._config_yaml: f"Error loading config: {e}"}
 
     def on_generate_config_button_click(self, data: dict):
@@ -150,9 +152,11 @@ class PipelineTab:
             print(f"Error generating config: {e}")
             # Return a minimal update dict to avoid UI errors
             if self._current_config:
-                return {self._config_yaml: yaml.safe_dump(
-                    self._current_config.model_dump(), default_flow_style=False, sort_keys=False
-                )}
+                return {
+                    self._config_yaml: yaml.safe_dump(
+                        self._current_config.model_dump(), default_flow_style=False, sort_keys=False
+                    )
+                }
             return {self._config_yaml: f"Error generating config: {e}"}
 
     def on_run_training_button_click(self):

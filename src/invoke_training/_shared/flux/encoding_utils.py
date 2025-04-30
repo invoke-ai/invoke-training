@@ -12,7 +12,7 @@ def get_clip_prompt_embeds(
     device: torch.device,
     num_images_per_prompt: int = 1,
     tokenizer_max_length: int = 77,
-    logger: logging.Logger | None = None
+    logger: logging.Logger | None = None,
 ) -> torch.FloatTensor:
     """Encodes the prompt using CLIP text encoder and returns pooled embeddings."""
     prompt = [prompt] if isinstance(prompt, str) else prompt
@@ -59,7 +59,7 @@ def get_t5_prompt_embeds(
     device: torch.device,
     num_images_per_prompt: int = 1,
     tokenizer_max_length: int = 512,
-    logger: logging.Logger | None = None
+    logger: logging.Logger | None = None,
 ) -> torch.FloatTensor:
     """Encodes the prompt using T5 text encoder."""
     prompt = [prompt] if isinstance(prompt, str) else prompt
@@ -102,11 +102,12 @@ def handle_lora_scale(
     clip_text_encoder: CLIPTextModel,
     t5_text_encoder: T5EncoderModel,
     lora_scale: Optional[float] = None,
-    use_peft_backend: bool = False
+    use_peft_backend: bool = False,
 ):
     """Handles LoRA scale adjustments for text encoders."""
     if lora_scale is not None and use_peft_backend:
         from peft.utils import scale_lora_layers
+
         # Apply LoRA scaling to text encoders if they exist
         if clip_text_encoder is not None:
             scale_lora_layers(clip_text_encoder, lora_scale)
@@ -122,7 +123,7 @@ def reset_lora_scale(
     t5_text_encoder: T5EncoderModel,
     lora_scale: Optional[float] = None,
     lora_applied: bool = False,
-    use_peft_backend: bool = False
+    use_peft_backend: bool = False,
 ):
     """Resets LoRA scale for text encoders if it was applied."""
     if lora_applied and use_peft_backend:
@@ -133,6 +134,7 @@ def reset_lora_scale(
             unscale_lora_layers(clip_text_encoder, lora_scale)
         if t5_text_encoder is not None:
             unscale_lora_layers(t5_text_encoder, lora_scale)
+
 
 # A lot of this code was adapted from:
 # https://github.com/huggingface/diffusers/blob/ea81a4228d8ff16042c3ccaf61f0e588e60166cd/src/diffusers/pipelines/flux/pipeline_flux.py#L310-L387
@@ -151,7 +153,7 @@ def encode_prompt(
     use_peft_backend: bool = False,
     clip_tokenizer_max_length: int = 77,
     t5_tokenizer_max_length: int = 512,
-    logger: logging.Logger | None = None
+    logger: logging.Logger | None = None,
 ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
     """
     Encodes the prompt using both CLIP and T5 text encoders.
@@ -167,7 +169,7 @@ def encode_prompt(
         clip_text_encoder=clip_text_encoder,
         t5_text_encoder=t5_text_encoder,
         lora_scale=lora_scale,
-        use_peft_backend=use_peft_backend
+        use_peft_backend=use_peft_backend,
     )
 
     # If no pre-generated embeddings, create them
@@ -182,7 +184,7 @@ def encode_prompt(
             text_encoder=clip_text_encoder,
             device=device,
             num_images_per_prompt=num_images_per_prompt,
-            tokenizer_max_length=clip_tokenizer_max_length
+            tokenizer_max_length=clip_tokenizer_max_length,
         )
 
         # Get T5 text embeddings
@@ -192,7 +194,7 @@ def encode_prompt(
             text_encoder=t5_text_encoder,
             device=device,
             num_images_per_prompt=num_images_per_prompt,
-            tokenizer_max_length=t5_tokenizer_max_length
+            tokenizer_max_length=t5_tokenizer_max_length,
         )
 
     # Reset LoRA scale if it was applied
@@ -201,7 +203,7 @@ def encode_prompt(
         t5_text_encoder=t5_text_encoder,
         lora_scale=lora_scale,
         lora_applied=lora_applied,
-        use_peft_backend=use_peft_backend
+        use_peft_backend=use_peft_backend,
     )
 
     # Create text_ids placeholder for model

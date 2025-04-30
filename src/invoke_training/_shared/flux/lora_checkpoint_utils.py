@@ -215,7 +215,7 @@ def convert_layer_weights(target_dict, source_dict, source_pattern, target_patte
     Returns:
         Tuple of (updated target_dict, updated source_dict)
     """
-    if (original_key := find_matching_key_prefix(source_dict, source_pattern)):
+    if original_key := find_matching_key_prefix(source_dict, source_pattern):
         # Find all keys matching the pattern
         keys_to_convert = [k for k in source_dict.keys() if original_key in k]
 

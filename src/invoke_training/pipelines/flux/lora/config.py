@@ -198,9 +198,7 @@ class FluxLoraConfig(BasePipelineConfig):
     feature to be used.
     """
 
-    data_loader: Annotated[
-        Union[ImageCaptionFluxDataLoaderConfig], Field(discriminator="type")
-    ]
+    data_loader: Annotated[Union[ImageCaptionFluxDataLoaderConfig], Field(discriminator="type")]
 
     timestep_sampler: Literal["shift", "uniform"] = "shift"
     """The timestep sampler to use. Choose between 'shift' or 'uniform'."""

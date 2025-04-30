@@ -9,6 +9,7 @@ from transformers import CLIPTextModel, CLIPTokenizer, T5EncoderModel, T5Tokeniz
 class PipelineVersionEnum(Enum):
     FLUX = "FLUX"
 
+
 def load_pipeline(
     logger: logging.Logger,
     model_name_or_path: str = "black-forest-labs/FLUX.1-dev",
@@ -35,9 +36,7 @@ def load_pipeline(
         raise ValueError(f"Invalid pipeline version: {pipeline_version}")
 
     # Prepare kwargs for from_pretrained
-    kwargs = {
-        "torch_dtype": torch_dtype
-    }
+    kwargs = {"torch_dtype": torch_dtype}
 
     # Add components only if custom paths are provided
     if transformer_path is not None:
@@ -49,20 +48,13 @@ def load_pipeline(
         )
         logger.info(f"Loading custom transformer from {transformer_path}")
 
-
     if text_encoder_1_path is not None:
         logger.info(f"Loading custom CLIP text encoder from {text_encoder_1_path}")
-        kwargs["text_encoder"] = CLIPTextModel.from_pretrained(
-            text_encoder_1_path,
-            torch_dtype=torch_dtype
-        )
+        kwargs["text_encoder"] = CLIPTextModel.from_pretrained(text_encoder_1_path, torch_dtype=torch_dtype)
 
     if text_encoder_2_path is not None:
         logger.info(f"Loading custom T5 text encoder from {text_encoder_2_path}")
-        kwargs["text_encoder_2"] = T5EncoderModel.from_pretrained(
-            text_encoder_2_path,
-            torch_dtype=torch_dtype
-        )
+        kwargs["text_encoder_2"] = T5EncoderModel.from_pretrained(text_encoder_2_path, torch_dtype=torch_dtype)
 
     # Load the pipeline with any custom components
     pipeline = FluxPipeline.from_pretrained(model_name_or_path, **kwargs)
@@ -100,7 +92,6 @@ def load_models_flux(
         torch_dtype=dtype,
     )
 
-
     # Tokenizers and text encoders.
     tokenizer_1: CLIPTokenizer = pipeline.tokenizer
     text_encoder_1: CLIPTextModel = pipeline.text_encoder
@@ -116,26 +107,35 @@ def load_models_flux(
     vae: AutoencoderKL = pipeline.vae
 
     # Log component status
-    logger.info(f"Pipeline components loaded: tokenizer_1={tokenizer_1 is not None}, "
-                f"text_encoder_1={text_encoder_1 is not None}, "
-                f"tokenizer_2={tokenizer_2 is not None}, "
-                f"text_encoder_2={text_encoder_2 is not None}, "
-                f"transformer={transformer is not None}, "
-                f"vae={vae is not None}")
+    logger.info(
+        f"Pipeline components loaded: tokenizer_1={tokenizer_1 is not None}, "
+        f"text_encoder_1={text_encoder_1 is not None}, "
+        f"tokenizer_2={tokenizer_2 is not None}, "
+        f"text_encoder_2={text_encoder_2 is not None}, "
+        f"transformer={transformer is not None}, "
+        f"vae={vae is not None}"
+    )
 
     # Check for None components
     if text_encoder_1 is None:
-        raise ValueError("text_encoder_1 failed to load. " \
-        "Check if you have access to the model repository and are properly authenticated.")
+        raise ValueError(
+            "text_encoder_1 failed to load. "
+            "Check if you have access to the model repository and are properly authenticated."
+        )
     if text_encoder_2 is None:
-        raise ValueError("text_encoder_2 failed to load. " \
-        "Check if you have access to the model repository and are properly authenticated.")
+        raise ValueError(
+            "text_encoder_2 failed to load. "
+            "Check if you have access to the model repository and are properly authenticated."
+        )
     if transformer is None:
-        raise ValueError("transformer failed to load. " \
-        "Check if you have access to the model repository and are properly authenticated.")
+        raise ValueError(
+            "transformer failed to load. "
+            "Check if you have access to the model repository and are properly authenticated."
+        )
     if vae is None:
-        raise ValueError("vae failed to load. " \
-        "Check if you have access to the model repository and are properly authenticated.")
+        raise ValueError(
+            "vae failed to load. Check if you have access to the model repository and are properly authenticated."
+        )
 
     # Disable gradient calculation for model weights to save memory.
     text_encoder_1.requires_grad_(False)
@@ -156,4 +156,3 @@ def load_models_flux(
     transformer.eval()
 
     return tokenizer_1, tokenizer_2, noise_scheduler, text_encoder_1, text_encoder_2, vae, transformer
-

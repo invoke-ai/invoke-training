@@ -152,6 +152,7 @@ def cache_vae_outputs(cache_dir: str, data_loader: DataLoader, vae: AutoencoderK
                 data["mask"] = data_batch["mask"][i]
             cache.save(data_batch["id"][i], data)
 
+
 def get_sigmas(noise_scheduler, timesteps, device, n_dim=4, dtype=torch.float32):
     sigmas = noise_scheduler.sigmas.to(device=device, dtype=dtype)
     schedule_timesteps = noise_scheduler.timesteps.to(device)
@@ -163,9 +164,8 @@ def get_sigmas(noise_scheduler, timesteps, device, n_dim=4, dtype=torch.float32)
         sigma = sigma.unsqueeze(-1)
     return sigma
 
-def get_noisy_latents(noise_scheduler: FlowMatchEulerDiscreteScheduler,
-                    latents: torch.Tensor,
-                    config: FluxLoraConfig):
+
+def get_noisy_latents(noise_scheduler: FlowMatchEulerDiscreteScheduler, latents: torch.Tensor, config: FluxLoraConfig):
     """
     Generate random noise. Sample a random timestep from the distribution chosen by the config.
     Linearly interpolate between the latents and the noise based on timestep.
@@ -205,6 +205,7 @@ def get_noisy_latents(noise_scheduler: FlowMatchEulerDiscreteScheduler,
     noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
     return noisy_model_input.to(dtype), noise.to(dtype), timesteps.to(dtype), sigmas.to(dtype)
 
+
 def decode_latents(vae: AutoencoderKL, latents: torch.Tensor):
     latents = latents / vae.config.scaling_factor
     image = vae.decode(latents).sample
@@ -216,6 +217,7 @@ def decode_latents(vae: AutoencoderKL, latents: torch.Tensor):
 
     image.save("image.png")
     return image
+
 
 def train_forward(  # noqa: C901
     config: FluxLoraConfig,
@@ -276,19 +278,20 @@ def train_forward(  # noqa: C901
             lora_scale=config.lora_scale,
             clip_tokenizer_max_length=config.clip_tokenizer_max_length,
             t5_tokenizer_max_length=config.t5_tokenizer_max_length,
-            logger=logger
+            logger=logger,
         )
 
     guidance = torch.full((batch_size,), float(config.guidance_scale), device=latents.device)
-    model_pred = transformer(hidden_states=noisy_latents[0],
-                            timestep=timesteps / 1000,
-                            pooled_projections=pooled_prompt_embeds,
-                            encoder_hidden_states=prompt_embeds,
-                            guidance=guidance,
-                            txt_ids=text_ids,
-                            img_ids=latent_image_ids,
-                            return_dict=False,
-                        )[0]
+    model_pred = transformer(
+        hidden_states=noisy_latents[0],
+        timestep=timesteps / 1000,
+        pooled_projections=pooled_prompt_embeds,
+        encoder_hidden_states=prompt_embeds,
+        guidance=guidance,
+        txt_ids=text_ids,
+        img_ids=latent_image_ids,
+        return_dict=False,
+    )[0]
     ### Flow matching loss
     # See here for more discussion:https://discuss.huggingface.co/t/meaning-of-vector-fields-in-flux-and-sd3-loss-function/106601
     target = noise - latents
@@ -299,7 +302,6 @@ def train_forward(  # noqa: C901
 
 
 def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = None):  # noqa: C901
-
     # Create a timestamped directory for all outputs.
     out_dir = os.path.join(config.base_output_dir, f"{time.time()}")
     ckpt_dir = os.path.join(out_dir, "checkpoints")

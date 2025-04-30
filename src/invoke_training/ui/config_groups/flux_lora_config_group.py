@@ -60,7 +60,6 @@ class FluxLoraConfigGroup(UIConfigElement):
                     precision=0,
                 )
 
-
         gr.Markdown("## General Training Configs")
         with gr.Tab("Core"):
             with gr.Row():
@@ -193,7 +192,6 @@ class FluxLoraConfigGroup(UIConfigElement):
             self.gradient_checkpointing,
             self.lr_scheduler,
             self.lr_warmup_steps,
-
             self.lora_rank_dim,
             self.min_snr_gamma,
             self.max_grad_norm,
@@ -235,7 +233,6 @@ class FluxLoraConfigGroup(UIConfigElement):
                 self.gradient_checkpointing: config.gradient_checkpointing,
                 self.lr_scheduler: config.lr_scheduler,
                 self.lr_warmup_steps: config.lr_warmup_steps,
-
                 self.lora_rank_dim: config.lora_rank_dim,
                 self.min_snr_gamma: config.min_snr_gamma,
                 self.max_grad_norm: config.max_grad_norm,
@@ -267,7 +264,11 @@ class FluxLoraConfigGroup(UIConfigElement):
                 print(f"Error updating optimizer config: {e}")
 
             try:
-                update_dict.update(self.image_caption_sd_data_loader_config_group.update_ui_components_with_config_data(config.data_loader))
+                update_dict.update(
+                    self.image_caption_sd_data_loader_config_group.update_ui_components_with_config_data(
+                        config.data_loader
+                    )
+                )
             except Exception as e:
                 print(f"Error updating data loader config: {e}")
 
@@ -281,10 +282,8 @@ class FluxLoraConfigGroup(UIConfigElement):
             # Return a minimal update dict to avoid UI errors
             return {self.model: config.model}
 
-    def update_config_with_ui_component_data( # noqa: C901
-        self,
-        orig_config: FluxLoraConfig,
-        ui_data: dict[gr.components.Component, typing.Any]
+    def update_config_with_ui_component_data(  # noqa: C901
+        self, orig_config: FluxLoraConfig, ui_data: dict[gr.components.Component, typing.Any]
     ) -> FluxLoraConfig:
         try:
             # Handle the case where orig_config might be None
@@ -347,10 +346,12 @@ class FluxLoraConfigGroup(UIConfigElement):
 
             # Preserve the target modules from the original config
             # These are not UI components but need to be preserved
-            if hasattr(orig_config, 'flux_lora_target_modules') and orig_config.flux_lora_target_modules:
+            if hasattr(orig_config, "flux_lora_target_modules") and orig_config.flux_lora_target_modules:
                 new_config.flux_lora_target_modules = orig_config.flux_lora_target_modules
-            if (hasattr(orig_config, 'text_encoder_lora_target_modules') and
-                orig_config.text_encoder_lora_target_modules):
+            if (
+                hasattr(orig_config, "text_encoder_lora_target_modules")
+                and orig_config.text_encoder_lora_target_modules
+            ):
                 new_config.text_encoder_lora_target_modules = orig_config.text_encoder_lora_target_modules
 
             # Handle validation prompts
@@ -385,6 +386,7 @@ class FluxLoraConfigGroup(UIConfigElement):
                 # Handle the case where optimizer might be None
                 if new_config.optimizer is None:
                     from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfig
+
                     new_config.optimizer = AdamOptimizerConfig()
 
                 new_config.optimizer = self.optimizer_config_group.update_config_with_ui_component_data(

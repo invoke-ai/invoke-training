@@ -21,6 +21,7 @@ from invoke_training.pipelines.flux.lora.config import FluxLoraConfig
 
 NUM_INFERENCE_STEPS = 20
 
+
 def generate_validation_images_flux(  # noqa: C901
     epoch: int,
     step: int,
