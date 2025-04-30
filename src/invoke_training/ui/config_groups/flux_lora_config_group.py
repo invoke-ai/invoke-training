@@ -69,17 +69,10 @@ class FluxLoraConfigGroup(UIConfigElement):
         with gr.Tab("Core"):
             with gr.Row():
                 self.train_transformer = gr.Checkbox(label="Train Transformer", interactive=True)
-                self.train_text_encoder = gr.Checkbox(label="Train Text Encoder", interactive=True)
             with gr.Row():
                 self.transformer_learning_rate = gr.Number(
                     label="Transformer Learning Rate",
                     info="The transformer learning rate. If None, then it is inherited from the base optimizer "
-                    "learning rate.",
-                    interactive=True,
-                )
-                self.text_encoder_learning_rate = gr.Number(
-                    label="Text Encoder Learning Rate",
-                    info="The text encoder learning rate. If None, then it is inherited from the base optimizer "
                     "learning rate.",
                     interactive=True,
                 )
@@ -204,9 +197,7 @@ class FluxLoraConfigGroup(UIConfigElement):
         components = [
             self.model,
             self.train_transformer,
-            self.train_text_encoder,
             self.transformer_learning_rate,
-            self.text_encoder_learning_rate,
             self.gradient_accumulation_steps,
             self.gradient_checkpointing,
             self.lr_scheduler,
@@ -249,9 +240,7 @@ class FluxLoraConfigGroup(UIConfigElement):
             update_dict = {
                 self.model: config.model,
                 self.train_transformer: config.train_transformer,
-                self.train_text_encoder: config.train_text_encoder,
                 self.transformer_learning_rate: config.transformer_learning_rate,
-                self.text_encoder_learning_rate: config.text_encoder_learning_rate,
                 self.gradient_accumulation_steps: config.gradient_accumulation_steps,
                 self.gradient_checkpointing: config.gradient_checkpointing,
                 self.lr_scheduler: config.lr_scheduler,

@@ -36,11 +36,7 @@ class TrainingPage:
         self._training_process = None
 
         # Define the theme with dark mode as default
-        theme = gr.themes.Default(
-            # Optional: Customize colors, fonts, etc.
-            # primary_hue=gr.themes.colors.blue,
-            # ...
-        )
+        theme = gr.themes.Default()
         theme._dark_mode = True
 
         # Custom CSS
@@ -54,8 +50,6 @@ class TrainingPage:
         .dark .tabs button[aria-selected="true"] {
             /* Keep selected tab text color override */
             color: #e6fd13 !important;
-            /* Optional: Remove background if --color-accent handles it */
-            /* background-color: transparent !important; */
         }
 
         /* Style checkbox checkmark in dark mode when checked */
@@ -68,15 +62,13 @@ class TrainingPage:
         # Pass the theme and css to gr.Blocks
         with gr.Blocks(
             theme=theme,
-            css=custom_css,  # Use updated CSS
+            css=custom_css,
             title="invoke-training",
             analytics_enabled=False,
             head='''
                 <link rel="icon" type="image/x-icon" href="/assets/favicon.png">
                 <script>
-                    // Handle page refreshes more gracefully
                     window.addEventListener('beforeunload', function(e) {
-                        // Cancel any pending requests
                         if (window.gradio_client) {
                             try {
                                 window.gradio_client.cancel_all();
@@ -146,7 +138,7 @@ class TrainingPage:
             with gr.Tab(label="Flux LoRA"):
                 PipelineTab(
                     name="Flux LoRA",
-                    default_config_file_path=str(get_config_dir_path() / "flux_lora_1x8gb.yaml"),
+                    default_config_file_path=str(get_config_dir_path() / "flux_lora_1x40gb.yaml"),  # Changed from 8gb to 40gb
                     pipeline_config_cls=FluxLoraConfig,
                     config_group_cls=FluxLoraConfigGroup,
                     run_training_cb=self._run_training,
