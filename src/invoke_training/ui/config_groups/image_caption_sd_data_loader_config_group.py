@@ -79,11 +79,16 @@ class ImageCaptionSDDataLoaderConfigGroup(UIConfigElement):
         return update_dict
 
     def update_config_with_ui_component_data(
-        self, orig_config: ImageCaptionSDDataLoaderConfig, ui_data: dict[gr.components.Component, Any]
+        self,
+        orig_config: ImageCaptionSDDataLoaderConfig,
+        ui_data: dict[gr.components.Component, Any],
     ) -> ImageCaptionSDDataLoaderConfig:
         # Handle the case where orig_config is None
         if orig_config is None:
-            from invoke_training.config.data.data_loader_config import ImageCaptionSDDataLoaderConfig, AspectRatioBucketConfig
+            from invoke_training.config.data.data_loader_config import (
+                AspectRatioBucketConfig,
+                ImageCaptionSDDataLoaderConfig,
+            )
             from invoke_training.config.data.dataset_config import ImageCaptionJsonlDatasetConfig
 
             # Create a default config
@@ -95,7 +100,7 @@ class ImageCaptionSDDataLoaderConfigGroup(UIConfigElement):
                 center_crop=False,
                 random_flip=True,
                 caption_prefix=None,
-                dataloader_num_workers=4
+                dataloader_num_workers=4,
             )
 
         new_config = orig_config.model_copy(deep=True)

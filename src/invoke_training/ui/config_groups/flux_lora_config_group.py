@@ -9,10 +9,6 @@ from invoke_training.ui.config_groups.image_caption_sd_data_loader_config_group 
 )
 from invoke_training.ui.config_groups.optimizer_config_group import OptimizerConfigGroup
 from invoke_training.ui.config_groups.ui_config_element import UIConfigElement
-from invoke_training.ui.utils.prompts import (
-    convert_pos_neg_prompts_to_ui_prompts,
-    convert_ui_prompts_to_pos_neg_prompts,
-)
 from invoke_training.ui.utils.utils import get_typing_literal_options
 
 
@@ -285,14 +281,16 @@ class FluxLoraConfigGroup(UIConfigElement):
             # Return a minimal update dict to avoid UI errors
             return {self.model: config.model}
 
-    def update_config_with_ui_component_data(
-        self, orig_config: FluxLoraConfig, ui_data: dict[gr.components.Component, typing.Any]
+    def update_config_with_ui_component_data( # noqa: C901
+        self,
+        orig_config: FluxLoraConfig,
+        ui_data: dict[gr.components.Component, typing.Any]
     ) -> FluxLoraConfig:
         try:
             # Handle the case where orig_config might be None
             if orig_config is None:
-                from invoke_training.pipelines.flux.lora.config import FluxLoraConfig
                 from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfig
+                from invoke_training.pipelines.flux.lora.config import FluxLoraConfig
 
                 # Create a default config
                 orig_config = FluxLoraConfig(
@@ -317,9 +315,15 @@ class FluxLoraConfigGroup(UIConfigElement):
             new_config.model = safe_pop(self.model, new_config.model)
             new_config.train_transformer = safe_pop(self.train_transformer, new_config.train_transformer)
             new_config.train_text_encoder = safe_pop(self.train_text_encoder, new_config.train_text_encoder)
-            new_config.transformer_learning_rate = safe_pop(self.transformer_learning_rate, new_config.transformer_learning_rate)
-            new_config.text_encoder_learning_rate = safe_pop(self.text_encoder_learning_rate, new_config.text_encoder_learning_rate)
-            new_config.gradient_accumulation_steps = safe_pop(self.gradient_accumulation_steps, new_config.gradient_accumulation_steps)
+            new_config.transformer_learning_rate = safe_pop(
+                self.transformer_learning_rate, new_config.transformer_learning_rate
+            )
+            new_config.text_encoder_learning_rate = safe_pop(
+                self.text_encoder_learning_rate, new_config.text_encoder_learning_rate
+            )
+            new_config.gradient_accumulation_steps = safe_pop(
+                self.gradient_accumulation_steps, new_config.gradient_accumulation_steps
+            )
             new_config.gradient_checkpointing = safe_pop(self.gradient_checkpointing, new_config.gradient_checkpointing)
             # Training/saving/validating steps/epochs are handled by BasePipelineConfigGroup
             new_config.lr_scheduler = safe_pop(self.lr_scheduler, new_config.lr_scheduler)
