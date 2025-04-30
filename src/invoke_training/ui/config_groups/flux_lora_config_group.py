@@ -167,11 +167,6 @@ class FluxLoraConfigGroup(UIConfigElement):
                     "contain masks for this feature to be used.",
                     interactive=True,
                 )
-                self.xformers = gr.Checkbox(
-                    label="Use xformers",
-                    info="If true, use xformers for more efficient attention blocks.",
-                    interactive=True,
-                )
                 self.prediction_type = gr.Dropdown(
                     label="Prediction Type",
                     choices=["epsilon", "v_prediction", None],
@@ -216,7 +211,6 @@ class FluxLoraConfigGroup(UIConfigElement):
             self.lora_scale,
             self.guidance_scale,
             self.use_masks,
-            self.xformers,
             self.prediction_type,
             # These are not UI components but need to be preserved
             # self.flux_lora_target_modules,
@@ -259,7 +253,6 @@ class FluxLoraConfigGroup(UIConfigElement):
                 self.lora_scale: config.lora_scale,
                 self.guidance_scale: config.guidance_scale,
                 self.use_masks: config.use_masks,
-                self.xformers: config.xformers,
                 self.prediction_type: config.prediction_type,
                 self.validation_prompts: convert_pos_neg_prompts_to_ui_prompts(
                     config.validation_prompts, config.negative_validation_prompts
@@ -347,7 +340,6 @@ class FluxLoraConfigGroup(UIConfigElement):
             new_config.lora_scale = safe_pop(self.lora_scale, new_config.lora_scale)
             new_config.guidance_scale = safe_pop(self.guidance_scale, new_config.guidance_scale)
             new_config.use_masks = safe_pop(self.use_masks, new_config.use_masks)
-            new_config.xformers = safe_pop(self.xformers, new_config.xformers)
             new_config.prediction_type = safe_pop(self.prediction_type, new_config.prediction_type)
             new_config.max_checkpoints = safe_pop(self.max_checkpoints, new_config.max_checkpoints)
 
