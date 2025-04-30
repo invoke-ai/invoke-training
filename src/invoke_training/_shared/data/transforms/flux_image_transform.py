@@ -16,8 +16,7 @@ class FluxImageTransform:
         resolution: int | None = 512,
         aspect_ratio_bucket_manager: AspectRatioBucketManager | None = None,
         random_flip: bool = True,
-        orig_size_field_name: str = "original_size_hw",
-        crop_field_name: str = "crop_top_left_yx",
+        center_crop: bool = True,
     ):
         """Initialize FluxImageTransform.
 
@@ -55,7 +54,11 @@ class FluxImageTransform:
                 )
 
             image = resize_to_cover(image, resolution_obj)
-            image = transforms.CenterCrop(resolution)(image)
+            if self.center_crop:
+                image = transforms.CenterCrop(resolution)(image)
+            else:
+                image = transforms.RandomCrop(resolution)(image)
+
             image = transforms.ToTensor()(image)
 
             if self.random_flip:

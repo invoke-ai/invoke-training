@@ -94,6 +94,7 @@ def build_image_caption_flux_dataloader(  # noqa: C901
                 fields_to_normalize_to_range_minus_one_to_one=["image"],
                 resolution=config.resolution,
                 aspect_ratio_bucket_manager=aspect_ratio_bucket_manager,
+                center_crop=config.center_crop,
                 random_flip=config.random_flip,
             )
         )
