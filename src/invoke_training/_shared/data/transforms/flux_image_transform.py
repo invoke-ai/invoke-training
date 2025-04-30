@@ -1,9 +1,6 @@
-import random
 import typing
 
 from torchvision import transforms
-from torchvision.transforms.functional import crop
-from PIL import Image
 
 from invoke_training._shared.data.utils.aspect_ratio_bucket_manager import AspectRatioBucketManager, Resolution
 from invoke_training._shared.data.utils.resize import resize_to_cover
@@ -40,7 +37,7 @@ class FluxImageTransform:
         self.resolution = resolution
         self.aspect_ratio_bucket_manager = aspect_ratio_bucket_manager
         self.random_flip = random_flip
-    
+
     def __call__(self, data: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:  # noqa: C901
         image_fields: dict = {}
         for field_name in self.image_field_names:
@@ -55,7 +52,7 @@ class FluxImageTransform:
             else:
                 original_size_hw = (image.height, image.width)
                 resolution_obj = self.aspect_ratio_bucket_manager.get_aspect_ratio_bucket(Resolution.parse(original_size_hw))
-            
+
             image = resize_to_cover(image, resolution_obj)
             image = transforms.CenterCrop(resolution)(image)
             image = transforms.ToTensor()(image)
