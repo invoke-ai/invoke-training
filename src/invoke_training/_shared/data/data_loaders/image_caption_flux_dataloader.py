@@ -1,10 +1,11 @@
 import typing
 
-import torch
 from torch.utils.data import DataLoader
 
 from invoke_training._shared.data.data_loaders.image_caption_sd_dataloader import (
     build_aspect_ratio_bucket_manager,
+)
+from invoke_training._shared.data.data_loaders.image_caption_sd_dataloader import (
     sd_image_caption_collate_fn as flux_image_caption_collate_fn,
 )
 from invoke_training._shared.data.datasets.build_dataset import (
@@ -21,8 +22,7 @@ from invoke_training._shared.data.transforms.drop_field_transform import DropFie
 from invoke_training._shared.data.transforms.flux_image_transform import FluxImageTransform
 from invoke_training._shared.data.transforms.load_cache_transform import LoadCacheTransform
 from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
-from invoke_training._shared.data.utils.aspect_ratio_bucket_manager import AspectRatioBucketManager
-from invoke_training.config.data.data_loader_config import AspectRatioBucketConfig, ImageCaptionFluxDataLoaderConfig
+from invoke_training.config.data.data_loader_config import ImageCaptionFluxDataLoaderConfig
 from invoke_training.config.data.dataset_config import (
     HFHubImageCaptionDatasetConfig,
     ImageCaptionDirDatasetConfig,
