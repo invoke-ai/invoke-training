@@ -36,6 +36,7 @@ class FluxImageTransform:
         self.resolution = resolution
         self.aspect_ratio_bucket_manager = aspect_ratio_bucket_manager
         self.random_flip = random_flip
+        self.center_crop = center_crop
 
     def __call__(self, data: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:  # noqa: C901
         image_fields: dict = {}
