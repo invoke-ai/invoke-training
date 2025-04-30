@@ -1,18 +1,9 @@
 import logging
-import os
-import torch
 from enum import Enum
 
 import torch
-from diffusers import (
-    AutoencoderKL,
-    FluxPipeline,
-    FluxTransformer2DModel,
-    FlowMatchEulerDiscreteScheduler
-)
+from diffusers import AutoencoderKL, FlowMatchEulerDiscreteScheduler, FluxPipeline, FluxTransformer2DModel
 from transformers import CLIPTextModel, CLIPTokenizer, T5EncoderModel, T5Tokenizer
-
-from invoke_training._shared.checkpoints.serialization import load_state_dict
 
 
 class PipelineVersionEnum(Enum):
@@ -28,7 +19,7 @@ def load_pipeline(
     torch_dtype: torch.dtype | None = None,
 ) -> FluxPipeline:
     """Load a Flux pipeline with optional custom components from .safetensors files.
-    
+
     Args:
         logger: Logger instance
         model_name_or_path: Base model path or repository
@@ -37,7 +28,6 @@ def load_pipeline(
         text_encoder_1_path: Path to custom CLIP text encoder .safetensors file
         text_encoder_2_path: Path to custom T5 text encoder .safetensors file
         torch_dtype: Desired dtype for the models
-        
     Returns:
         FluxPipeline: Configured pipeline with custom components if specified
     """
@@ -51,7 +41,8 @@ def load_pipeline(
 
     # Add components only if custom paths are provided
     if transformer_path is not None:
-        # load_model_from_file_or_pretrained(FluxTransformer2DModel, transformer_path, torch_dtype=torch_dtype, use_safetensors=True, subfolder="transformer")
+        # load_model_from_file_or_pretrained(FluxTransformer2DModel, transformer_path, torch_dtype=torch_dtype,
+        # use_safetensors=True, subfolder="transformer")
         kwargs["transformer"] = FluxTransformer2DModel.from_pretrained(
             transformer_path,
             torch_dtype=torch_dtype,
@@ -121,7 +112,7 @@ def load_models_flux(
     transformer: FluxTransformer2DModel = pipeline.transformer
     noise_scheduler: FlowMatchEulerDiscreteScheduler = pipeline.scheduler
 
-    # Decoder 
+    # Decoder
     vae: AutoencoderKL = pipeline.vae
 
     # Log component status
@@ -134,13 +125,17 @@ def load_models_flux(
 
     # Check for None components
     if text_encoder_1 is None:
-        raise ValueError("text_encoder_1 failed to load. Check if you have access to the model repository and are properly authenticated.")
+        raise ValueError("text_encoder_1 failed to load. " \
+        "Check if you have access to the model repository and are properly authenticated.")
     if text_encoder_2 is None:
-        raise ValueError("text_encoder_2 failed to load. Check if you have access to the model repository and are properly authenticated.")
+        raise ValueError("text_encoder_2 failed to load. " \
+        "Check if you have access to the model repository and are properly authenticated.")
     if transformer is None:
-        raise ValueError("transformer failed to load. Check if you have access to the model repository and are properly authenticated.")
+        raise ValueError("transformer failed to load. " \
+        "Check if you have access to the model repository and are properly authenticated.")
     if vae is None:
-        raise ValueError("vae failed to load. Check if you have access to the model repository and are properly authenticated.")
+        raise ValueError("vae failed to load. " \
+        "Check if you have access to the model repository and are properly authenticated.")
 
     # Disable gradient calculation for model weights to save memory.
     text_encoder_1.requires_grad_(False)

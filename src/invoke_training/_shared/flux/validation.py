@@ -12,8 +12,8 @@ from diffusers import (
     FluxPipeline,
     FluxTransformer2DModel,
 )
-from transformers import CLIPTextModel, CLIPTokenizer
 from peft import PeftModel
+from transformers import CLIPTextModel, CLIPTokenizer
 
 from invoke_training._shared.data.utils.resolution import Resolution
 from invoke_training.pipelines.callbacks import PipelineCallbacks, ValidationImage, ValidationImages
