@@ -1,4 +1,5 @@
 from typing import Annotated, Literal, Union
+
 from pydantic import Field
 
 from invoke_training._shared.flux.lora_checkpoint_utils import (
@@ -11,6 +12,7 @@ from invoke_training.config.optimizer.optimizer_config import (
     AdamOptimizerConfig,
     ProdigyOptimizerConfig,
 )
+
 
 class FluxLoraConfig(BasePipelineConfig):
     type: Literal["FLUX_LORA"] = "FLUX_LORA"
