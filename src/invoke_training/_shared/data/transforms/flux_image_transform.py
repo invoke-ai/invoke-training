@@ -51,7 +51,9 @@ class FluxImageTransform:
                 resolution_obj = Resolution(resolution, resolution)
             else:
                 original_size_hw = (image.height, image.width)
-                resolution_obj = self.aspect_ratio_bucket_manager.get_aspect_ratio_bucket(Resolution.parse(original_size_hw))
+                resolution_obj = self.aspect_ratio_bucket_manager.get_aspect_ratio_bucket(
+                    Resolution.parse(original_size_hw)
+                )
 
             image = resize_to_cover(image, resolution_obj)
             image = transforms.CenterCrop(resolution)(image)

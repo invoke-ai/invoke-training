@@ -63,11 +63,9 @@ def build_image_caption_flux_dataloader(  # noqa: C901
 
     # Initialize either the fixed target resolution or aspect ratio buckets.
     if config.aspect_ratio_buckets is None:
-        target_resolution = config.resolution
         aspect_ratio_bucket_manager = None
         batch_sampler = None
     else:
-        target_resolution = None
         aspect_ratio_bucket_manager = build_aspect_ratio_bucket_manager(config=config.aspect_ratio_buckets)
         # TODO(ryand): Drill-down the seed parameter rather than hard-coding to 0 here.
         batch_sampler = AspectRatioBucketBatchSampler.from_image_sizes(

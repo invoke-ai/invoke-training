@@ -6,10 +6,9 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from peft import PeftModel
 from typing import Literal, Optional, Union
-from torchvision import transforms
 
+import numpy as np
 import peft
 import torch
 import torch.utils.data
@@ -17,31 +16,29 @@ from accelerate.utils import set_seed
 from diffusers import AutoencoderKL, FlowMatchEulerDiscreteScheduler, FluxTransformer2DModel
 from diffusers.optimization import get_scheduler
 from diffusers.pipelines.flux.pipeline_flux import FluxPipeline
+from peft import PeftModel
+from PIL import Image
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
-from transformers import CLIPPreTrainedModel, CLIPTextModel, CLIPTokenizer, T5EncoderModel, T5Tokenizer
+from transformers import CLIPTextModel, CLIPTokenizer, T5EncoderModel, T5Tokenizer
 
 from invoke_training._shared.accelerator.accelerator_utils import (
     get_dtype_from_str,
     initialize_accelerator,
     initialize_logging,
 )
-
 from invoke_training._shared.checkpoints.checkpoint_tracker import CheckpointTracker
-from invoke_training._shared.data.data_loaders.dreambooth_sd_dataloader import build_dreambooth_sd_dataloader
 from invoke_training._shared.data.data_loaders.image_caption_flux_dataloader import build_image_caption_flux_dataloader
-from invoke_training._shared.data.samplers.aspect_ratio_bucket_batch_sampler import log_aspect_ratio_buckets
 from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDiskCache
-from invoke_training._shared.optimizer.optimizer_utils import initialize_optimizer
-from invoke_training._shared.flux.lora_checkpoint_utils import (
-    save_flux_peft_checkpoint,
-    save_flux_kohya_checkpoint,
-)
 from invoke_training._shared.flux.encoding_utils import encode_prompt
+from invoke_training._shared.flux.lora_checkpoint_utils import (
+    save_flux_kohya_checkpoint,
+    save_flux_peft_checkpoint,
+)
 from invoke_training._shared.flux.model_loading_utils import load_models_flux
 from invoke_training._shared.flux.validation import generate_validation_images_flux
+from invoke_training._shared.optimizer.optimizer_utils import initialize_optimizer
 from invoke_training._shared.stable_diffusion.tokenize_captions import tokenize_captions
-
 from invoke_training.config.data.data_loader_config import ImageCaptionSDDataLoaderConfig
 from invoke_training.pipelines.callbacks import ModelCheckpoint, ModelType, PipelineCallbacks, TrainingCheckpoint
 from invoke_training.pipelines.flux.lora.config import FluxLoraConfig
@@ -155,11 +152,22 @@ def cache_vae_outputs(cache_dir: str, data_loader: DataLoader, vae: AutoencoderK
                 data["mask"] = data_batch["mask"][i]
             cache.save(data_batch["id"][i], data)
 
-def get_noisy_latents(noise_scheduler: FlowMatchEulerDiscreteScheduler, 
-                    latents: torch.Tensor, 
+def get_sigmas(noise_scheduler, timesteps, device, n_dim=4, dtype=torch.float32):
+    sigmas = noise_scheduler.sigmas.to(device=device, dtype=dtype)
+    schedule_timesteps = noise_scheduler.timesteps.to(device)
+    timesteps = timesteps.to(device)
+    step_indices = [(schedule_timesteps == t).nonzero().item() for t in timesteps]
+
+    sigma = sigmas[step_indices].flatten()
+    while len(sigma.shape) < n_dim:
+        sigma = sigma.unsqueeze(-1)
+    return sigma
+
+def get_noisy_latents(noise_scheduler: FlowMatchEulerDiscreteScheduler,
+                    latents: torch.Tensor,
                     config: FluxLoraConfig):
-    """ 
-    Generate random noise. Sample a random timestep from the distribution chosen by the config. 
+    """
+    Generate random noise. Sample a random timestep from the distribution chosen by the config.
     Linearly interpolate between the latents and the noise based on timestep.
     See Section 3.1 of https://arxiv.org/pdf/2403.03206v1 for timestep sampling.
 
@@ -190,7 +198,7 @@ def get_noisy_latents(noise_scheduler: FlowMatchEulerDiscreteScheduler,
         indices = (u * noise_scheduler.config.num_train_timesteps).long()
         timesteps = noise_scheduler.timesteps[indices].to(device=device)
         sigmas = get_sigmas(noise_scheduler, timesteps, device, n_dim=latents.ndim, dtype=dtype)
-    
+
     sigmas = sigmas.view(-1, 1, 1, 1)
 
     # Linearly interpolate between the latents and the noise.
@@ -249,7 +257,7 @@ def train_forward(  # noqa: C901
     # Add noise to the latents according to the noise magnitude at each timestep (this is the forward
     # diffusion process).
     noisy_latents, noise, timesteps, sigmas = get_noisy_latents(noise_scheduler, latents, config)
-        
+
     # Get the text embedding for conditioning.
     # The text encoder output may have been cached and included in the data_batch. If not, we calculate it here.
     if "prompt_embeds" in data_batch:
@@ -270,7 +278,7 @@ def train_forward(  # noqa: C901
             t5_tokenizer_max_length=config.t5_tokenizer_max_length,
             logger=logger
         )
-        
+
     guidance = torch.full((batch_size,), float(config.guidance_scale), device=latents.device)
     model_pred = transformer(hidden_states=noisy_latents[0],
                             timestep=timesteps / 1000,

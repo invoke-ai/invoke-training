@@ -1,3 +1,4 @@
+# ruff: noqa: N806
 import os
 from pathlib import Path
 
@@ -6,14 +7,12 @@ import torch
 from diffusers import FluxTransformer2DModel
 from transformers import CLIPTextModel
 
-from invoke_training._shared.checkpoints.serialization import save_state_dict
 from invoke_training._shared.checkpoints.lora_checkpoint_utils import (
-    save_multi_model_peft_checkpoint,
-    load_multi_model_peft_checkpoint,
-    _convert_peft_models_to_kohya_state_dict,
     _convert_peft_state_dict_to_kohya_state_dict,
+    load_multi_model_peft_checkpoint,
+    save_multi_model_peft_checkpoint,
 )
-
+from invoke_training._shared.checkpoints.serialization import save_state_dict
 
 FLUX_TRANSFORMER_TARGET_MODULES = [
     # double blocks
@@ -216,7 +215,7 @@ def convert_layer_weights(target_dict, source_dict, source_pattern, target_patte
     Returns:
         Tuple of (updated target_dict, updated source_dict)
     """
-    if (original_key := find_matching_key_prefix(source_dict, source_pattern)) != False:
+    if (original_key := find_matching_key_prefix(source_dict, source_pattern)):
         # Find all keys matching the pattern
         keys_to_convert = [k for k in source_dict.keys() if original_key in k]
 

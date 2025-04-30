@@ -1,14 +1,16 @@
 from typing import Annotated, Literal, Union
-
-from pydantic import Field, model_validator
+from pydantic import Field
 
 from invoke_training._shared.flux.lora_checkpoint_utils import (
+    FLUX_TRANSFORMER_TARGET_MODULES,
     TEXT_ENCODER_TARGET_MODULES,
 )
 from invoke_training.config.base_pipeline_config import BasePipelineConfig
 from invoke_training.config.data.data_loader_config import ImageCaptionFluxDataLoaderConfig
-from invoke_training.config.optimizer.optimizer_config import AdamOptimizerConfig, ProdigyOptimizerConfig
-from invoke_training._shared.flux.lora_checkpoint_utils import FLUX_TRANSFORMER_TARGET_MODULES
+from invoke_training.config.optimizer.optimizer_config import (
+    AdamOptimizerConfig,
+    ProdigyOptimizerConfig,
+)
 
 class FluxLoraConfig(BasePipelineConfig):
     type: Literal["FLUX_LORA"] = "FLUX_LORA"
@@ -19,13 +21,19 @@ class FluxLoraConfig(BasePipelineConfig):
     """
 
     transformer_path: str | None = None
-    """Path to the custom transformer .safetensors file. If not provided, the default black-forest-labs/FLUX.1-dev transformer will be used."""
+    """Path to the custom transformer .safetensors file. If not provided, the default black-forest-labs/FLUX.1-dev
+    transformer will be used.
+    """
 
     text_encoder_1_path: str | None = None
-    """Path to the custom CLIP text encoder .safetensors file. If not provided, the default openai/clip-vit-base-patch32 text encoder will be used."""
+    """Path to the custom CLIP text encoder .safetensors file. If not provided, the default openai/clip-vit-base-patch32
+    text encoder will be used.
+    """
 
     text_encoder_2_path: str | None = None
-    """Path to the custom T5 text encoder .safetensors file. If not provided, the default google/t5-v1_1-xl text encoder will be used."""
+    """Path to the custom T5 text encoder .safetensors file. If not provided, the default google/t5-v1_1-xl text encoder
+     will be used.
+     """
 
     lora_checkpoint_format: Literal["invoke_peft", "kohya"] = "kohya"
     """The format of the LoRA checkpoint to save. Choose between `invoke_peft` or `kohya`."""
