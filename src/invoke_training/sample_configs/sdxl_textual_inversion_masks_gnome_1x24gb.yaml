@@ -17,7 +17,7 @@ data_loader:
   type: TEXTUAL_INVERSION_SD_DATA_LOADER
   dataset:
     type: IMAGE_CAPTION_JSONL_DATASET
-    jsonl_path: sample_data/bruce_the_gnome/data.jsonl
+    jsonl_path: sample_data/bruce_the_gnome/data_masks.jsonl
     keep_in_memory: True
   caption_preset: object
   resolution: 1024
