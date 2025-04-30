@@ -254,9 +254,7 @@ class FluxLoraConfigGroup(UIConfigElement):
                 self.guidance_scale: config.guidance_scale,
                 self.use_masks: config.use_masks,
                 self.prediction_type: config.prediction_type,
-                self.validation_prompts: convert_pos_neg_prompts_to_ui_prompts(
-                    config.validation_prompts, config.negative_validation_prompts
-                ),
+                self.validation_prompts: config.validation_prompts,
                 self.num_validation_images_per_prompt: config.num_validation_images_per_prompt,
                 self.max_checkpoints: config.max_checkpoints,
             }
@@ -354,9 +352,8 @@ class FluxLoraConfigGroup(UIConfigElement):
             # Handle validation prompts
             try:
                 validation_prompts_text = safe_pop(self.validation_prompts, "")
-                positive_prompts, negative_prompts = convert_ui_prompts_to_pos_neg_prompts(validation_prompts_text)
+                positive_prompts = validation_prompts_text
                 new_config.validation_prompts = positive_prompts
-                new_config.negative_validation_prompts = negative_prompts
             except Exception as e:
                 print(f"Error processing validation prompts: {e}")
 
