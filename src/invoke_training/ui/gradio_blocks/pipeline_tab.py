@@ -83,48 +83,81 @@ class PipelineTab:
         run_training_button.click(self.on_run_training_button_click, inputs=[], outputs=[])
 
         # On app load, reset the configs based on the default reference config file.
+        # We'll wrap this in a try-except block to handle any errors during loading
+        def safe_load_config(file_path):
+            try:
+                return self.on_reset_config_button_click(file_path)
+            except Exception as e:
+                print(f"Error during app.load for {self._name}: {e}")
+                # Return empty values for all outputs to avoid UI errors
+                output_components = self.pipeline_config_group.get_ui_output_components() + [self._config_yaml]
+                return {comp: None for comp in output_components}
+
         app.load(
-            self.on_reset_config_button_click,
+            safe_load_config,
             inputs=self.reference_config_file,
             outputs=self.pipeline_config_group.get_ui_output_components() + [self._config_yaml],
         )
 
     def on_reset_config_button_click(self, file_path: str):
-        print(f"Resetting UI configs for {self._name} to {file_path}.")
-        default_config = load_config_from_yaml(file_path)
+        try:
+            print(f"Resetting UI configs for {self._name} to {file_path}.")
+            default_config = load_config_from_yaml(file_path)
 
-        if not isinstance(default_config, self._pipeline_config_cls):
-            raise TypeError(
-                f"Wrong config type. Expected '{self._pipeline_config_cls.__name__}', got "
-                f"'{type(default_config).__name__}'."
-            )
+            if not isinstance(default_config, self._pipeline_config_cls):
+                raise TypeError(
+                    f"Wrong config type. Expected '{self._pipeline_config_cls.__name__}', got "
+                    f"'{type(default_config).__name__}'."
+                )
 
-        self._default_config = default_config
-        self._current_config = self._default_config.model_copy(deep=True)
-        update_dict = self.pipeline_config_group.update_ui_components_with_config_data(self._current_config)
-        update_dict.update({self._config_yaml: None})
-        return update_dict
+            self._default_config = default_config
+            self._current_config = self._default_config.model_copy(deep=True)
+            update_dict = self.pipeline_config_group.update_ui_components_with_config_data(self._current_config)
+            update_dict.update({self._config_yaml: None})
+            return update_dict
+        except Exception as e:
+            print(f"Error resetting config: {e}")
+            # Return a minimal update dict to avoid UI errors
+            if self._current_config:
+                return {
+                    self._config_yaml: yaml.safe_dump(
+                        self._current_config.model_dump(), default_flow_style=False, sort_keys=False
+                    )
+                }
+            return {self._config_yaml: f"Error loading config: {e}"}
 
     def on_generate_config_button_click(self, data: dict):
-        print(f"Generating config for {self._name}.")
-        self._current_config = self.pipeline_config_group.update_config_with_ui_component_data(
-            self._current_config, data
-        )
+        try:
+            print(f"Generating config for {self._name}.")
+            self._current_config = self.pipeline_config_group.update_config_with_ui_component_data(
+                self._current_config, data
+            )
 
-        # Roundtrip to make sure that the config is valid.
-        self._current_config = self._pipeline_config_cls.model_validate(self._current_config.model_dump())
+            # Roundtrip to make sure that the config is valid.
+            self._current_config = self._pipeline_config_cls.model_validate(self._current_config.model_dump())
 
-        # Update the UI to reflect the new state of the config (in case some values were rounded or otherwise modified
-        # in the process).
-        update_dict = self.pipeline_config_group.update_ui_components_with_config_data(self._current_config)
-        update_dict.update(
-            {
-                self._config_yaml: yaml.safe_dump(
-                    self._current_config.model_dump(), default_flow_style=False, sort_keys=False
-                )
-            }
-        )
-        return update_dict
+            # Update the UI to reflect the new state of the config
+            # (in case some values were rounded or otherwise modified
+            # in the process).
+            update_dict = self.pipeline_config_group.update_ui_components_with_config_data(self._current_config)
+            update_dict.update(
+                {
+                    self._config_yaml: yaml.safe_dump(
+                        self._current_config.model_dump(), default_flow_style=False, sort_keys=False
+                    )
+                }
+            )
+            return update_dict
+        except Exception as e:
+            print(f"Error generating config: {e}")
+            # Return a minimal update dict to avoid UI errors
+            if self._current_config:
+                return {
+                    self._config_yaml: yaml.safe_dump(
+                        self._current_config.model_dump(), default_flow_style=False, sort_keys=False
+                    )
+                }
+            return {self._config_yaml: f"Error generating config: {e}"}
 
     def on_run_training_button_click(self):
         self._run_training_cb(self._current_config)

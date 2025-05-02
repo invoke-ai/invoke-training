@@ -7,6 +7,7 @@ import gradio as gr
 import yaml
 
 from invoke_training.config.pipeline_config import PipelineConfig
+from invoke_training.pipelines.flux.lora.config import FluxLoraConfig
 from invoke_training.pipelines.stable_diffusion.lora.config import SdLoraConfig
 from invoke_training.pipelines.stable_diffusion.textual_inversion.config import SdTextualInversionConfig
 from invoke_training.pipelines.stable_diffusion_xl.finetune.config import SdxlFinetuneConfig
@@ -15,6 +16,7 @@ from invoke_training.pipelines.stable_diffusion_xl.lora_and_textual_inversion.co
     SdxlLoraAndTextualInversionConfig,
 )
 from invoke_training.pipelines.stable_diffusion_xl.textual_inversion.config import SdxlTextualInversionConfig
+from invoke_training.ui.config_groups.flux_lora_config_group import FluxLoraConfigGroup
 from invoke_training.ui.config_groups.sd_lora_config_group import SdLoraConfigGroup
 from invoke_training.ui.config_groups.sd_textual_inversion_config_group import SdTextualInversionConfigGroup
 from invoke_training.ui.config_groups.sdxl_finetune_config_group import SdxlFinetuneConfigGroup
@@ -34,11 +36,7 @@ class TrainingPage:
         self._training_process = None
 
         # Define the theme with dark mode as default
-        theme = gr.themes.Default(
-            # Optional: Customize colors, fonts, etc.
-            # primary_hue=gr.themes.colors.blue,
-            # ...
-        )
+        theme = gr.themes.Default()
         theme._dark_mode = True
 
         # Custom CSS
@@ -52,8 +50,6 @@ class TrainingPage:
         .dark .tabs button[aria-selected="true"] {
             /* Keep selected tab text color override */
             color: #e6fd13 !important;
-            /* Optional: Remove background if --color-accent handles it */
-            /* background-color: transparent !important; */
         }
 
         /* Style checkbox checkmark in dark mode when checked */
@@ -66,10 +62,23 @@ class TrainingPage:
         # Pass the theme and css to gr.Blocks
         with gr.Blocks(
             theme=theme,
-            css=custom_css,  # Use updated CSS
+            css=custom_css,
             title="invoke-training",
             analytics_enabled=False,
-            head='<link rel="icon" type="image/x-icon" href="/assets/favicon.png">',
+            head="""
+                <link rel="icon" type="image/x-icon" href="/assets/favicon.png">
+                <script>
+                    window.addEventListener('beforeunload', function(e) {
+                        if (window.gradio_client) {
+                            try {
+                                window.gradio_client.cancel_all();
+                            } catch (err) {
+                                console.error('Error cancelling requests:', err);
+                            }
+                        }
+                    });
+                </script>
+            """,
         ) as app:
             self._header = Header()
             with gr.Tab(label="SD LoRA"):
@@ -123,6 +132,17 @@ class TrainingPage:
                     default_config_file_path=str(get_config_dir_path() / "sdxl_finetune_baroque_1x24gb.yaml"),
                     pipeline_config_cls=SdxlFinetuneConfig,
                     config_group_cls=SdxlFinetuneConfigGroup,
+                    run_training_cb=self._run_training,
+                    app=app,
+                )
+            with gr.Tab(label="Flux LoRA"):
+                PipelineTab(
+                    name="Flux LoRA",
+                    default_config_file_path=str(
+                        get_config_dir_path() / "flux_lora_1x40gb.yaml"
+                    ),  # Changed from 8gb to 40gb # noqa: E501
+                    pipeline_config_cls=FluxLoraConfig,
+                    config_group_cls=FluxLoraConfigGroup,
                     run_training_cb=self._run_training,
                     app=app,
                 )

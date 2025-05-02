@@ -1,3 +1,4 @@
+import pytest
 import torch
 
 from invoke_training._shared.data.data_loaders.image_pair_preference_sd_dataloader import (
@@ -9,6 +10,9 @@ from invoke_training.pipelines._experimental.sd_dpo_lora.config import (
 )
 
 
+@pytest.mark.skip(
+    reason="No yuvalkirstain/pickapic_v2 dataset on HF Hub: https://huggingface.co/datasets/yuvalkirstain/pickapic_v2"
+)
 def test_build_image_pair_preference_sd_dataloader():
     """Smoke test of build_image_pair_preference_sd_dataloader(...)."""
 
