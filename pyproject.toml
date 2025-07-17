@@ -27,6 +27,7 @@ dependencies = [
     "peft~=0.11.1",
     "pillow",
     "prodigyopt",
+    "psutil",  # Added for worker hardware monitoring
     "pydantic",
     "pyyaml",
     "safetensors",

@@ -1,0 +1,46 @@
+# Example FLUX LoRA training job configuration for the invoke training worker
+job_id: "flux_example_001"
+training_type: "FLUX_LORA"
+dataset_path: "sample_data/bruce_the_gnome"
+output_path: "output/worker_jobs/flux_example"
+
+# Basic parameters
+resolution: 768
+batch_size: 1
+learning_rate: 0.0001
+max_train_steps: 1000
+lora_rank: 16
+
+# Memory optimization preset
+memory_preset: "40gb"
+
+# Additional configuration overrides
+config_overrides:
+  # FLUX-specific parameters
+  timestep_sampler: "shift"
+  discrete_flow_shift: 3.0
+  guidance_scale: 1.0
+  
+  # Memory optimizations
+  gradient_accumulation_steps: 4
+  cache_vae_outputs: true
+  cache_text_encoder_outputs: true
+  gradient_checkpointing: true
+  weight_dtype: "bfloat16"
+  
+  # Training configuration
+  lr_scheduler: "constant_with_warmup"
+  lr_warmup_steps: 10
+  train_text_encoder: false
+  
+  # Validation
+  validation_prompts:
+    - "A stuffed gnome sitting in a garden"
+    - "A portrait of bruce the gnome"
+    - "A landscape with bruce the gnome walking"
+  num_validation_images_per_prompt: 2
+  validate_every_n_steps: 100
+  
+  # Saving
+  save_every_n_steps: 250
+  max_checkpoints: 5

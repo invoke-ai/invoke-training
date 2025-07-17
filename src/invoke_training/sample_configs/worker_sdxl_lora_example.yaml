@@ -1,0 +1,37 @@
+# Example SDXL LoRA training job configuration for the invoke training worker
+job_id: "sdxl_example_001"
+training_type: "SDXL_LORA"
+dataset_path: "sample_data/bruce_the_gnome"
+output_path: "output/worker_jobs/sdxl_example"
+
+# Basic parameters
+resolution: 1024
+batch_size: 2
+learning_rate: 0.0001
+max_train_steps: 1000
+lora_rank: 8
+
+# Additional configuration overrides
+config_overrides:
+  # Training configuration
+  gradient_accumulation_steps: 2
+  gradient_checkpointing: true
+  weight_dtype: "bfloat16"
+  lr_scheduler: "constant_with_warmup"
+  lr_warmup_steps: 10
+  
+  # Validation
+  validation_prompts:
+    - "A stuffed gnome sitting in a garden"
+    - "A portrait of bruce the gnome reading a book"
+    - "A landscape painting with bruce the gnome"
+  num_validation_images_per_prompt: 3
+  validate_every_n_steps: 100
+  
+  # Saving
+  save_every_n_steps: 200
+  max_checkpoints: 5
+  
+  # Data loading
+  data_loader:
+    caption_prefix: "bruce the gnome"
