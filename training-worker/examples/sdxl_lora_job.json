@@ -1,0 +1,24 @@
+{
+  "job_id": "sdxl_test_001",
+  "training_type": "SDXL_LORA",
+  "dataset_path": "/path/to/dataset",
+  "output_path": "/path/to/output",
+  "resolution": 1024,
+  "batch_size": 2,
+  "learning_rate": 0.0001,
+  "max_train_steps": 1000,
+  "lora_rank": 8,
+  "config_overrides": {
+    "gradient_accumulation_steps": 2,
+    "gradient_checkpointing": true,
+    "weight_dtype": "bfloat16",
+    "lr_scheduler": "constant_with_warmup",
+    "lr_warmup_steps": 10,
+    "validation_prompts": [
+      "A beautiful landscape painting",
+      "A portrait in renaissance style",
+      "A modern abstract artwork"
+    ],
+    "num_validation_images_per_prompt": 3
+  }
+}

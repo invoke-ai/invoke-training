@@ -1,0 +1,28 @@
+{
+  "job_id": "flux_test_001",
+  "training_type": "FLUX_LORA",
+  "dataset_path": "/path/to/dataset",
+  "output_path": "/path/to/output",
+  "resolution": 768,
+  "batch_size": 1,
+  "learning_rate": 0.0001,
+  "max_train_steps": 1000,
+  "lora_rank": 16,
+  "memory_preset": "40gb",
+  "config_overrides": {
+    "gradient_accumulation_steps": 4,
+    "cache_vae_outputs": true,
+    "cache_text_encoder_outputs": true,
+    "gradient_checkpointing": true,
+    "weight_dtype": "bfloat16",
+    "timestep_sampler": "shift",
+    "discrete_flow_shift": 3.0,
+    "guidance_scale": 1.0,
+    "validation_prompts": [
+      "A beautiful landscape with mountains and lakes",
+      "A portrait of a person reading a book",
+      "A futuristic city at sunset"
+    ],
+    "num_validation_images_per_prompt": 2
+  }
+}
