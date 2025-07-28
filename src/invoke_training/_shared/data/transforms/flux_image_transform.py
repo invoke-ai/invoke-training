@@ -74,6 +74,7 @@ class FluxImageTransform:
             if self.random_flip:
                 # TODO: Use a seed for repeatable results
                 import random
+
                 if random.random() < 0.5:
                     top_left_x = original_size_hw[1] - image.width - top_left_x
                     image = transforms.RandomHorizontalFlip(p=1.0)(image)
