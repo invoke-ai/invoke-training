@@ -59,7 +59,7 @@ class FluxImageTransform:
                 )
 
             image = resize_to_cover(image, resolution_obj)
-            
+
             # Apply cropping and record top left crop position
             if self.center_crop:
                 top_left_y = max(0, (image.height - resolution_obj.height) // 2)
@@ -88,9 +88,9 @@ class FluxImageTransform:
         # Store the processed images and metadata
         for field_name, image in image_fields.items():
             data[field_name] = image
-        
+
         # Add metadata fields expected by VAE caching
         data["original_size_hw"] = original_size_hw
         data["crop_top_left_yx"] = (top_left_y, top_left_x)
-        
+
         return data
