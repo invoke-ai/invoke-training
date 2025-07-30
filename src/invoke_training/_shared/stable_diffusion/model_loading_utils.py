@@ -94,8 +94,9 @@ def from_pretrained_with_variant_fallback(
                 variant=variant_to_try,
                 **kwargs,
             )
-        except OSError as e:
-            if "no file named" in str(e):
+        except (OSError, ValueError) as e:
+            error_str = str(e)
+            if "no file named" in error_str or "no such modeling files are available" in error_str:
                 # Ok; we'll try the variant fallbacks.
                 logger.warning(f"Failed to load '{model_name_or_path}' with variant '{variant_to_try}'. Error: {e}.")
             else:
