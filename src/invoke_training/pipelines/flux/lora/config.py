@@ -55,7 +55,7 @@ class FluxLoraConfig(BasePipelineConfig):
     rate.
     """
 
-    transformer_learning_rate: float | None = 1e-4
+    transformer_learning_rate: float | None = 4e-4
     """The learning rate to use for the transformer model. If set, this overrides the optimizer's default learning
     rate.
     """
