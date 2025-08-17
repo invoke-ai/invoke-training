@@ -88,6 +88,8 @@ class TrainingPage:
                     pipeline_config_cls=SdLoraConfig,
                     config_group_cls=SdLoraConfigGroup,
                     run_training_cb=self._run_training,
+                    stop_training_cb=self._stop_training,
+                    is_training_active_cb=self._is_training_active,
                     app=app,
                 )
             with gr.Tab(label="SDXL LoRA"):
@@ -97,6 +99,8 @@ class TrainingPage:
                     pipeline_config_cls=SdxlLoraConfig,
                     config_group_cls=SdxlLoraConfigGroup,
                     run_training_cb=self._run_training,
+                    stop_training_cb=self._stop_training,
+                    is_training_active_cb=self._is_training_active,
                     app=app,
                 )
             with gr.Tab(label="SD Textual Inversion"):
@@ -106,6 +110,8 @@ class TrainingPage:
                     pipeline_config_cls=SdTextualInversionConfig,
                     config_group_cls=SdTextualInversionConfigGroup,
                     run_training_cb=self._run_training,
+                    stop_training_cb=self._stop_training,
+                    is_training_active_cb=self._is_training_active,
                     app=app,
                 )
             with gr.Tab(label="SDXL Textual Inversion"):
@@ -115,6 +121,8 @@ class TrainingPage:
                     pipeline_config_cls=SdxlTextualInversionConfig,
                     config_group_cls=SdxlTextualInversionConfigGroup,
                     run_training_cb=self._run_training,
+                    stop_training_cb=self._stop_training,
+                    is_training_active_cb=self._is_training_active,
                     app=app,
                 )
             with gr.Tab(label="SDXL LoRA and Textual Inversion"):
@@ -124,6 +132,8 @@ class TrainingPage:
                     pipeline_config_cls=SdxlLoraAndTextualInversionConfig,
                     config_group_cls=SdxlLoraAndTextualInversionConfigGroup,
                     run_training_cb=self._run_training,
+                    stop_training_cb=self._stop_training,
+                    is_training_active_cb=self._is_training_active,
                     app=app,
                 )
             with gr.Tab(label="SDXL Finetune"):
@@ -133,6 +143,8 @@ class TrainingPage:
                     pipeline_config_cls=SdxlFinetuneConfig,
                     config_group_cls=SdxlFinetuneConfigGroup,
                     run_training_cb=self._run_training,
+                    stop_training_cb=self._stop_training,
+                    is_training_active_cb=self._is_training_active,
                     app=app,
                 )
             with gr.Tab(label="Flux LoRA"):
@@ -144,6 +156,8 @@ class TrainingPage:
                     pipeline_config_cls=FluxLoraConfig,
                     config_group_cls=FluxLoraConfigGroup,
                     run_training_cb=self._run_training,
+                    stop_training_cb=self._stop_training,
+                    is_training_active_cb=self._is_training_active,
                     app=app,
                 )
 
@@ -160,7 +174,7 @@ class TrainingPage:
                     "Tried to start a new training process, but another training process is already running. "
                     "Terminate the existing process first."
                 )
-                return
+                return "Training already in progress. Stop the current training first."
             else:
                 self._training_process = None
 
@@ -175,3 +189,35 @@ class TrainingPage:
         self._training_process = subprocess.Popen(["invoke-train", "-c", str(config_path)])
 
         print(f"Started {config.type} training.")
+        return f"Started {config.type} training successfully."
+
+    def _stop_training(self):
+        """Gracefully terminate the active training process."""
+        if self._training_process is not None and self._training_process.poll() is None:
+            print("Terminating training process...")
+            try:
+                # Send SIGTERM for graceful termination
+                self._training_process.terminate()
+                
+                # Wait for the process to terminate gracefully (up to 10 seconds)
+                try:
+                    self._training_process.wait(timeout=10)
+                    print("Training process terminated gracefully.")
+                except subprocess.TimeoutExpired:
+                    # If graceful termination fails, force kill
+                    print("Graceful termination failed, forcing kill...")
+                    self._training_process.kill()
+                    self._training_process.wait()
+                    print("Training process force killed.")
+                
+                self._training_process = None
+                return "Training stopped successfully."
+            except Exception as e:
+                print(f"Error terminating training process: {e}")
+                return f"Error stopping training: {e}"
+        else:
+            return "No active training process to stop."
+
+    def _is_training_active(self):
+        """Check if there is an active training process."""
+        return self._training_process is not None and self._training_process.poll() is None
