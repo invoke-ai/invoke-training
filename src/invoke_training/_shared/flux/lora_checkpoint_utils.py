@@ -4,13 +4,9 @@ from pathlib import Path
 
 import peft
 import torch
-from diffusers import FluxTransformer2DModel
-from transformers import CLIPTextModel
 
 from invoke_training._shared.checkpoints.lora_checkpoint_utils import (
     _convert_peft_state_dict_to_kohya_state_dict,
-    load_multi_model_peft_checkpoint,
-    save_multi_model_peft_checkpoint,
 )
 from invoke_training._shared.checkpoints.serialization import save_state_dict
 
@@ -64,7 +60,6 @@ def save_flux_peft_checkpoint_single_file(
     transformer: peft.PeftModel | None,
 ):
     assert isinstance(transformer, peft.PeftModel)
-
     if (
         hasattr(transformer, "config")
         and isinstance(transformer.config, dict)
