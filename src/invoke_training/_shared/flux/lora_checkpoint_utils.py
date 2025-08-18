@@ -59,42 +59,20 @@ FLUX_PEFT_TO_KOHYA_KEYS = {
 }
 
 
-def save_flux_peft_checkpoint(
+def save_flux_peft_checkpoint_single_file(
     checkpoint_dir: Path | str,
     transformer: peft.PeftModel | None,
-    text_encoder_1: peft.PeftModel | None,
-    text_encoder_2: peft.PeftModel | None,
 ):
-    models = {}
-    if transformer is not None:
-        models[FLUX_PEFT_TRANSFORMER_KEY] = transformer
-    if text_encoder_1 is not None:
-        models[FLUX_PEFT_TEXT_ENCODER_1_KEY] = text_encoder_1
-    if text_encoder_2 is not None:
-        models[FLUX_PEFT_TEXT_ENCODER_2_KEY] = text_encoder_2
+    assert isinstance(transformer, peft.PeftModel)
 
-    save_multi_model_peft_checkpoint(checkpoint_dir=checkpoint_dir, models=models)
+    if (
+        hasattr(transformer, "config")
+        and isinstance(transformer.config, dict)
+        and "_name_or_path" not in transformer.config
+    ):
+        transformer.config["_name_or_path"] = None
 
-
-def load_flux_peft_checkpoint(
-    checkpoint_dir: Path | str,
-    transformer: FluxTransformer2DModel,
-    text_encoder_1: CLIPTextModel,
-    text_encoder_2: CLIPTextModel,
-    is_trainable: bool = False,
-):
-    models = load_multi_model_peft_checkpoint(
-        checkpoint_dir=checkpoint_dir,
-        models={
-            FLUX_PEFT_TRANSFORMER_KEY: transformer,
-            FLUX_PEFT_TEXT_ENCODER_1_KEY: text_encoder_1,
-            FLUX_PEFT_TEXT_ENCODER_2_KEY: text_encoder_2,
-        },
-        is_trainable=is_trainable,
-        raise_if_subdir_missing=False,
-    )
-
-    return models[FLUX_PEFT_TRANSFORMER_KEY], models[FLUX_PEFT_TEXT_ENCODER_1_KEY], models[FLUX_PEFT_TEXT_ENCODER_2_KEY]
+    transformer.save_pretrained(str(checkpoint_dir))
 
 
 def save_flux_kohya_checkpoint(
