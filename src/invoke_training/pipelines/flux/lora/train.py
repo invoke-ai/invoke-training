@@ -424,8 +424,7 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
     if config.train_transformer:
         transformer_lora_config = peft.LoraConfig(
             r=config.lora_rank_dim,
-            # TODO(ryand): Diffusers uses lora_alpha=config.lora_rank_dim. Is that preferred?
-            lora_alpha=1.0,
+            lora_alpha=config.lora_rank_dim,
             target_modules=config.flux_lora_target_modules,
         )
         transformer = inject_lora_layers(transformer, transformer_lora_config, lr=config.transformer_learning_rate)
@@ -433,7 +432,7 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
     if config.train_text_encoder:
         text_encoder_lora_config = peft.LoraConfig(
             r=config.lora_rank_dim,
-            lora_alpha=1.0,
+            lora_alpha=config.lora_rank_dim,
             # init_lora_weights="gaussian",
             target_modules=config.text_encoder_lora_target_modules,
         )

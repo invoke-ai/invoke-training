@@ -9,6 +9,7 @@ from invoke_training.ui.config_groups.image_caption_sd_data_loader_config_group 
 )
 from invoke_training.ui.config_groups.optimizer_config_group import OptimizerConfigGroup
 from invoke_training.ui.config_groups.ui_config_element import UIConfigElement
+from invoke_training.ui.utils.prompts import convert_pos_neg_prompts_to_ui_prompts, convert_ui_prompts_to_pos_neg_prompts
 from invoke_training.ui.utils.utils import get_typing_literal_options
 
 
@@ -64,10 +65,17 @@ class FluxLoraConfigGroup(UIConfigElement):
         with gr.Tab("Core"):
             with gr.Row():
                 self.train_transformer = gr.Checkbox(label="Train Transformer", interactive=True)
+                self.train_text_encoder = gr.Checkbox(label="Train Text Encoder", interactive=True)
             with gr.Row():
                 self.transformer_learning_rate = gr.Number(
                     label="Transformer Learning Rate",
                     info="The transformer learning rate. If None, then it is inherited from the base optimizer "
+                    "learning rate.",
+                    interactive=True,
+                )
+                self.text_encoder_learning_rate = gr.Number(
+                    label="Text Encoder Learning Rate",
+                    info="The text encoder learning rate. If None, then it is inherited from the base optimizer "
                     "learning rate.",
                     interactive=True,
                 )
@@ -187,7 +195,9 @@ class FluxLoraConfigGroup(UIConfigElement):
         components = [
             self.model,
             self.train_transformer,
+            self.train_text_encoder,
             self.transformer_learning_rate,
+            self.text_encoder_learning_rate,
             self.gradient_accumulation_steps,
             self.gradient_checkpointing,
             self.lr_scheduler,
@@ -228,7 +238,9 @@ class FluxLoraConfigGroup(UIConfigElement):
             update_dict = {
                 self.model: config.model,
                 self.train_transformer: config.train_transformer,
+                self.train_text_encoder: config.train_text_encoder,
                 self.transformer_learning_rate: config.transformer_learning_rate,
+                self.text_encoder_learning_rate: config.text_encoder_learning_rate,
                 self.gradient_accumulation_steps: config.gradient_accumulation_steps,
                 self.gradient_checkpointing: config.gradient_checkpointing,
                 self.lr_scheduler: config.lr_scheduler,
@@ -247,7 +259,9 @@ class FluxLoraConfigGroup(UIConfigElement):
                 self.guidance_scale: config.guidance_scale,
                 self.use_masks: config.use_masks,
                 self.prediction_type: config.prediction_type,
-                self.validation_prompts: config.validation_prompts,
+                self.validation_prompts: convert_pos_neg_prompts_to_ui_prompts(
+                    config.validation_prompts, None
+                ),
                 self.num_validation_images_per_prompt: config.num_validation_images_per_prompt,
                 self.max_checkpoints: config.max_checkpoints,
             }
@@ -357,7 +371,7 @@ class FluxLoraConfigGroup(UIConfigElement):
             # Handle validation prompts
             try:
                 validation_prompts_text = safe_pop(self.validation_prompts, "")
-                positive_prompts = validation_prompts_text
+                positive_prompts, _ = convert_ui_prompts_to_pos_neg_prompts(validation_prompts_text)
                 new_config.validation_prompts = positive_prompts
             except Exception as e:
                 print(f"Error processing validation prompts: {e}")
