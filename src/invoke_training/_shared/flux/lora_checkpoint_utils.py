@@ -1,6 +1,7 @@
 # ruff: noqa: N806
 import os
 import shutil
+import tempfile
 from pathlib import Path
 
 import peft
@@ -68,18 +69,26 @@ def save_flux_peft_checkpoint_single_file(
     ):
         transformer.config["_name_or_path"] = None
 
-    transformer.save_pretrained(str(checkpoint_dir))
+    # Normalize output path and ensure parent exists when saving as file
+    out_path = Path(checkpoint_dir)
 
-    # Remove anything that is not the base safetensors file
-    checkpoint_path = Path(checkpoint_dir)
-    for child in checkpoint_path.iterdir():
-        if child.is_dir():
-            shutil.rmtree(child, ignore_errors=True)
-        elif child.is_file() and child.name != "adapter_model.safetensors":
-            try:
-                child.unlink()
-            except OSError:
-                pass
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        # Save PEFT adapter into temporary directory
+        transformer.save_pretrained(str(tmp_path))
+
+        # Move adapter_model.safetensors out of the temp dir to the requested location
+        src_file = tmp_path / "adapter_model.safetensors"
+        if not src_file.exists():
+            raise FileNotFoundError(
+                f"Expected adapter file not found in temporary directory: {src_file}"
+            )
+                
+        # Always rename/move to exactly the path provided by checkpoint_dir
+        dest_file = out_path
+        dest_file.parent.mkdir(parents=True, exist_ok=True)
+
+        shutil.move(str(src_file), str(dest_file))
 
 
 def save_flux_kohya_checkpoint(
