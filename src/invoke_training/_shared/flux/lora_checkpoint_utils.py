@@ -1,5 +1,6 @@
 # ruff: noqa: N806
 import os
+import shutil
 from pathlib import Path
 
 import peft
@@ -68,6 +69,17 @@ def save_flux_peft_checkpoint_single_file(
         transformer.config["_name_or_path"] = None
 
     transformer.save_pretrained(str(checkpoint_dir))
+
+    # Remove anything that is not the base safetensors file
+    checkpoint_path = Path(checkpoint_dir)
+    for child in checkpoint_path.iterdir():
+        if child.is_dir():
+            shutil.rmtree(child, ignore_errors=True)
+        elif child.is_file() and child.name != "adapter_model.safetensors":
+            try:
+                child.unlink()
+            except OSError:
+                pass
 
 
 def save_flux_kohya_checkpoint(
