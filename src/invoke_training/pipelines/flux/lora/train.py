@@ -528,8 +528,8 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
         base_dir=ckpt_dir,
         prefix="checkpoint",
         max_checkpoints=config.max_checkpoints,
-        # extension=".safetensors" if config.lora_checkpoint_format == "kohya" else None,
-        extension=".safetensors",  # we are going to massage the peft model for this in save_flux_peft_checkpoint_single_file
+        # we are going to massage the peft model for this in save_flux_peft_checkpoint_single_file
+        extension=".safetensors",
     )
 
     # Train!

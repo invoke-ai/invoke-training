@@ -80,10 +80,8 @@ def save_flux_peft_checkpoint_single_file(
         # Move adapter_model.safetensors out of the temp dir to the requested location
         src_file = tmp_path / "adapter_model.safetensors"
         if not src_file.exists():
-            raise FileNotFoundError(
-                f"Expected adapter file not found in temporary directory: {src_file}"
-            )
-                
+            raise FileNotFoundError(f"Expected adapter file not found in temporary directory: {src_file}")
+
         # Always rename/move to exactly the path provided by checkpoint_dir
         dest_file = out_path
         dest_file.parent.mkdir(parents=True, exist_ok=True)
