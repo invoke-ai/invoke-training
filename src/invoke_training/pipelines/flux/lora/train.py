@@ -33,7 +33,7 @@ from invoke_training._shared.data.transforms.tensor_disk_cache import TensorDisk
 from invoke_training._shared.flux.encoding_utils import encode_prompt
 from invoke_training._shared.flux.lora_checkpoint_utils import (
     save_flux_kohya_checkpoint,
-    save_flux_peft_checkpoint,
+    save_flux_peft_checkpoint_single_file,
 )
 from invoke_training._shared.flux.model_loading_utils import load_models_flux
 from invoke_training._shared.flux.validation import generate_validation_images_flux
@@ -63,9 +63,8 @@ def _save_flux_lora_checkpoint(
 
     if lora_checkpoint_format == "invoke_peft":
         model_type = ModelType.FLUX_LORA_PEFT
-        save_flux_peft_checkpoint(
-            Path(save_path), transformer=transformer, text_encoder_1=text_encoder_1, text_encoder_2=text_encoder_2
-        )
+        save_flux_peft_checkpoint_single_file(Path(save_path), transformer=transformer)
+
     elif lora_checkpoint_format == "kohya":
         model_type = ModelType.FLUX_LORA_KOHYA
         save_flux_kohya_checkpoint(
@@ -424,8 +423,7 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
     if config.train_transformer:
         transformer_lora_config = peft.LoraConfig(
             r=config.lora_rank_dim,
-            # TODO(ryand): Diffusers uses lora_alpha=config.lora_rank_dim. Is that preferred?
-            lora_alpha=1.0,
+            lora_alpha=config.lora_rank_dim,
             target_modules=config.flux_lora_target_modules,
         )
         transformer = inject_lora_layers(transformer, transformer_lora_config, lr=config.transformer_learning_rate)
@@ -433,7 +431,7 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
     if config.train_text_encoder:
         text_encoder_lora_config = peft.LoraConfig(
             r=config.lora_rank_dim,
-            lora_alpha=1.0,
+            lora_alpha=config.lora_rank_dim,
             # init_lora_weights="gaussian",
             target_modules=config.text_encoder_lora_target_modules,
         )
@@ -530,7 +528,8 @@ def train(config: FluxLoraConfig, callbacks: list[PipelineCallbacks] | None = No
         base_dir=ckpt_dir,
         prefix="checkpoint",
         max_checkpoints=config.max_checkpoints,
-        extension=".safetensors" if config.lora_checkpoint_format == "kohya" else None,
+        # we are going to massage the peft model for this in save_flux_peft_checkpoint_single_file
+        extension=".safetensors",
     )
 
     # Train!

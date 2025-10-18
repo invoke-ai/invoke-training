@@ -1,16 +1,14 @@
 # ruff: noqa: N806
 import os
+import shutil
+import tempfile
 from pathlib import Path
 
 import peft
 import torch
-from diffusers import FluxTransformer2DModel
-from transformers import CLIPTextModel
 
 from invoke_training._shared.checkpoints.lora_checkpoint_utils import (
     _convert_peft_state_dict_to_kohya_state_dict,
-    load_multi_model_peft_checkpoint,
-    save_multi_model_peft_checkpoint,
 )
 from invoke_training._shared.checkpoints.serialization import save_state_dict
 
@@ -59,42 +57,36 @@ FLUX_PEFT_TO_KOHYA_KEYS = {
 }
 
 
-def save_flux_peft_checkpoint(
+def save_flux_peft_checkpoint_single_file(
     checkpoint_dir: Path | str,
     transformer: peft.PeftModel | None,
-    text_encoder_1: peft.PeftModel | None,
-    text_encoder_2: peft.PeftModel | None,
 ):
-    models = {}
-    if transformer is not None:
-        models[FLUX_PEFT_TRANSFORMER_KEY] = transformer
-    if text_encoder_1 is not None:
-        models[FLUX_PEFT_TEXT_ENCODER_1_KEY] = text_encoder_1
-    if text_encoder_2 is not None:
-        models[FLUX_PEFT_TEXT_ENCODER_2_KEY] = text_encoder_2
+    assert isinstance(transformer, peft.PeftModel)
+    if (
+        hasattr(transformer, "config")
+        and isinstance(transformer.config, dict)
+        and "_name_or_path" not in transformer.config
+    ):
+        transformer.config["_name_or_path"] = None
 
-    save_multi_model_peft_checkpoint(checkpoint_dir=checkpoint_dir, models=models)
+    # Normalize output path and ensure parent exists when saving as file
+    out_path = Path(checkpoint_dir)
 
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        # Save PEFT adapter into temporary directory
+        transformer.save_pretrained(str(tmp_path))
 
-def load_flux_peft_checkpoint(
-    checkpoint_dir: Path | str,
-    transformer: FluxTransformer2DModel,
-    text_encoder_1: CLIPTextModel,
-    text_encoder_2: CLIPTextModel,
-    is_trainable: bool = False,
-):
-    models = load_multi_model_peft_checkpoint(
-        checkpoint_dir=checkpoint_dir,
-        models={
-            FLUX_PEFT_TRANSFORMER_KEY: transformer,
-            FLUX_PEFT_TEXT_ENCODER_1_KEY: text_encoder_1,
-            FLUX_PEFT_TEXT_ENCODER_2_KEY: text_encoder_2,
-        },
-        is_trainable=is_trainable,
-        raise_if_subdir_missing=False,
-    )
+        # Move adapter_model.safetensors out of the temp dir to the requested location
+        src_file = tmp_path / "adapter_model.safetensors"
+        if not src_file.exists():
+            raise FileNotFoundError(f"Expected adapter file not found in temporary directory: {src_file}")
 
-    return models[FLUX_PEFT_TRANSFORMER_KEY], models[FLUX_PEFT_TEXT_ENCODER_1_KEY], models[FLUX_PEFT_TEXT_ENCODER_2_KEY]
+        # Always rename/move to exactly the path provided by checkpoint_dir
+        dest_file = out_path
+        dest_file.parent.mkdir(parents=True, exist_ok=True)
+
+        shutil.move(str(src_file), str(dest_file))
 
 
 def save_flux_kohya_checkpoint(
